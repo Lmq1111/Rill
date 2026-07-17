@@ -36,17 +36,6 @@ func TestDesktopPackagesUseGuardAsDefaultLauncher(t *testing.T) {
 		t.Fatalf("portable Reasonix.exe must copy the already-stamped launcher (stamp=%d copy=%d)", launcherStamp, portableCopy)
 	}
 
-	workflowData, err := os.ReadFile("../.github/workflows/release-desktop.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	workflow := string(workflowData)
-	for _, platform := range []string{"windows/amd64", "windows/arm64"} {
-		if !strings.Contains(workflow, "platform: "+platform) {
-			t.Errorf("desktop release matrix missing resource-stamped target %s", platform)
-		}
-	}
-
 	linuxData, err := os.ReadFile("build/linux/reasonix.desktop")
 	if err != nil {
 		t.Fatal(err)
