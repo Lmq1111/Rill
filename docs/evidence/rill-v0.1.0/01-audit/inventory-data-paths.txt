@@ -1,0 +1,524 @@
+./.env.example:2:# model are configured in reasonix.toml, where api_key_env points at these variables.
+./.github/workflows/ci.yml:114:          REASONIX_RELEASE_CACHE_GUARD: "1"
+./.github/workflows/ci.yml:70:          REASONIX_RELEASE_CACHE_GUARD: "1"
+./.github/workflows/ci.yml:80:          REASONIX_RELEASE_CACHE_GUARD: "1"
+./.github/workflows/e2e-bot.yml:106:          base_url = "${{ vars.REASONIX_E2E_BASE_URL || 'https://api.deepseek.com' }}"
+./.github/workflows/e2e-bot.yml:107:          model = "${{ vars.REASONIX_E2E_MODEL || 'deepseek-v4-flash' }}"
+./.github/workflows/e2e-bot.yml:112:          cache_hit = ${{ vars.REASONIX_E2E_PRICE_CACHE_HIT || '0.02' }}
+./.github/workflows/e2e-bot.yml:113:          input = ${{ vars.REASONIX_E2E_PRICE_INPUT || '1' }}
+./.github/workflows/e2e-bot.yml:114:          output = ${{ vars.REASONIX_E2E_PRICE_OUTPUT || '2' }}
+./.github/workflows/e2e-bot.yml:115:          currency = "${{ vars.REASONIX_E2E_PRICE_CURRENCY || '¥' }}"
+./.github/workflows/e2e-bot.yml:124:          cp /tmp/reasonix-e2e.toml ./reasonix.toml
+./.github/workflows/release-desktop.yml:343:          R2_PUBLIC_BASE: https://dl.reasonix.io
+./.github/workflows/release-desktop.yml:382:      # dl.reasonix.io serves 403 to GitHub Actions egress IPs (Cloudflare bot
+./.github/workflows/release-desktop.yml:399:          jq -e --arg version "$VERSION" --arg prefix "https://dl.reasonix.io/${TAG}/" '
+./.github/workflows/release-desktop.yml:421:            key="${asset#https://dl.reasonix.io/}"
+./.github/workflows/release-desktop.yml:447:          url="https://crash.reasonix.io/v1/desktop/releases/${chan}/latest.json"
+./.github/workflows/release.yml:103:      # edge, with a Go client UA. Unlike dl.reasonix.io (whose bot protection
+./.github/workflows/release.yml:84:          # dl.reasonix.io serves 403 to GitHub Actions egress IPs (Cloudflare bot
+./.github/workflows/release.yml:95:              all(type == "string" and startswith("https://dl.reasonix.io/") and (contains("/releases/latest/") | not)))
+./.gitignore:37:/reasonix.toml
+./.gitignore:39:/desktop/reasonix.toml
+./.gitignore:47:/.reasonix/*
+./.gitignore:48:!/.reasonix/commands/
+./.gitignore:49:!/.reasonix/commands/review.md
+./CONTRIBUTING.md:69:with `REASONIX_HOME` set. This gives each build its own self-contained directory
+./CONTRIBUTING.md:76:REASONIX_HOME=/tmp/reasonix-dev go run ./cmd/reasonix
+./CONTRIBUTING.md:78:#   REASONIX_HOME=/tmp/reasonix-dev ./bin/reasonix
+./CONTRIBUTING.md:85:REASONIX_HOME=/tmp/reasonix-dev-isolated build/bin/reasonix-desktop
+./CONTRIBUTING.md:88:On Windows, use `$env:REASONIX_HOME` in PowerShell or `set REASONIX_HOME=` in
+./CONTRIBUTING.md:93:logs — stays under `REASONIX_HOME`. Legacy migration, OS-home convention
+./README.md:100:A minimal `reasonix.toml` — one provider and a default model — is enough to start:
+./README.md:113:Resolution order is **flag > `./reasonix.toml` > the user config file >
+./README.md:115:`~/.reasonix/config.toml` on macOS/Linux and
+./README.md:51:  declared in `reasonix.toml`. No hardcoded models.
+./README.md:90:reasonix setup --local              # optional: manage ./reasonix.toml
+./README.zh-CN.md:108:优先级为 **flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**；从
+./README.zh-CN.md:109:**Reasonix v1.8.1** 开始，用户配置位于 macOS/Linux 的 `~/.reasonix/config.toml`，
+./README.zh-CN.md:48:- **配置驱动**：provider、agent、启用的工具、插件全部在 `reasonix.toml` 中声明，
+./README.zh-CN.md:85:reasonix setup --local              # 可选：管理 ./reasonix.toml
+./README.zh-CN.md:95:一个最小的 `reasonix.toml`——一个 provider 加一个默认模型——就够跑起来:
+./cmd/e2ebench/diff.go:156:	_ = exec.Command("git", "-C", repo, "clean", "-fd", "-e", "reasonix.toml").Run()
+./cmd/reasonix-guard/assist.go:27:	allowProject := fs.Bool("allow-project", false, "allow a plan to quarantine project reasonix.toml")
+./cmd/reasonix-guard/assist.go:86:	allowProject := fs.Bool("allow-project", false, "allow project reasonix.toml repair")
+./cmd/reasonix-guard/main.go:190:	includeProject := fs.Bool("project", false, "allow repair to quarantine project reasonix.toml")
+./cmd/reasonix-guard/main.go:340:	includeProject := fs.Bool("project", false, "allow repair to quarantine project reasonix.toml")
+./cmd/reasonix-plugin-example/main.go:6:// Wire it up in reasonix.toml:
+./desktop/.gitignore:37:# Local config symlinks for `wails dev` (point at the repo-root reasonix.toml/.env
+./desktop/.gitignore:39:/reasonix.toml
+./desktop/README.md:134:`crash.reasonix.io` desktop release gateway) and shows an update banner when a
+./desktop/README.md:225:  `REASONIX_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
+./desktop/README.md:259:The desktop app sends one anonymous ping per launch to `crash.reasonix.io`:
+./desktop/app.go:5842:// custom commands (.reasonix/commands), and MCP prompts — for the composer's "/"
+./desktop/app.go:66:const singleInstanceIDPrefix = "com.reasonix.desktop"
+./desktop/app.go:9107:// tab's workspace .reasonix/attachments and returns the relative @-reference path.
+./desktop/app.go:9115:// workspace .reasonix/attachments and returns the relative @-reference path.
+./desktop/app.go:9122:// .reasonix/attachments and returns the relative @-reference path.
+./desktop/app.go:9210:// out-of-tree file is copied into .reasonix/attachments.
+./desktop/app.go:9223:// files outside the workspace are copied into .reasonix/attachments.
+./desktop/build/windows/installer/project.nsi:135:   StrCpy $INSTDIR "${REASONIX_DEFAULT_INSTALLDIR}"
+./desktop/build/windows/installer/project.nsi:150:   IfFileExists "$INSTDIR\${REASONIX_GUARD}" 0 check_launcher
+./desktop/build/windows/installer/project.nsi:152:   FileOpen $1 "$INSTDIR\${REASONIX_GUARD}" a
+./desktop/build/windows/installer/project.nsi:157:   IfFileExists "$INSTDIR\${REASONIX_LAUNCHER}" 0 check_portable_entry
+./desktop/build/windows/installer/project.nsi:159:   FileOpen $1 "$INSTDIR\${REASONIX_LAUNCHER}" a
+./desktop/build/windows/installer/project.nsi:164:   IfFileExists "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" 0 done
+./desktop/build/windows/installer/project.nsi:166:   FileOpen $1 "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" a
+./desktop/build/windows/installer/project.nsi:173:   IntCmp $0 ${REASONIX_UNLOCK_RETRIES} failed 0 0
+./desktop/build/windows/installer/project.nsi:203:    !if /FileExists "${REASONIX_UPDATE_HELPER}"
+./desktop/build/windows/installer/project.nsi:204:    File "/oname=${REASONIX_UPDATE_HELPER}" "${REASONIX_UPDATE_HELPER}"
+./desktop/build/windows/installer/project.nsi:206:    !warning "${REASONIX_UPDATE_HELPER} was not found; Windows auto-update will fail safely until the helper is installed."
+./desktop/build/windows/installer/project.nsi:208:    !if /FileExists "${REASONIX_GUARD}"
+./desktop/build/windows/installer/project.nsi:209:    File "/oname=${REASONIX_GUARD}" "${REASONIX_GUARD}"
+./desktop/build/windows/installer/project.nsi:211:    !if /FileExists "${REASONIX_LAUNCHER}"
+./desktop/build/windows/installer/project.nsi:212:    File "/oname=${REASONIX_LAUNCHER}" "${REASONIX_LAUNCHER}"
+./desktop/build/windows/installer/project.nsi:216:    IfFileExists "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" 0 reasonix_no_portable_entry
+./desktop/build/windows/installer/project.nsi:217:    File "/oname=${REASONIX_PORTABLE_ENTRY}" "${REASONIX_LAUNCHER}"
+./desktop/build/windows/installer/project.nsi:223:    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${REASONIX_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
+./desktop/build/windows/installer/project.nsi:224:    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${REASONIX_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
+./desktop/build/windows/installer/project.nsi:243:    Delete "$INSTDIR\${REASONIX_UPDATE_HELPER}"
+./desktop/build/windows/installer/project.nsi:244:    Delete "$INSTDIR\${REASONIX_GUARD}"
+./desktop/build/windows/installer/project.nsi:245:    Delete "$INSTDIR\${REASONIX_LAUNCHER}"
+./desktop/build/windows/installer/project.nsi:246:    Delete "$INSTDIR\${REASONIX_PORTABLE_ENTRY}"
+./desktop/build/windows/installer/project.nsi:79:!define REASONIX_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+./desktop/build/windows/installer/project.nsi:80:!define REASONIX_UPDATE_HELPER "reasonix-update-helper.exe"
+./desktop/build/windows/installer/project.nsi:81:!define REASONIX_GUARD "reasonix-guard.exe"
+./desktop/build/windows/installer/project.nsi:82:!define REASONIX_LAUNCHER "reasonix-launcher.exe"
+./desktop/build/windows/installer/project.nsi:83:!define REASONIX_PORTABLE_ENTRY "Reasonix.exe"
+./desktop/build/windows/installer/project.nsi:84:!define REASONIX_UNLOCK_RETRIES 60
+./desktop/build/windows/installer/project.nsi:86:InstallDir "${REASONIX_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
+./desktop/cmd/windows-resource/main.go:210:	temp, err := os.CreateTemp(filepath.Dir(path), ".reasonix-resource-*.exe")
+./desktop/crash_app.go:17:var crashEndpoint = "https://crash.reasonix.io/v1/report"
+./desktop/frontend/src/App.tsx:216:    notice(14, "warn", "AutoResearch status update failed.", "autoresearch task completion update failed: write .reasonix/autoresearch/task-42/state/task_spec.json: permission denied"),
+./desktop/frontend/src/components/SettingsPanel.tsx:966:      tokenEnv: "REASONIX_BOT_CONTROL_TOKEN",
+./desktop/frontend/src/components/mathNormalize.ts:150:  let prefix = "__REASONIX_PROTECTED_CODE__";
+./desktop/frontend/src/components/mathNormalize.ts:154:    prefix = `__REASONIX_PROTECTED_CODE_${n}__`;
+./desktop/frontend/src/components/mathNormalize.ts:29:const DM = "__REASONIX_MATH_DISPLAY__";
+./desktop/frontend/src/components/mathNormalize.ts:30:const IM = "__REASONIX_MATH_INLINE__";
+./desktop/frontend/src/components/mathNormalize.ts:31:const LB = "__REASONIX_LATEX_LINEBREAK__";
+./desktop/frontend/src/lib/attachmentDisplay.ts:135:  if (path.startsWith(".reasonix/attachments/")) return true;
+./desktop/frontend/src/lib/attachmentDisplay.ts:142:  if (path.startsWith(".reasonix/attachments/")) {
+./desktop/frontend/src/lib/attachmentDisplay.ts:3:const attachmentRefRe = /@(\.reasonix\/attachments\/[^\s]+)/g;
+./desktop/frontend/src/lib/bridge.ts:1040:    { dir: "~/projects/reasonix/.reasonix/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
+./desktop/frontend/src/lib/bridge.ts:1052:      dir: "~/.reasonix/skills",
+./desktop/frontend/src/lib/bridge.ts:1183:        tokenEnv: "REASONIX_BOT_CONTROL_TOKEN",
+./desktop/frontend/src/lib/bridge.ts:1312:    configPath: "~/projects/reasonix/reasonix.toml",
+./desktop/frontend/src/lib/bridge.ts:1321:      path: "~/.reasonix/settings.json",
+./desktop/frontend/src/lib/bridge.ts:1331:      path: "./.reasonix/settings.json",
+./desktop/frontend/src/lib/bridge.ts:2586:            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+./desktop/frontend/src/lib/bridge.ts:2604:            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+./desktop/frontend/src/lib/bridge.ts:2622:            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+./desktop/frontend/src/lib/bridge.ts:2733:          roots: [{ path: "<workspace>/.reasonix/skills", scope: "project", status: "ok" }],
+./desktop/frontend/src/lib/bridge.ts:2814:        root: `~/.reasonix/plugins/${name}`,
+./desktop/frontend/src/lib/bridge.ts:2986:      return `~/.reasonix/skills/${name}/SKILL.md`;
+./desktop/frontend/src/lib/bridge.ts:3188:      const path = `.reasonix/attachments/mock-${mockAttachmentDataURLs.size + 1}.png`;
+./desktop/frontend/src/lib/bridge.ts:3193:      const path = `.reasonix/attachments/mock-clipboard-${mockAttachmentDataURLs.size + 1}.png`;
+./desktop/frontend/src/lib/bridge.ts:3198:      const path = `.reasonix/attachments/mock-${name}`;
+./desktop/frontend/src/lib/bridge.ts:3227:      const attachmentPath = `.reasonix/attachments/mock-${name}`;
+./desktop/frontend/src/lib/bridge.ts:3348:      return `.reasonix/skills/${suggestion.name}/SKILL.md`;
+./desktop/frontend/src/locales/en.ts:1693:  "settings.reloadSessionConfigHint": "Changes made in Settings apply automatically; use this only after manually editing config.toml or reasonix.toml.",
+./desktop/frontend/src/locales/en.ts:2020:  "settings.hooksPathProjectHint": "Project hooks are saved to .reasonix/settings.json in the current workspace.",
+./desktop/frontend/src/locales/en.ts:2440:  "mock.changedFile2Path": ".reasonix/project.md",
+./desktop/frontend/src/locales/zh-TW.ts:1098:  "settings.reloadSessionConfigHint": "設定頁內修改會自動生效；此按鈕用於套用手動編輯 config.toml / reasonix.toml 後的變更。",
+./desktop/frontend/src/locales/zh-TW.ts:1640:  "mock.changedFile2Path": ".reasonix/project.md",
+./desktop/frontend/src/locales/zh-TW.ts:2327:  "settings.hooksPathProjectHint": "專案 hooks 儲存到當前工作區的 .reasonix/settings.json。",
+./desktop/frontend/src/locales/zh.ts:1695:  "settings.reloadSessionConfigHint": "设置页内修改会自动生效；此按钮用于应用手动编辑 config.toml / reasonix.toml 后的变更。",
+./desktop/frontend/src/locales/zh.ts:2022:  "settings.hooksPathProjectHint": "项目 hooks 保存到当前工作区的 .reasonix/settings.json。",
+./desktop/frontend/src/locales/zh.ts:2442:  "mock.changedFile2Path": ".reasonix/project.md",
+./desktop/frontend/vite.config.ts:14:  if (process.env.REASONIX_COMMIT) return process.env.REASONIX_COMMIT;
+./desktop/frontend/vite.config.ts:23:  return process.env.REASONIX_CHANNEL || "stable";
+./desktop/frontend/vite.config.ts:8:const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || "5173");
+./desktop/hang_watchdog_darwin.go:45:	C.reasonix_start_main_heartbeat(C.uint64_t(intervalMS))
+./desktop/hang_watchdog_darwin.go:49:	C.reasonix_stop_main_heartbeat()
+./desktop/main.go:104:		_ = os.Setenv("REASONIX_SAFE_MODE", "1")
+./desktop/main.go:55:	disableWebview2GPUEnv  = "REASONIX_DESKTOP_DISABLE_WEBVIEW2_GPU"
+./desktop/metrics_app.go:27:var metricsEndpoint = "https://crash.reasonix.io/v1/metrics"
+./desktop/settings_app.go:1090:// rather than the cwd's reasonix.toml is what lets them survive a workspace switch.
+./desktop/settings_app.go:1477:		return "reasonix.toml"
+./desktop/settings_app.go:1479:	return filepath.Join(root, "reasonix.toml")
+./desktop/single_instance.go:11:	// Set REASONIX_DEV=1 to skip the single-instance lock.
+./desktop/single_instance.go:12:	if os.Getenv("REASONIX_DEV") != "" {
+./desktop/subagents_app.go:314:	// process's CWD — project-level reasonix.toml (sandbox roots, permissions)
+./desktop/tabs.go:4739:	return filepath.Join(workspaceRoot, ".reasonix", topicTitlesFile)
+./desktop/tabs.go:4746:	return filepath.Join(workspaceRoot, ".reasonix", topicTitleSourcesFile)
+./desktop/tabs.go:4753:	return filepath.Join(workspaceRoot, ".reasonix", topicCreatedAtsFile)
+./desktop/tabs.go:4760:	return filepath.Join(workspaceRoot, ".reasonix", topicAutoTitlesFile)
+./desktop/telemetry_app.go:22:var pingEndpoint = "https://crash.reasonix.io/v1/ping"
+./desktop/updater.go:44:	r2Base             = "https://dl.reasonix.io"
+./desktop/updater.go:45:	releaseGatewayBase = "https://crash.reasonix.io/v1/desktop/releases"
+./desktop/updater.go:51:// dl.reasonix.io and crash.reasonix.io share one Cloudflare zone, so bot
+./desktop/updater_mac.go:15:const macBundleID = "com.wails.reasonix-desktop"
+./desktop/updater_mac.go:45:	backupApp := currentApp + ".reasonix-update-backup"
+./desktop/workspace.go:178:	f, err := os.CreateTemp(cwd, ".reasonix-wtest-*")
+./dev:28:wails_port="${REASONIX_DESKTOP_WAILS_PORT:-$((vite_port + 29000))}"
+./dev:30:export REASONIX_DESKTOP_VITE_PORT="$vite_port"
+./dev:31:export REASONIX_DEV=1
+./dev:7:vite_port="${REASONIX_DESKTOP_VITE_PORT:-}"
+./internal/agent/migrate.go:258:	// (e.g. Users_Yuki_git_polytone-audio-engine/ under ~/.reasonix/sessions/).
+./internal/agent/migrate.go:79:// previous ~/.reasonix import marker cannot hide sessions from a redirected
+./internal/autoresearch/store.go:22:var explicitTaskPath = regexp.MustCompile(`\.reasonix/autoresearch/([A-Za-z0-9][A-Za-z0-9._-]*)/?`)
+./internal/autoresearch/store.go:37:		root:          filepath.Join(workspaceRoot, ".reasonix", "autoresearch"),
+./internal/boot/boot.go:1036:	// Custom slash commands (.reasonix/commands + user dir). Best-effort: a malformed
+./internal/boot/boot.go:115:	// controller but are not persisted to reasonix.toml.
+./internal/boot/boot.go:1409:		UseMemoryCompilerLLMClassification: strings.TrimSpace(os.Getenv("REASONIX_MEMORY_COMPILER_LLM_CLASSIFICATION")) == "true",
+./internal/boot/boot.go:1644:		return filepath.Join(workspaceRoot, "reasonix.toml")
+./internal/boot/boot.go:1648:		path = "reasonix.toml" // match Config.Save() fallback
+./internal/boot/boot.go:195:	// reasonix.toml cannot override it), so concurrent workspaces agree.
+./internal/boot/boot.go:238:		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Config migration did not complete.", Detail: "config migration from ~/.reasonix failed: " + migErr.Error()})
+./internal/boot/boot.go:280:		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Ignored the project config's default_model.", Detail: fmt.Sprintf("./reasonix.toml sets default_model = %q but no configured provider serves it; using %q from your user config instead. Edit or remove that default_model line to silence this notice.", ignored, cfg.DefaultModel)})
+./internal/capdiag/collect.go:148:		if custom := filepath.Join(home, ".reasonix"); custom != "" {
+./internal/capdiag/collect.go:44:			reasonixHome = filepath.Join(home, ".reasonix")
+./internal/capdiag/collect.go:61:			Remediation: "Fix reasonix.toml / config.toml syntax, then re-run doctor capabilities",
+./internal/cli/bot.go:572:  Edit reasonix.toml:
+./internal/cli/chat_tui.go:278:	// commands are custom slash commands loaded from .reasonix/commands; each renders
+./internal/cli/chat_tui.go:4424:var cliImageRefRe = regexp.MustCompile(`(?:^|\s)@\.reasonix/attachments/clipboard-\d{8}-\d{6}\.\d+(?:-(?:\d{6}|[a-f0-9]{8}))?\.(?:png|jpg|jpeg|gif|webp)`)
+./internal/cli/chat_tui.go:585:	v := strings.TrimSpace(os.Getenv("REASONIX_DISABLE_MOUSE"))
+./internal/cli/chat_tui.go:59:	// "/mouse" or REASONIX_DISABLE_MOUSE at startup; trades away in-app
+./internal/cli/cli.go:1173:// project-local reasonix.toml only when the user config dir can't be resolved.
+./internal/cli/cli.go:1178:	return "reasonix.toml"
+./internal/cli/cli.go:1188:// global env. The config goes to the user-global dir by default, to ./reasonix.toml
+./internal/cli/cli.go:1195:			t.config = "reasonix.toml"
+./internal/cli/cli.go:1212:// writing config.toml to the user-global dir (or ./reasonix.toml under --local)
+./internal/cli/cli.go:1494:// that older versions of the wizard wrote into reasonix.toml. They collide
+./internal/cli/cli.go:1499:// can warn the user to clean up reasonix.toml by hand.
+./internal/cli/cli.go:1522:// reasonix.toml. Falls back to a short sha1 of the raw URL when the URL
+./internal/cli/cli.go:1614:// not exist in config because users editing reasonix.toml deal with SKU names
+./internal/cli/cli.go:2196:	local := fs.Bool("local", false, "write ./reasonix.toml instead of the user config")
+./internal/cli/cli.go:2221:		path = "reasonix.toml"
+./internal/cli/cli.go:2244:		// --local writes ./reasonix.toml and needs no user-config lock.
+./internal/cli/doctor.go:54:	includeProject := fs.Bool("project", false, "allow --apply to quarantine an invalid project reasonix.toml")
+./internal/cli/hooks_view.go:31:		b.WriteString(viewHint(viewCompactText("project trusted · config: project .reasonix/settings.json + global <Reasonix home>/settings.json", viewBudget(width, 2))))
+./internal/cli/hooks_view.go:33:		b.WriteString(viewHint(viewCompactText("project not trusted · config: project .reasonix/settings.json + global <Reasonix home>/settings.json", viewBudget(width, 2))))
+./internal/cli/mcp.go:523:	fmt.Println(`Manage MCP servers (persisted to reasonix.toml).
+./internal/cli/mcp_manager_actions.go:313:	return "reasonix.toml"
+./internal/cli/output_style_view.go:27:	b.WriteString(viewHint(viewCompactText("set agent.output_style in reasonix.toml to apply one (takes effect next session)", viewBudget(width, 2))))
+./internal/cli/skill_hooks.go:66:		m.notice("no skills found. Add SKILL.md / <name>.md under .reasonix/skills (project) or ~/.reasonix/skills (global); .agents/.agent/.claude skills dirs also work. Invoke with /<name> or run_skill.")
+./internal/cli/skill_view.go:82:	b.WriteString(viewHint(viewCompactText("priority: project > custom > global > builtin · configure [skills] paths in reasonix.toml", viewBudget(width, 2))))
+./internal/cli/theme.go:110:	if env := strings.TrimSpace(os.Getenv("REASONIX_THEME")); env != "" {
+./internal/cli/theme.go:118:	if env := strings.TrimSpace(os.Getenv("REASONIX_THEME_STYLE")); env != "" {
+./internal/cli/upgrade.go:330:// rename it aside to .reasonix.old first, then place the new binary.
+./internal/config/config.go:100:// setting: project reasonix.toml values are ignored (see LoadForRoot), so a
+./internal/config/config.go:1054:	// .reasonix/output-styles/<name>.md). Empty = the unmodified prompt.
+./internal/config/config.go:1481:// reasonix.toml's [[plugins]] or a project-root .mcp.json (see loadMCPJSON).
+./internal/config/config.go:1623:			Control:            BotControlConfig{Addr: "127.0.0.1:37913", TokenEnv: "REASONIX_BOT_CONTROL_TOKEN"},
+./internal/config/config.go:2:// flag > project ./reasonix.toml > user config.toml (in the OS user-config dir) > built-in defaults.
+./internal/config/config.go:44:	Language         string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+./internal/config/config.go:817:// the project roots (.reasonix/.agents/.agent/.claude under the workspace) and
+./internal/config/config.go:89:// IgnoredProjectDefaultModel returns the project reasonix.toml default_model
+./internal/config/credentials.go:120:	if mode := strings.TrimSpace(os.Getenv("REASONIX_CREDENTIALS_STORE")); mode != "" {
+./internal/config/credentials.go:136:	projectTOML := "reasonix.toml"
+./internal/config/credentials.go:138:		projectTOML = filepath.Join(root, "reasonix.toml")
+./internal/config/edit.go:1049:	projectTOML := "reasonix.toml"
+./internal/config/edit.go:1051:		projectTOML = filepath.Join(resolvedRoot, "reasonix.toml")
+./internal/config/edit.go:1153:// half-written reasonix.toml that fails to parse on next load. Parent directories
+./internal/config/edit.go:1156:// For project configs (./reasonix.toml) the write is incremental: only sections
+./internal/config/edit.go:1687:// (SourcePath), or to ./reasonix.toml when none exists yet — the conventional
+./internal/config/edit.go:1692:		path = "reasonix.toml"
+./internal/config/edit.go:1698:// user's global config when root has no reasonix.toml. Existing project files
+./internal/config/edit.go:1702:	projectTOML := "reasonix.toml"
+./internal/config/edit.go:1704:		projectTOML = filepath.Join(root, "reasonix.toml")
+./internal/config/edit.go:196:// SetLanguage pins the CLI UI/model language; empty/auto clears the override so runtime detection falls back to REASONIX_LANG / locale.
+./internal/config/edit.go:808:// .mcp.json-only server would otherwise be serialized into reasonix.toml or the
+./internal/config/edit.go:837:	projectTOML := "reasonix.toml"
+./internal/config/edit.go:839:		projectTOML = filepath.Join(resolved, "reasonix.toml")
+./internal/config/load.go:111:	// reasonix.toml wins on a name collision (see mergeMCPJSON).
+./internal/config/load.go:1163:// MiMo providers needed by legacy refs that live outside reasonix.toml, such as
+./internal/config/load.go:126:	// ~/.reasonix/config.json's mcpServers. Once the migration marker exists, the
+./internal/config/load.go:160:	switch strings.ToLower(strings.TrimSpace(os.Getenv("REASONIX_SAFE_MODE"))) {
+./internal/config/load.go:19:// the v0.x ~/.reasonix/config.json's mcpServers. Provider api_key_env values
+./internal/config/load.go:236:// default_model when a project reasonix.toml overrides it with a reference no
+./internal/config/load.go:238:// "always allow" writer) full-rendered ./reasonix.toml and pinned the built-in
+./internal/config/load.go:28:// each project's reasonix.toml + .mcp.json are resolved independently without
+./internal/config/load.go:55:	projectTOML := "reasonix.toml"
+./internal/config/load.go:57:		projectTOML = filepath.Join(root, "reasonix.toml")
+./internal/config/load.go:752:	projectPath := "reasonix.toml"
+./internal/config/load.go:754:		projectPath = filepath.Join(root, "reasonix.toml")
+./internal/config/load.go:832:	projectPath := "reasonix.toml"
+./internal/config/load.go:834:		projectPath = filepath.Join(root, "reasonix.toml")
+./internal/config/load.go:84:	// reasonix.toml must not be able to flip on the workflow-breaking env/path
+./internal/config/load.go:89:	// project reasonix.toml doesn't drop the global config's MCP servers.
+./internal/config/mcpjson.go:104:	return filepath.Join(home, ".reasonix", "config.json")
+./internal/config/mcpjson.go:107:// loadLegacyMCP reads the v0.x ~/.reasonix/config.json and returns its enabled
+./internal/config/mcpjson.go:220:// already declare. reasonix.toml's [[plugins]] win on a name collision: it is the
+./internal/config/mcpjson.go:95:// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.reasonix/config.json.
+./internal/config/migrate.go:116:	src := filepath.Join(home, ".reasonix", "config.json")
+./internal/config/migrate.go:16:// legacyConfig is the subset of the v0.x (~/.reasonix/config.json) schema this
+./internal/config/migrate.go:18:// state is frontend-owned, and skills already live in the shared ~/.reasonix/skills
+./internal/config/migrate.go:251:		addEntries(loadPluginEntriesFromTOML(filepath.Join(root, "reasonix.toml")))
+./internal/config/migrate.go:493:		add(filepath.Join(filepath.Dir(legacy), "reasonix.toml"))
+./internal/config/migrate.go:495:	add(filepath.Join(filepath.Dir(dest), "reasonix.toml"))
+./internal/config/migrate.go:497:		add(filepath.Join(home, ".reasonix", "reasonix.toml"))
+./internal/config/migrate.go:87:// checks v1-era TOML first, then v0.5/v0.x ~/.reasonix/config.json, and never
+./internal/config/paths.go:146:	if dir := cleanEnvDir("REASONIX_STATE_HOME"); dir != "" {
+./internal/config/paths.go:168:	if dir := cleanEnvDir("REASONIX_CACHE_HOME"); dir != "" {
+./internal/config/paths.go:171:	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+./internal/config/paths.go:219:// IsolatedHomeDir returns the REASONIX_HOME directory when it has been
+./internal/config/paths.go:224:	return cleanEnvDir("REASONIX_HOME")
+./internal/config/paths.go:229:// real location instead of a hardcoded ~/.reasonix path.
+./internal/config/paths.go:244:// REASONIX_HOME/config.toml, then ~/.reasonix/config.toml on Unix-like systems,
+./internal/config/paths.go:281:// TOML locations, and the legacy v0.x ~/.reasonix/config.json. Individual
+./internal/config/paths.go:310:// REASONIX_HOME, then uses ~/.reasonix on macOS/Linux or %APPDATA%/reasonix on
+./internal/config/paths.go:319:	// Deliberately ignore REASONIX_HOME/REASONIX_CACHE_HOME here. Two app
+./internal/config/paths.go:334:	if dir := cleanEnvDir("REASONIX_STATE_HOME"); dir != "" {
+./internal/config/paths.go:337:	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+./internal/config/paths.go:47:	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+./internal/config/paths.go:486:// commands), in canonical-first order. .reasonix is ours; .agents / .agent /
+./internal/config/paths.go:491:// .reasonix/settings.json (see internal/hook).
+./internal/config/paths.go:492:var ConventionDirs = []string{".reasonix", ".agents", ".agent", ".claude"}
+./internal/config/paths.go:495:// priority (reverse of ConventionDirs) so the canonical .reasonix ends up the
+./internal/config/paths.go:508:// ~/.reasonix/commands), the Reasonix home commands dir, the legacy OS
+./internal/config/paths.go:510:// convention dirs (.claude/commands … .reasonix/commands). Scanning the .claude /
+./internal/config/paths.go:583:	projectTOML := "reasonix.toml"
+./internal/config/paths.go:585:		projectTOML = filepath.Join(root, "reasonix.toml")
+./internal/config/paths.go:60:		return filepath.Join(home, ".reasonix")
+./internal/config/plugin_packages.go:166:	out["REASONIX_PLUGIN_ROOT"] = root
+./internal/config/plugin_packages.go:167:	out["REASONIX_PLUGIN_NAME"] = installed.Name
+./internal/config/plugin_packages.go:170:	out["REASONIX_WORKSPACE_ROOT"] = workspaceRoot
+./internal/config/plugin_packages.go:172:		out["REASONIX_PLUGIN_VERSION"] = installed.Version
+./internal/config/plugin_packages.go:255:		delete(env, "REASONIX_PLUGIN_ROOT")
+./internal/config/plugin_packages.go:256:		delete(env, "REASONIX_PLUGIN_NAME")
+./internal/config/plugin_packages.go:257:		delete(env, "REASONIX_PLUGIN_VERSION")
+./internal/config/render.go:130:		// configs. It is the only desktop field written to reasonix.toml: local
+./internal/config/render.go:183:			b.WriteString("# password = \"${REASONIX_PROXY_PASSWORD}\"   # optional; supports ${VAR} expansion\n")
+./internal/config/render.go:30:// reasonix.toml stays focused on project behavior and intentionally excludes
+./internal/config/render.go:48:	fmt.Fprintf(&b, "# Resolution order: flag > ./reasonix.toml > %s > built-in defaults.\n", userConfigDisplayPath())
+./internal/config/render.go:49:	b.WriteString("# Fields marked user/global only are not overridden by ./reasonix.toml.\n")
+./internal/config/render.go:521:			b.WriteString("# token_env = \"REASONIX_BOT_CONTROL_TOKEN\"\n")
+./internal/config/render.go:55:		fmt.Fprintf(&b, "language      = %q   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG\n", c.Language)
+./internal/config/render.go:57:		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG\n")
+./internal/config/render.go:640:		b.WriteString("[secrets]   # credential protection; user/global only, ./reasonix.toml cannot override\n")
+./internal/config/render.go:66:		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; REASONIX_THEME can override per run\n", c.UITheme())
+./internal/config/render.go:68:			fmt.Fprintf(&b, "theme_style = %q   # CLI accent palette; REASONIX_THEME_STYLE can override per run\n", style)
+./internal/control/attachments.go:31:// .reasonix/attachments and returns its repo-relative path for @referencing.
+./internal/control/attachments.go:352:	root := filepath.Join(".reasonix", "attachments")
+./internal/control/attachments.go:354:		return "", fmt.Errorf("attachment path is outside .reasonix/attachments")
+./internal/control/attachments.go:371:		return fmt.Errorf("attachment path is outside .reasonix/attachments")
+./internal/control/attachments.go:395:	root := filepath.Join(base, ".reasonix", "attachments")
+./internal/control/attachments.go:501:	return filepath.Join(".reasonix", "attachments", name)
+./internal/control/controller.go:148:	// reasonix.toml on add/remove, building specs from entries). See mcp.go.
+./internal/control/controller.go:4252:// out of project reasonix.toml while preserving the CLI AddMCPServer semantics.
+./internal/control/controller.go:5607:		"vendor": true, ".reasonix": true, "desktop": true,
+./internal/control/input.go:342:- Say briefly in the first visible reply that the goal is being handled with AutoResearch and that host-owned state lives under .reasonix/autoresearch/<task-id>/, using the actual task_id from <autoresearch-runtime>.
+./internal/control/input.go:343:- Keep dynamic state out of REASONIX.md, AGENTS.md, project memory, system prompts, and tool schemas. Use project-local .reasonix/autoresearch/ state only.
+./internal/control/input.go:370:	if strings.Contains(lower, ".reasonix/autoresearch/") {
+./internal/control/input.go:400:	if strings.Contains(lower, ".reasonix/autoresearch/") {
+./internal/control/mcp.go:17:// the Controller keeps the config-facing orchestration (persisting reasonix.toml
+./internal/control/refs.go:184:	return strings.HasPrefix(filepath.ToSlash(token), ".reasonix/attachments/")
+./internal/control/refs.go:47:	refImage                   // a local image attachment: @.reasonix/attachments/<file>
+./internal/doctor/report.go:126:	// project reasonix.toml outranks it. Users who toggle the sandbox off in
+./internal/doctor/report.go:129:	if sourcePath != "" && filepath.Base(sourcePath) == "reasonix.toml" {
+./internal/doctor/session_bundle.go:241:					return "<REASONIX_HOME>"
+./internal/doctor/session_bundle.go:243:				return filepath.ToSlash(filepath.Join("<REASONIX_HOME>", rel))
+./internal/doctor/session_bundle.go:262:		text = replacePathPrefix(text, root, "<REASONIX_HOME>")
+./internal/doctor/session_bundle.go:264:			text = replacePathPrefix(text, absRoot, "<REASONIX_HOME>")
+./internal/hook/hook.go:160:	SettingsDirname  = ".reasonix"
+./internal/hook/hook.go:170:// ProjectSettingsPath is <root>/.reasonix/settings.json.
+./internal/hook/hook.go:315:				env["REASONIX_PLUGIN_ROOT"] = pkg.Root
+./internal/hook/hook.go:316:				env["REASONIX_PLUGIN_NAME"] = item.Installed.Name
+./internal/hook/hook.go:317:				env["REASONIX_HOME"] = reasonixHomeDir
+./internal/hook/hook.go:318:				env["REASONIX_WORKSPACE_ROOT"] = projectRoot
+./internal/hook/hook.go:322:					env["REASONIX_PLUGIN_VERSION"] = item.Installed.Version
+./internal/hook/hook.go:382:	{value: "${REASONIX_PLUGIN_ROOT}"},
+./internal/hook/hook.go:383:	{value: "$REASONIX_PLUGIN_ROOT", needsBoundary: true},
+./internal/hook/hook.go:384:	{value: "%REASONIX_PLUGIN_ROOT%"},
+./internal/hook/hook.go:5:// (.reasonix/settings.json, only when the project is trusted) and a global
+./internal/hook/trust.go:11:// Trust gates project hooks. A project's .reasonix/settings.json can run
+./internal/hook/trust.go:18:// TrustFilename is the user-global trust store under ~/.reasonix.
+./internal/i18n/i18n.go:375:	WroteFileFmt             string // "Wrote %s" — used for reasonix.toml and .env both
+./internal/i18n/i18n.go:427:	SkipStaleCustomEntryFmt    string // "skipping stale %q entry from reasonix.toml (pointing at %s) — please remove it"
+./internal/i18n/i18n.go:548:// Priority: override > REASONIX_LANG > LC_ALL > LC_MESSAGES > LANG > "en".
+./internal/i18n/i18n.go:559:	keys := []string{"REASONIX_LANG", "LC_ALL", "LC_MESSAGES", "LANG"}
+./internal/i18n/messages_en.go:122:	OutputStyleHint:    "set agent.output_style in reasonix.toml to apply one (takes effect next session)",
+./internal/i18n/messages_en.go:18:	StepScaffold:    "scaffold reasonix.toml",
+./internal/i18n/messages_en.go:195:	SlashMCPNone:                 "no MCP servers configured — add a [[plugins]] entry in reasonix.toml",
+./internal/i18n/messages_en.go:272:	ArgLanguageAuto:     "auto-detect from REASONIX_LANG / locale",
+./internal/i18n/messages_en.go:285:	ListHooksNone:       "hooks: none active — configure in .reasonix/settings.json (project, after trust) or <Reasonix home>/settings.json (global)",
+./internal/i18n/messages_en.go:287:	ListMcpNone:         "mcp: no servers connected — add one in reasonix.toml ([[plugins]]) or a project .mcp.json",
+./internal/i18n/messages_en.go:336:	MissingKeyIntro:          "reasonix.toml is ready — just an API key away.",
+./internal/i18n/messages_en.go:389:	SkipStaleCustomEntryFmt:    "skipping stale %q entry from reasonix.toml (pointing at %s) — please remove it from [[providers]]",
+./internal/i18n/messages_en.go:482:  reasonix setup [path]                                 interactive config wizard; writes reasonix.toml (+ .env)
+./internal/i18n/messages_en.go:486:  reasonix mcp <add|remove|list|import>                 manage MCP servers in reasonix.toml
+./internal/i18n/messages_en.go:507:  Resolution: flag > ./reasonix.toml > <Reasonix home>/config.toml > built-in defaults
+./internal/i18n/messages_zh.go:123:	OutputStyleHint:    "在 reasonix.toml 设置 agent.output_style 即可启用（下次会话生效）",
+./internal/i18n/messages_zh.go:196:	SlashMCPNone:                 "没有配置 MCP 服务器 — 在 reasonix.toml 加一个 [[plugins]] 条目",
+./internal/i18n/messages_zh.go:19:	StepScaffold:    "生成 reasonix.toml",
+./internal/i18n/messages_zh.go:273:	ArgLanguageAuto:     "从 REASONIX_LANG / 系统 locale 自动检测",
+./internal/i18n/messages_zh.go:286:	ListHooksNone:       "无生效 hooks — 在 .reasonix/settings.json（项目，需信任后）或 <Reasonix home>/settings.json（全局）配置",
+./internal/i18n/messages_zh.go:288:	ListMcpNone:         "未连接 MCP 服务器 — 在 reasonix.toml（[[plugins]]）或项目 .mcp.json 中添加",
+./internal/i18n/messages_zh.go:337:	MissingKeyIntro:          "reasonix.toml 已配置好 — 只差一个 API key 就可以开始。",
+./internal/i18n/messages_zh.go:390:	SkipStaleCustomEntryFmt:    "跳过 reasonix.toml 里的旧 %q 条目（指向 %s）— 请手动从 [[providers]] 里删除",
+./internal/i18n/messages_zh.go:483:  reasonix setup [path]                                 交互式配置向导；生成 reasonix.toml（及 .env）
+./internal/i18n/messages_zh.go:487:  reasonix mcp <add|remove|list|import>                 管理 reasonix.toml 里的 MCP 服务器
+./internal/i18n/messages_zh.go:508:  优先级：flag > ./reasonix.toml > <Reasonix home>/config.toml > 内置默认值
+./internal/i18n/messages_zh_tw.go:117:	OutputStyleHint:    "在 reasonix.toml 設定 agent.output_style 即可啟用（下次會話生效）",
+./internal/i18n/messages_zh_tw.go:186:	SlashMCPNone:                 "沒有設定 MCP 伺服器 — 在 reasonix.toml 加一個 [[plugins]] 條目",
+./internal/i18n/messages_zh_tw.go:19:	StepScaffold:    "生成 reasonix.toml",
+./internal/i18n/messages_zh_tw.go:259:	ArgLanguageAuto:     "從 REASONIX_LANG / 系統 locale 自動偵測",
+./internal/i18n/messages_zh_tw.go:270:	ListHooksNone:       "無生效 hooks — 在 .reasonix/settings.json（專案，需信任後）或 <Reasonix home>/settings.json（全域）設定",
+./internal/i18n/messages_zh_tw.go:272:	ListMcpNone:         "未連線 MCP 伺服器 — 在 reasonix.toml（[[plugins]]）或專案 .mcp.json 中新增",
+./internal/i18n/messages_zh_tw.go:317:	MissingKeyIntro:          "reasonix.toml 已設定好 — 只差一個 API key 就可以開始。",
+./internal/i18n/messages_zh_tw.go:370:	SkipStaleCustomEntryFmt:    "跳過 reasonix.toml 裡的舊 %q 條目（指向 %s）— 請手動從 [[providers]] 裡刪除",
+./internal/i18n/messages_zh_tw.go:431:  reasonix setup [path]                                 互動式設定精靈；生成 reasonix.toml（及 .env）
+./internal/i18n/messages_zh_tw.go:435:  reasonix mcp <add|remove|list|import>                 管理 reasonix.toml 裡的 MCP 伺服器
+./internal/i18n/messages_zh_tw.go:456:  優先順序：flag > ./reasonix.toml > <Reasonix home>/config.toml > 內建預設值
+./internal/installsource/apply.go:68:	store := skill.New(skill.Options{HomeDir: t.home, ReasonixHomeDir: t.reasonixHome, ProjectRoot: t.root, CustomPaths: append(cfg.SkillCustomPaths(), act.Source)})
+./internal/installsource/install_source.go:103:		reasonixHome = filepath.Join(home, ".reasonix")
+./internal/installsource/install_source.go:452:		if st, err := pluginpkg.LoadState(t.reasonixHome); err == nil {
+./internal/installsource/install_source.go:457:				root := pluginpkg.ResolveRoot(t.reasonixHome, p.Root)
+./internal/installsource/install_source.go:464:					ConfigPath:   pluginpkg.StatePath(t.reasonixHome),
+./internal/installsource/install_source.go:489:		if t.reasonixHome == "" {
+./internal/installsource/install_source.go:492:		root = filepath.Join(t.reasonixHome, skill.SkillsDirname)
+./internal/installsource/install_source.go:494:		root = filepath.Join(t.root, ".reasonix", skill.SkillsDirname)
+./internal/installsource/install_source.go:553:	return filepath.Join(t.root, "reasonix.toml")
+./internal/installsource/install_source.go:99:		reasonixHome = filepath.Join(home, ".reasonix")
+./internal/installsource/plugin_package.go:344:	if t.reasonixHome != "" {
+./internal/installsource/plugin_package.go:345:		root = pluginpkg.InstallRoot(t.reasonixHome, name)
+./internal/installsource/plugin_package.go:364:		ConfigPath:          pluginpkg.StatePath(t.reasonixHome),
+./internal/installsource/plugin_package.go:405:	if t.reasonixHome == "" {
+./internal/installsource/plugin_package.go:411:	target := pluginpkg.InstallRoot(t.reasonixHome, act.Name)
+./internal/installsource/plugin_package.go:458:		Root:         pluginpkg.RelativeRoot(t.reasonixHome, target),
+./internal/installsource/plugin_package.go:470:	if err := pluginpkg.Upsert(t.reasonixHome, installed); err != nil {
+./internal/installsource/plugin_package.go:679:	installed, ok, err := pluginpkg.Remove(t.reasonixHome, act.Name)
+./internal/installsource/plugin_package.go:683:	root := pluginpkg.ResolveRoot(t.reasonixHome, installed.Root)
+./internal/installsource/plugin_package.go:696:	pluginsDir := pluginpkg.PluginsDir(t.reasonixHome)
+./internal/installsource/skill.go:102:		if t.reasonixHome == "" {
+./internal/installsource/skill.go:105:		return filepath.Join(t.reasonixHome, skill.SkillsDirname), nil
+./internal/installsource/skill.go:107:	return filepath.Join(t.root, ".reasonix", skill.SkillsDirname), nil
+./internal/installsource/skill.go:129:		cfg := config.LoadForEdit(filepath.Join(t.root, "reasonix.toml"))
+./internal/installsource/skill.go:136:	store := skill.New(skill.Options{HomeDir: t.home, ReasonixHomeDir: t.reasonixHome, ProjectRoot: t.root, CustomPaths: custom, DisableBuiltins: true, Stderr: &stderr})
+./internal/mcpcatalog/catalog.go:32:	CatalogURL     = "https://dl.reasonix.io/plugins/catalog/v1/index.json"
+./internal/memory/doc.go:32:	ScopeUser     Scope = "user"     // ~/.reasonix/REASONIX.md
+./internal/memory/store.go:30:	Dir       string // ...reasonix/projects/<slug>/memory
+./internal/memory/store.go:31:	GlobalDir string // ...reasonix/memory/global (shared across projects)
+./internal/memory/store.go:76:// Reasonix home, e.g. ~/.reasonix/projects/-Users-me-proj/memory.
+./internal/memorycompiler/runtime.go:34:	debugTraceEnv      = "REASONIX_MEMORY_COMPILER_DEBUG_TRACE"
+./internal/migration/migration.go:220:		addRoot(filepath.Join(home, ".reasonix"), "~/.reasonix")
+./internal/migration/migration.go:413:		reasonixHome := filepath.Join(home, ".reasonix")
+./internal/migration/migration.go:414:		addFlatSource(filepath.Join(reasonixHome, "sessions"), "~/.reasonix/sessions", agent.MigrateLegacySessions)
+./internal/migration/migration.go:518:		filepath.Join(root, ".reasonix", "sessions"),
+./internal/migration/migration.go:85:		emit(event.LevelInfo, "migration rescue: REASONIX_HOME is set; implicit legacy migration is skipped")
+./internal/outputstyle/outputstyle.go:65:// Home convention dirs are skipped when REASONIX_HOME is set (isolated runtime).
+./internal/outputstyle/outputstyle.go:68:	if os.Getenv("REASONIX_HOME") == "" {
+./internal/outputstyle/outputstyle.go:83:var conventionDirs = []string{".reasonix", ".agents", ".agent", ".claude"}
+./internal/plugin/transport_stdio.go:395:	const marker = "__REASONIX_PATH__="
+./internal/repair/config.go:44:	project := filepath.Join(opts.Root, "reasonix.toml")
+./internal/repair/config.go:46:		project = "reasonix.toml"
+./internal/repair/config.go:60:		quarantine := item.path + ".reasonix-quarantine-" + opts.Now().UTC().Format("20060102T150405Z")
+./internal/repair/derived.go:42:		quarantine := path + ".reasonix-rebuild-" + stamp
+./internal/repair/plan.go:277:		return "reasonix.toml"
+./internal/repair/plan.go:279:	return filepath.Join(root, "reasonix.toml")
+./internal/repair/snapshot.go:204:		tmp := dest + ".reasonix-restore-tmp"
+./internal/repair/startup.go:178:	// duplicate REASONIX_DEV instance, or a raced cold start about to exit).
+./internal/repair/transaction.go:142:		if filepath.Base(target) != "reasonix.toml" {
+./internal/repair/transaction.go:161:	if filepath.Dir(previous) == filepath.Dir(target) && strings.HasPrefix(filepath.Base(previous), filepath.Base(target)+".reasonix-") {
+./internal/repair/transaction.go:219:			redo = fmt.Sprintf("%s.reasonix-redo-%s-%d", change.TargetPath, now.Format("20060102T150405.000000000Z"), i)
+./internal/repair/update.go:164:	if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".reasonix-update-backup" {
+./internal/repair/update.go:333:		failed := tx.TargetPath + ".reasonix-failed-" + time.Now().UTC().Format("20060102T150405Z")
+./internal/repair/update.go:381:		stage := f.TargetPath + ".reasonix-rollback-stage"
+./internal/repair/update.go:393:		aside := f.TargetPath + ".reasonix-rollback-aside"
+./internal/repair/update.go:431:			_ = os.Remove(f.TargetPath + ".reasonix-rollback-aside")
+./internal/repair/update.go:539:		if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".reasonix-update-backup" {
+./internal/skill/builtincontent/reasonix-guide/SKILL.md:105:- Project: `<workspace>/.reasonix/settings.json` — **only when trusted** (`trust.json` under Reasonix home)
+./internal/skill/builtincontent/reasonix-guide/SKILL.md:37:1. **project** — `<workspace>/{.reasonix,.agents,.agent,.claude}/skills/`
+./internal/skill/builtincontent/reasonix-guide/SKILL.md:3:description: "Troubleshoot and configure Reasonix capabilities: Skills (project/custom/global/builtin priority, discovery dirs), Commands (override order, /dir:file naming), Hooks (11 events, project trust, matchers, timeouts), MCP (reasonix.toml + .mcp.json + plugin packages, auto_start), plugin packages (native/Codex/Claude manifests), and AGENTS.md / instruction docs. Use when the user asks how to configure, debug missing skills/commands/hooks/MCP/plugins, or diagnose capability loading."
+./internal/skill/builtincontent/reasonix-guide/SKILL.md:44:Discovery conventions: `.reasonix`, `.agents`, `.agent`, `.claude` (see `config.ConventionDirs`). Layouts: `<name>/SKILL.md` or flat `<name>.md` (Claude flat files need skill frontmatter).
+./internal/skill/skill.go:1064:	if s.reasonixHomeDir != "" {
+./internal/skill/skill.go:1065:		return filepath.Join(s.reasonixHomeDir, SkillsDirname)
+./internal/skill/skill.go:1067:	return filepath.Join(s.homeDir, ".reasonix", SkillsDirname)
+./internal/skill/skill.go:129:// config.ReasonixHomeDir(), or HomeDir/.reasonix when HomeDir is explicitly set.
+./internal/skill/skill.go:181:			reasonixHome = filepath.Join(home, ".reasonix")
+./internal/skill/skill.go:326:// convention dirs (config.ConventionDirs: .reasonix / .agents / .agent / .claude)
+./internal/skill/skill.go:347:	if s.reasonixHomeDir != "" {
+./internal/skill/skill.go:348:		dirs = append(dirs, de{filepath.Join(s.reasonixHomeDir, SkillsDirname), ScopeGlobal, false})
+./internal/skill/skill.go:353:			if s.reasonixHomeDir != "" && config.CanonicalSkillPath(filepath.Dir(dir)) == config.CanonicalSkillPath(s.reasonixHomeDir) {
+./internal/skill/skill.go:7:// demand. Discovery scans several conventions (.reasonix / .agents / .agent /
+./internal/skill/skill.go:926:		root = filepath.Join(s.projectRoot, ".reasonix", SkillsDirname)
+./internal/skill/tools.go:454:		scope = "'project' (default) writes to <repo>/.reasonix/skills/ (this workspace only); 'global' writes to the Reasonix home skills directory (every project)."
+./internal/store/session.go:14:// ~/.reasonix tree) and the desktop root unification land in later slices.
+./internal/tool/builtin/bash.go:494:	const marker = "__REASONIX_BASH_PATH__="
+./internal/tool/builtin/confine.go:159:		"write inside the workspace or a configured allow_write root, or widen [sandbox] workspace_root / allow_write in reasonix.toml",
+./internal/tool/builtin/managed_config.go:67:			"Ask the user to retry in an interactive session, or to add the directory to [sandbox] allow_write in reasonix.toml", target)
+./internal/tool/builtin/movefile.go:108:	tmp, err := os.CreateTemp(filepath.Dir(src), ".reasonix-move-*")
+./internal/tool/builtin/session_guard.go:142:// volumes ~/.reasonix/SESSIONS reaches the very same files (the same shape as
+./internal/tool/builtin/session_guard.go:60:			"Ask the user to edit it themselves, or to add the directory to [sandbox] allow_write in reasonix.toml if raw access is truly intended",
+./internal/tool/builtin/session_guard.go:67:		"Do not modify session or runtime-state files directly; report the underlying problem instead. If raw access is truly intended, add the directory to [sandbox] allow_write in reasonix.toml",
+./reasonix.example.toml:11:theme = "auto"   # auto|dark|light; controls CLI colors only; REASONIX_THEME can override per run
+./reasonix.example.toml:135:# under .reasonix/skills, .agents/skills, .agent/skills, .claude/skills (project)
+./reasonix.example.toml:147:# <project>/.reasonix/settings.json (project, runs only after `/hooks trust`).
+./reasonix.example.toml:201:# token_env = "REASONIX_BOT_CONTROL_TOKEN"
+./reasonix.example.toml:2:# Resolution order: flag > ./reasonix.toml > <Reasonix home>/config.toml > built-in defaults.
+./reasonix.example.toml:31:auto_plan         = "off"   # user-level only; ignored in project reasonix.toml
+./reasonix.example.toml:3:# Fields marked user/global only are not overridden by ./reasonix.toml.
+./reasonix.example.toml:45:#                                  or a custom .reasonix/output-styles/<name>.md ; empty = default
+./reasonix.example.toml:8:# language      = "zh"   # ui language; empty = auto-detect from $LANG / $REASONIX_LANG
+./release-notes/releases.json:101:            "en": "Plugin hooks on Windows now correctly expand aliases like ${REASONIX_PLUGIN_ROOT}, support bash hooks, and handle non-UTF-8 output.",
+./release-notes/releases.json:102:            "zh": "Windows 插件 Hook 现在能正确展开 ${REASONIX_PLUGIN_ROOT} 等别名，支持 bash Hook，并能处理非 UTF-8 输出。"
+./scripts/cache-guard.sh:8:REASONIX_RELEASE_CACHE_GUARD=1 go test ./internal/agent -run '^TestReleaseCacheHitGuard$' -v -count=1 2>&1 | tee "$tmp"
+./site/src/pages/docs.astro:195:      <div class="codeblock"><span class="c"># ~/.reasonix/config.toml</span>
+./site/src/pages/docs.astro:209:        <div><strong><span class="l-en">Project config</span><span class="l-zh">项目配置</span></strong><span><code>./reasonix.toml</code></span></div>
+./site/src/pages/docs.astro:20:const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
+./site/src/pages/docs.astro:210:        <div><strong><span class="l-en">User config</span><span class="l-zh">用户配置</span></strong><span><code>~/.reasonix/config.toml</code></span></div>
+./site/src/pages/docs.astro:223:      <div class="codeblock"><span class="c"># reasonix.toml</span>
+./site/src/pages/docs.astro:234:      <p><span class="l-en">MCP prompts also become slash commands such as <code>/mcp__server__prompt</code>, and MCP resources can be referenced with <code>@server:uri</code>. Enabled servers connect in the background after a session starts; use <code>/mcp</code> or the desktop MCP panel to inspect, refresh, reconnect, or disable servers. Already have an <code>.mcp.json</code>? Put it in the project root; Reasonix reads the Claude Code <code>mcpServers</code> schema as-is and lets <code>reasonix.toml</code> win on name collisions.</span><span class="l-zh">MCP prompts 也会变成 <code>/mcp__server__prompt</code> 这样的斜杠命令,MCP resources 可通过 <code>@server:uri</code> 引用。启用的 server 会在会话开始后后台连接；用 <code>/mcp</code> 或桌面端 MCP 面板查看、刷新、重连或临时禁用。已有 <code>.mcp.json</code>?放到项目根目录即可；Reasonix 会原样读取 Claude Code 的 <code>mcpServers</code> schema,同名时 <code>reasonix.toml</code> 优先。</span></p>
+./site/src/pages/docs.astro:239:      <p><span class="l-en">Toggle future turns with <code>/memory-v5 off|observe|compact|on|status</code>, <code>reasonix config memory-v5 off|observe|compact|on|status</code>, or desktop Settings -&gt; General -&gt; Memory v5. Project <code>reasonix.toml</code> cannot override this user-level setting. Memory v5 never bypasses memory approvals and never mutates the cache-stable system prompt, provider prefix, or tool schemas.</span><span class="l-zh">可用 <code>/memory-v5 off|observe|compact|on|status</code>、<code>reasonix config memory-v5 off|observe|compact|on|status</code>，或桌面端 Settings -&gt; General -&gt; Memory v5 控制后续轮次。项目 <code>reasonix.toml</code> 不能覆盖这个用户级设置。Memory v5 不会绕过 memory 审批，也不会修改 cache-stable system prompt、Provider 前缀或工具 schema。</span></p>
+./site/src/pages/docs.astro:254:      <p><span class="l-en">Mouse capture is on by default so Reasonix can handle transcript selection, wheel scroll, and the scrollbar. Turn it off with <code>/mouse</code>, or start with <code>REASONIX_DISABLE_MOUSE=1</code>, when you prefer the terminal's own selection behavior.</span><span class="l-zh">默认会开启鼠标接管，用于对话选中、滚轮滚动和滚动条。需要终端自己的选中行为时，用 <code>/mouse</code> 关闭；也可以用 <code>REASONIX_DISABLE_MOUSE=1</code> 默认关闭。</span></p>
+./site/src/pages/docs.astro:255:      <p><span class="l-en"><code>/branch [name]</code> forks the current conversation tip, <code>/switch &lt;id|name&gt;</code> loads another branch, and <code>/clear</code> confirms before discarding unsaved context. Custom commands are Markdown files under <code>.reasonix/commands/</code> or <code>~/.reasonix/commands/</code>.</span><span class="l-zh"><code>/branch [name]</code> 从当前会话尖端分叉,<code>/switch &lt;id|name&gt;</code> 加载另一条分支,<code>/clear</code> 会确认后丢弃未保存上下文。自定义命令是 <code>.reasonix/commands/</code> 或 <code>~/.reasonix/commands/</code> 下的 Markdown 文件。</span></p>
+./site/src/pages/docs.astro:256:      <p><span class="l-en"><code>/goal</code> is for long-running objectives. Normal goals stay lightweight; clearly long-horizon work can use the AutoResearch strategy, which keeps state under <code>.reasonix/autoresearch/...</code>, tracks evidence, and forces a new direction when progress stalls. Use <code>/goal --research &lt;objective&gt;</code> to force it or <code>/goal --simple &lt;objective&gt;</code> to keep the lightweight path. AutoResearch is a Goal strategy, not a separate app-start daemon or standalone built-in skill.</span><span class="l-zh"><code>/goal</code> 用于长目标。普通 goal 保持轻量；明显长周期的任务可以启用 AutoResearch 策略，在 <code>.reasonix/autoresearch/...</code> 下保存状态、记录证据，并在进展停滞时强制换方向。用 <code>/goal --research &lt;目标&gt;</code> 强制启用，或用 <code>/goal --simple &lt;目标&gt;</code> 保持轻量路径。AutoResearch 是 Goal 的策略，不是 App 启动即运行的 daemon，也不是独立内置 skill。</span></p>
+./site/src/pages/docs.astro:260:      <p><span class="l-en">Resolution order: flags &gt; <code>./reasonix.toml</code> &gt; global <code>config.toml</code> under Reasonix home &gt; compatible legacy config &gt; built-in defaults. Starting with v1.8.1, Reasonix home is <code>~/.reasonix</code> on macOS/Linux and <code>%APPDATA%\reasonix</code> on Windows; set <code>REASONIX_HOME</code> only for tests, CI, or portable installs.</span><span class="l-zh">解析顺序:flags &gt; <code>./reasonix.toml</code> &gt; Reasonix home 下的全局 <code>config.toml</code> &gt; 兼容 legacy config &gt; 内置默认值。从 v1.8.1 起,Reasonix home 在 macOS/Linux 为 <code>~/.reasonix</code>,Windows 为 <code>%APPDATA%\reasonix</code>；只有测试、CI 或便携安装才需要设置 <code>REASONIX_HOME</code>。</span></p>
+./site/src/pages/docs.astro:261:      <div class="codeblock"><span class="c"># ~/.reasonix/config.toml (macOS/Linux)</span>
+./site/src/pages/docs.astro:350:        <a href="https://crash.reasonix.io/stats" rel="nofollow"><span class="l-en">Stats</span><span class="l-zh">统计</span></a>
+./site/src/pages/docs.astro:6:const R2_LATEST = 'https://dl.reasonix.io/latest';
+./site/src/pages/index.astro:21:const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
+./site/src/pages/index.astro:332:        <a href="https://crash.reasonix.io/stats" rel="nofollow"><span class="l-en">Stats</span><span class="l-zh">统计</span></a>
+./site/src/pages/index.astro:7:const R2_LATEST = 'https://dl.reasonix.io/latest';
+./site/src/pages/skills.astro:141:        <a href="https://id.reasonix.io"><span class="l-en">Sign in</span><span class="l-zh">登录</span></a>
+./site/src/pages/skills.astro:300:    const REGISTRY = import.meta.env.PUBLIC_REGISTRY_ORIGIN || 'https://crash.reasonix.io';
+./site/src/pages/skills.astro:62:          <a class="btn btn-dark" href="https://id.reasonix.io"><span class="l-en">Sign in at id.reasonix.io</span><span class="l-zh">前往 id.reasonix.io 登录</span></a>
+./site/src/scripts/auth.js:3:// Client for the reasonix-accounts API (id.reasonix.io). Cookie-based session,
+./site/src/scripts/auth.js:5:const API = (import.meta.env.PUBLIC_ACCOUNTS_API || "https://id.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/community.js:1:// Reasonix Community client. Renders the forum from the forum.reasonix.io API and
+./site/src/scripts/community.js:2:// gates posting on the shared id.reasonix.io session (cookie sent cross-subdomain).
+./site/src/scripts/community.js:5:const FORUM = (import.meta.env.PUBLIC_FORUM_API || "https://forum.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/community.js:6:const ACCOUNTS = (import.meta.env.PUBLIC_ACCOUNTS_API || "https://id.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/safe-next.js:32:  if (u.protocol === "https:" && (u.host === "reasonix.io" || u.host.endsWith(".reasonix.io"))) return u.href;
+./site/src/scripts/safe-next.js:5:// under reasonix.io. That lets a subdomain (e.g. crash.reasonix.io) return
+./site/src/scripts/site.js:178:    fetch("https://dl.reasonix.io/latest/latest.json", { cache: "no-cache" })
+./site/src/scripts/site.js:185:      const desktopBase = "https://dl.reasonix.io/desktop-v" + v;
+./workers/accounts/README.md:102:The `id.reasonix.io` custom domain route is declared in `wrangler.toml`; point the
+./workers/accounts/README.md:5:by D1. Runs at `id.reasonix.io`, separate from the internal crash dashboard.
+./workers/accounts/wrangler.toml:12:routes = [{ pattern = "id.reasonix.io", custom_domain = true }]
+./workers/accounts/wrangler.toml:18:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/accounts/wrangler.toml:19:# Cookie scope. ".reasonix.io" lets the apex + any subdomain (and the future CLI)
+./workers/accounts/wrangler.toml:21:COOKIE_DOMAIN = ".reasonix.io"
+./workers/accounts/wrangler.toml:25:# From-domain must match a verified Resend domain — send.reasonix.io is verified
+./workers/accounts/wrangler.toml:27:MAIL_FROM = "Reasonix <no-reply@send.reasonix.io>"
+./workers/crash-report/migrate-access.sql:15:-- admins/viewers keep their access when they next sign in via id.reasonix.io.
+./workers/crash-report/migrate-access.sql:1:-- Unify dashboard auth onto id.reasonix.io: dashboard access is now a per-email
+./workers/crash-report/schema.sql:101:-- Legacy local auth — superseded by id.reasonix.io identity + the `access`
+./workers/crash-report/schema.sql:123:-- password, verification) lives in id.reasonix.io; this only maps email → role.
+./workers/crash-report/src/auth.ts:122:// Ends the shared id.reasonix.io session (best-effort) and returns a Set-Cookie
+./workers/crash-report/src/auth.ts:132:  return `${SHARED_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Domain=.reasonix.io; Max-Age=0`;
+./workers/crash-report/src/auth.ts:1:// Dashboard authorization. Identity comes from id.reasonix.io (the shared
+./workers/crash-report/src/auth.ts:23:// The id.reasonix.io session cookie is scoped to `.reasonix.io`, so the browser
+./workers/crash-report/src/auth.ts:28:  return (env.ID_ORIGIN ?? "https://id.reasonix.io").replace(/\/$/, "");
+./workers/crash-report/src/auth.ts:64:  return new Request(`https://id-cache.reasonix.io/${hex}`);
+./workers/crash-report/src/desktop_release.ts:1:const R2_BASE = "https://dl.reasonix.io";
+./workers/crash-report/src/env.ts:15:  // Shared identity service (id.reasonix.io) and the site that hosts its login
+./workers/crash-report/src/index.ts:1127:  const message = `crash.reasonix.io ingest sentinel: ${problems.join("; ")} — https://crash.reasonix.io/stats`;
+./workers/crash-report/src/index.ts:1181:    // Authentication moved to id.reasonix.io; these paths just bounce there.
+./workers/crash-report/src/index.ts:942:    ACCOUNTS_ORIGIN: env.ID_ORIGIN ?? "https://id.reasonix.io",
+./workers/crash-report/src/index.ts:944:    ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? "https://reasonix.io,https://www.reasonix.io",
+./workers/crash-report/src/registry/http/auth.ts:37:  if (!user) throw new ApiError(401, "unauthorized", "Sign in at id.reasonix.io to publish.");
+./workers/crash-report/src/registry/http/auth.ts:45:  if (!user) throw new ApiError(401, "unauthorized", "Sign in at id.reasonix.io.");
+./workers/crash-report/src/registry/routes/packages.ts:36:    throw new ApiError(403, "email_unverified", "Verify your email at id.reasonix.io before publishing.");
+./workers/crash-report/wrangler.toml:26:ID_ORIGIN = "https://id.reasonix.io"
+./workers/crash-report/wrangler.toml:29:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/crash-report/wrangler.toml:6:routes = [{ pattern = "crash.reasonix.io", custom_domain = true }]
+./workers/forum/schema.sql:1:-- Reasonix Community forum. Identity comes from id.reasonix.io; this DB holds
+./workers/forum/schema.sql:9:  email          TEXT PRIMARY KEY,              -- lowercased id.reasonix.io identity
+./workers/forum/src/antispam.ts:1:// Anti-spam gate. Identity is verified upstream (id.reasonix.io); this layer
+./workers/forum/src/identity.ts:4:// The id.reasonix.io session cookie is scoped to `.reasonix.io`, so the browser
+./workers/forum/src/index.ts:1:// Reasonix Community forum API. Identity from id.reasonix.io; content + anti-abuse
+./workers/forum/wrangler.toml:11:routes = [{ pattern = "forum.reasonix.io", custom_domain = true }]
+./workers/forum/wrangler.toml:16:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/forum/wrangler.toml:18:ID_ORIGIN = "https://id.reasonix.io"
+./workers/forum/wrangler.toml:1:# Reasonix Community forum API. Identity from id.reasonix.io; content + anti-abuse
