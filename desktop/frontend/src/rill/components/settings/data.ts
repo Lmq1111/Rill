@@ -188,6 +188,7 @@ export interface PermRule {
   op: "文件写入" | "命令执行" | "网络访问" | "凭据读取" | "文件读取";
   scope: "全局" | string;
   origin: "用户" | "系统" | "项目" | "插件";
+  pluginId?: string;
   enabled: boolean;
   lastHit?: string;
   highRisk?: boolean;
@@ -212,7 +213,7 @@ export interface DiagItem {
 }
 
 export const diagItems: DiagItem[] = [
-  { id: "d1", name: "应用版本与平台", result: "ok", severity: "正常", detail: "Rill 2.4.0 · Rillagent · macOS 15.4 arm64", checkedAt: "刚刚" },
+  { id: "d1", name: "应用版本与平台", result: "ok", severity: "正常", detail: `${brand.productName} ${brand.version} · ${brand.cliBrand} · macOS 15.4 arm64`, checkedAt: "刚刚" },
   { id: "d2", name: "配置目录", result: "ok", severity: "正常", detail: "~/.rillagent 可读写", checkedAt: "刚刚" },
   { id: "d3", name: "模型连接", result: "warn", severity: "警告", detail: "Anthropic 兼容网关缺少密钥", checkedAt: "刚刚" },
   { id: "d4", name: "MCP Server", result: "error", severity: "错误", detail: "postgres-mcp OAuth 凭据已过期", suggestTab: "mcp", checkedAt: "刚刚" },

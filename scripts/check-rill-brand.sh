@@ -45,6 +45,18 @@ while IFS= read -r match; do
     # The one approved, signed, read-only upstream MCP catalog dependency.
     internal/mcpcatalog/catalog.go)
       ;;
+    # Figma-locked version/privacy disclosure: open-source attribution and the
+    # signed, read-only MCP catalog are the only retired names allowed here.
+    desktop/frontend/src/rill/components/settings/AboutSettings.tsx)
+      case "$match" in
+        *DeepSeek-Reasonix*|*"reasonix.io 运行时依赖"*|*"只读 Reasonix MCP 插件目录"*)
+          ;;
+        *)
+          printf 'unexpected retired brand reference: %s\n' "$match" >&2
+          unexpected=1
+          ;;
+      esac
+      ;;
     # Runtime rejection code and explicit negative isolation/brand tests.
     docs/CONFIG_PATHS.md|docs/CONFIG_PATHS.zh-CN.md|docs/MIGRATING.md|internal/secrets/redact.go|internal/secrets/redact_test.go|internal/plugin/transport_stdio_env_test.go|internal/hook/hook_test.go|internal/lsp/lsp_test.go|internal/environment/probe_test.go|internal/config/rillagent_isolation_test.go|internal/config/commanddirs_test.go|internal/config/paths.go|internal/boot/boot_test.go|internal/cli/cli_test.go|internal/cli/rillagent_brand_test.go|internal/skill/rillagent_guide_contract_test.go|desktop/brand_identity_test.go)
       ;;
@@ -55,6 +67,7 @@ while IFS= read -r match; do
   esac
 done < <(rg --hidden --no-heading --line-number --color never \
   --glob '!docs/evidence/**' \
+  --glob '!desktop/frontend/sourcemaps/**' \
   --glob '!scripts/check-rill-brand.sh' \
   -e "$pattern" "${scan_paths[@]}" || true)
 

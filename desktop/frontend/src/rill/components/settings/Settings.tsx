@@ -28,12 +28,18 @@ import { SkillSettings } from "./SkillSettings";
 import { SubagentSettings } from "./SubagentSettings";
 import { PluginSettings } from "./PluginSettings";
 import { MemorySettings } from "./MemorySettings";
+import { HooksSettings } from "./HooksSettings";
+import { DiagnosticsSettings } from "./DiagnosticsSettings";
+import { KeyboardSettings } from "./KeyboardSettings";
+import { PermissionSettings } from "./PermissionSettings";
+import { SandboxSettings } from "./SandboxSettings";
+import { NetworkSettings } from "./NetworkSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
+import { AboutSettings } from "./AboutSettings";
 
 const icons = { Settings2, Cpu, Bot, Plug, Sparkles, Users, Package, Brain, Webhook, ShieldCheck, Box, Network, Stethoscope, Keyboard, Palette, Info } as const;
 
 const groups = ["常规", "能力", "系统与安全"] as const;
-const implementedTabs = new Set<SettingsTab>(["general", "model", "bot", "mcp", "skill", "subagent", "plugin", "memory"]);
-
 export function Settings() {
   const { navigate, params } = useStore();
   const [tab, setTab] = useState<SettingsTab>((params.tab as SettingsTab) || "general");
@@ -47,6 +53,14 @@ export function Settings() {
     subagent: <SubagentSettings />,
     plugin: <PluginSettings />,
     memory: <MemorySettings />,
+    hooks: <HooksSettings />,
+    diagnostics: <DiagnosticsSettings goTo={setTab} />,
+    keys: <KeyboardSettings />,
+    permissions: <PermissionSettings />,
+    sandbox: <SandboxSettings />,
+    network: <NetworkSettings />,
+    appearance: <AppearanceSettings />,
+    about: <AboutSettings goTo={setTab} />,
   };
 
   return (
@@ -67,7 +81,7 @@ export function Settings() {
                   return (
                     <button
                       key={t.id}
-                      onClick={() => { if (implementedTabs.has(t.id)) setTab(t.id); }}
+                      onClick={() => setTab(t.id)}
                       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${active ? "bg-teal-50 text-teal-700 ring-1 ring-teal-200" : "text-slate-600 hover:bg-slate-50"}`}
                     >
                       <Icon className={`size-4 ${active ? "text-teal-600" : "text-slate-400"}`} />

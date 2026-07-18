@@ -25,4 +25,12 @@ export const CorePages = Object.freeze({
   "settings-subagents": Settings,
   "settings-plugins": Settings,
   "settings-memory": Settings,
+  "settings-hooks": Settings,
+  "settings-diagnostics": Settings,
+  "settings-keyboard": Settings,
+  "settings-permissions": Settings,
+  "settings-sandbox": Settings,
+  "settings-network": Settings,
+  "settings-appearance": Settings,
+  "settings-about-privacy": Settings,
 });

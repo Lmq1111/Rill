@@ -20,6 +20,14 @@ const settingsTabByPage: Record<string, string> = {
   "settings-subagents": "subagent",
   "settings-plugins": "plugin",
   "settings-memory": "memory",
+  "settings-hooks": "hooks",
+  "settings-diagnostics": "diagnostics",
+  "settings-keyboard": "keys",
+  "settings-permissions": "permissions",
+  "settings-sandbox": "sandbox",
+  "settings-network": "network",
+  "settings-appearance": "appearance",
+  "settings-about-privacy": "about",
 };
 
 const emptySessionPatch: Partial<Session> = {

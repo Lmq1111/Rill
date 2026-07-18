@@ -25,7 +25,7 @@ build-script, and user-documentation scope and is now part of `ci.yml`. A new
 file containing a retired public name fails CI until it is either corrected or
 deliberately added to the reviewed file allowlist.
 
-The 105 current matches fall into these explicit categories:
+The 108 current matches fall into these explicit categories:
 
 1. MIT/open-source attribution and real upstream repository references.
 2. Stage-seven deferred telemetry, crash, metrics, and updater endpoints, with
@@ -33,6 +33,8 @@ The 105 current matches fall into these explicit categories:
 3. The signed, read-only upstream MCP catalog, which is the approved runtime exception.
 4. Runtime rejection code and negative brand/data-isolation tests.
 5. A third-party patch record that links to the original upstream issue.
+6. The Figma-locked version/privacy page disclosure for open-source attribution
+   and the signed, read-only MCP catalog exception.
 
 Historical stage-one evidence is outside the scan and retained unchanged as an
 audit fact source. Restored `site/` and `workers/` are upstream source retained
