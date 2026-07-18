@@ -11,6 +11,16 @@ import tokensCss from "./tokens.css?inline";
 export const rillVisualCss = `${figmaCss}\n${tokensCss}`;
 
 const coreRoute = new Set(Object.keys(CorePages));
+const settingsTabByPage: Record<string, string> = {
+  "settings-general": "general",
+  "settings-model": "model",
+  "settings-bot": "bot",
+  "settings-mcp": "mcp",
+  "settings-skills": "skill",
+  "settings-subagents": "subagent",
+  "settings-plugins": "plugin",
+  "settings-memory": "memory",
+};
 
 const emptySessionPatch: Partial<Session> = {
   title: "新会话",
@@ -38,7 +48,8 @@ const emptySessionPatch: Partial<Session> = {
 };
 
 export function createRillVisualSeed(page: string, state: string): VisualStoreSeed {
-  const route: Route = coreRoute.has(page) ? (page as Route) : "workbench";
+  const settingsTab = settingsTabByPage[page];
+  const route: Route = settingsTab ? "settings" : coreRoute.has(page) ? (page as Route) : "workbench";
   const emptyLike = state === "empty" || state === "add-project-dialog" || state === "composer-model-menu";
   const activeSessionId =
     state === "awaiting-confirmation" ? "s2" :
@@ -48,7 +59,7 @@ export function createRillVisualSeed(page: string, state: string): VisualStoreSe
   return {
     route,
     activeSessionId,
-    params: { rillVisualState: state },
+    params: { rillVisualState: state, ...(settingsTab ? { tab: settingsTab } : {}) },
     activeSessionPatch: emptyLike ? emptySessionPatch : state === "loading" ? { runState: "loading" } : undefined,
   };
 }

@@ -6,6 +6,7 @@ import { Files } from "../components/workbench/Files";
 import { History } from "../components/workbench/History";
 import { Recycle } from "../components/workbench/Recycle";
 import { Workbench } from "../components/workbench/Workbench";
+import { Settings } from "../components/settings/Settings";
 
 export const CorePages = Object.freeze({
   workbench: Workbench,
@@ -16,4 +17,12 @@ export const CorePages = Object.freeze({
   context: ContextOverview,
   files: Files,
   changes: Changes,
+  "settings-general": Settings,
+  "settings-model": Settings,
+  "settings-bot": Settings,
+  "settings-mcp": Settings,
+  "settings-skills": Settings,
+  "settings-subagents": Settings,
+  "settings-plugins": Settings,
+  "settings-memory": Settings,
 });
