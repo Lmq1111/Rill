@@ -80,3 +80,19 @@ Figma 源码使用 `h-screen`、`w-full` 等响应式容器，没有声明唯一
 - 10 个现有关键交互状态已单独冻结。
 - 旧品牌节点只允许 `BRAND_SUBSTITUTION`，不得借品牌替换改变布局。
 - 验收截图当前留空是有意状态：阶段一不实施 UI；后续真实桌面端截图须与本基线逐页对应。
+
+## 阶段四实现登记
+
+阶段一冻结证据保持不变。阶段四另建无损 Playwright 技术基线；原因、源码对等审查和截图异常记录见 `../04-figma-baseline/first-batch-validation.md`。
+
+| 编号与页面 | 实现路由 | 主视口验收 | 次视口验收 | 关键状态 | 当前状态 |
+|---|---|---|---|---|---|
+| 01 主工作台 | `?rill-page=workbench` | `desktop/frontend/tests/visual/baselines/primary/01-main-workbench.png` | `desktop/frontend/tests/visual/baselines/supplemental/01-main-workbench.png` | 状态 01–06 | 第一批通过 |
+| 02 消息渠道详情 | `?rill-page=channel` | `desktop/frontend/tests/visual/baselines/primary/02-channel-detail.png` | `desktop/frontend/tests/visual/baselines/supplemental/02-channel-detail.png` | 默认态 | 第一批通过 |
+| 03 历史记录 | `?rill-page=history` | `desktop/frontend/tests/visual/baselines/primary/03-history.png` | `desktop/frontend/tests/visual/baselines/supplemental/03-history.png` | 忙碌禁用嵌入默认态 | 第一批通过 |
+| 04 回收站 | `?rill-page=recycle` | `desktop/frontend/tests/visual/baselines/primary/04-recycle-bin.png` | `desktop/frontend/tests/visual/baselines/supplemental/04-recycle-bin.png` | 状态 08 | 第一批通过 |
+| 05 自动化任务 | `?rill-page=automation` | `desktop/frontend/tests/visual/baselines/primary/05-automation.png` | `desktop/frontend/tests/visual/baselines/supplemental/05-automation.png` | 状态 09–10 | 第一批通过 |
+| 06 上下文概览 | `?rill-page=context` | `desktop/frontend/tests/visual/baselines/primary/06-context-overview.png` | `desktop/frontend/tests/visual/baselines/supplemental/06-context-overview.png` | 状态 07 | 第一批通过 |
+| 07 文件 | `?rill-page=files` | `desktop/frontend/tests/visual/baselines/primary/07-files.png` | `desktop/frontend/tests/visual/baselines/supplemental/07-files.png` | 默认态 | 第一批通过 |
+| 08 改动 | `?rill-page=changes` | `desktop/frontend/tests/visual/baselines/primary/08-changes.png` | `desktop/frontend/tests/visual/baselines/supplemental/08-changes.png` | 默认态 | 第一批通过 |
+| 09–24 | 已登记稳定路由，尚未实现页面 | — | — | — | 待第二、三批 |

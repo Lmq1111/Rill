@@ -11,6 +11,7 @@ import { ToastProvider } from "./lib/toast";
 import { initFontFamily } from "./lib/fontFamily";
 import { initTextSize } from "./lib/textSize";
 import { initTheme } from "./lib/theme";
+import { parseRillVisualRequest } from "./rill/routes";
 import "./styles.css";
 
 // Install first so startup/runtime failures paint a useful error instead of a
@@ -77,14 +78,36 @@ if (typeof window !== "undefined" && window.runtime) {
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root");
 
-createRoot(root).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <LocaleProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </LocaleProvider>
-    </ErrorBoundary>
-  </StrictMode>,
-);
+const visualRequest = parseRillVisualRequest(window.location.search, import.meta.env.DEV);
+
+if (visualRequest) {
+  Promise.all([import("./rill/RillVisualApp"), import("./rill/adapters/visual")]).then(
+    ([{ RillVisualApp, rillVisualCss }, { createVisualRillAdapter }]) => {
+      const shadow = root.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = rillVisualCss;
+      const mount = document.createElement("div");
+      shadow.replaceChildren(style, mount);
+
+      createRoot(mount).render(
+        <StrictMode>
+          <ErrorBoundary>
+            <RillVisualApp adapter={createVisualRillAdapter(visualRequest)} />
+          </ErrorBoundary>
+        </StrictMode>,
+      );
+    },
+  );
+} else {
+  createRoot(root).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <LocaleProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </LocaleProvider>
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+}

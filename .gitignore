@@ -28,6 +28,8 @@ mem.prof
 /desktop/frontend/sourcemaps/
 /desktop/frontend/wailsjs/
 /desktop/frontend/package.json.md5
+/desktop/frontend/test-results/
+/desktop/frontend/playwright-report/
 
 # Environment / local config (rillagent.example.toml is the shared template)
 .env
