@@ -42,16 +42,10 @@ func TestWailsUsesRillDesktopIdentity(t *testing.T) {
 	}
 }
 
-func TestDarwinTemplatesAndPackagingUseRillIdentity(t *testing.T) {
-	for _, path := range []string{"build/darwin/Info.plist", "build/darwin/Info.dev.plist"} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(string(data), "<string>"+brand.BundleID+"</string>") {
-			t.Fatalf("%s does not declare bundle id %s", path, brand.BundleID)
-		}
-	}
+func TestDarwinPackagingUsesRillIdentity(t *testing.T) {
+	// Wails generates build/darwin/Info*.plist during a native build and those
+	// files are intentionally ignored. Assert the committed packaging source of
+	// truth here; the macOS packaging smoke test verifies the generated bundle.
 	data, err := os.ReadFile("../scripts/desktop-build.sh")
 	if err != nil {
 		t.Fatal(err)
