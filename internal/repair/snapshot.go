@@ -201,7 +201,7 @@ func restoreBackupNode(backup, dest string) error {
 		if err != nil {
 			return err
 		}
-		tmp := dest + ".reasonix-restore-tmp"
+		tmp := dest + ".rillagent-restore-tmp"
 		_ = os.Remove(tmp)
 		if err := os.Symlink(target, tmp); err != nil {
 			return err

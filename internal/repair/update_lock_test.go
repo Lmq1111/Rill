@@ -15,11 +15,11 @@ import (
 // same exclusion two processes would see.
 func TestPendingUpdateRollbackExcludesConcurrentCommit(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir := t.TempDir()
-	target := filepath.Join(dir, "reasonix-desktop")
+	target := filepath.Join(dir, "rill-desktop")
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(dir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(dir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	if err := os.WriteFile(target, []byte("old"), 0o700); err != nil {
 		t.Fatal(err)

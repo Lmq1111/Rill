@@ -23,6 +23,7 @@ function ok(value: unknown, label: string) {
 console.log("\ndelivery worktree");
 ok(/DeliveryWorktreeAvailability\(workspaceRoot: string\)/.test(bridge), "bridge exposes non-mutating availability probe");
 ok(/CreateDeliveryWorktree\(workspaceRoot: string\)/.test(bridge), "bridge exposes isolated workspace creation");
+ok(/tab\.gitBranch = `rill\/delivery-\$\{suffix\}`/.test(bridge), "browser mock uses the Rill delivery branch prefix");
 ok(/app\.DeliveryWorktreeAvailability\(projectRoot\)/.test(tree), "project menu probes Git before enabling isolation");
 ok(/disabled: isolatingProject !== null \|\| isolationAvailability\?\.available === false/.test(tree), "menu disables unavailable or duplicate creation");
 ok(/onCreateDeliveryWorktree\?\.\(workspaceRoot\)/.test(tree), "project menu delegates isolated workspace creation");

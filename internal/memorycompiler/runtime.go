@@ -31,7 +31,7 @@ const (
 	tracesFile         = "traces.jsonl"
 	learningTracesFile = "learning_traces.jsonl"
 	debugTracesFile    = "debug_traces.jsonl"
-	debugTraceEnv      = "REASONIX_MEMORY_COMPILER_DEBUG_TRACE"
+	debugTraceEnv      = "RILLAGENT_MEMORY_COMPILER_DEBUG_TRACE"
 	version            = "v5.9"
 
 	explorationRatePercent    = 10

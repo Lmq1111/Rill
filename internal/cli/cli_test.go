@@ -200,7 +200,7 @@ func isolateCLIConfigHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
@@ -208,10 +208,10 @@ func isolateCLIConfigHome(t *testing.T) string {
 	return home
 }
 
-func TestMCPMigrationWaitsForCLIWorkspace(t *testing.T) {
+func TestCLIStartupDoesNotImportProjectMCPIntoUserConfig(t *testing.T) {
 	isolateCLIConfigHome(t)
 	cwd := mustGetwd(t)
-	if err := os.WriteFile(filepath.Join(cwd, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(cwd, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "cwd-project"
 command = "cwd-project-bin"
@@ -219,14 +219,14 @@ command = "cwd-project-bin"
 		t.Fatal(err)
 	}
 
-	migrateLegacyConfigForCLI()
+	applyConfigUpgradesForCLI()
 	if cfg := config.LoadForEdit(config.UserConfigPath()); hasPluginNamed(cfg, "cwd-project") {
-		t.Fatalf("early CLI legacy migration imported the cwd project plugin: %+v", cfg.Plugins)
+		t.Fatalf("CLI config upgrade imported the project plugin: %+v", cfg.Plugins)
 	}
 
 	migrateMCPConfigForCLIWorkspace()
-	if cfg := config.LoadForEdit(config.UserConfigPath()); !hasPluginNamed(cfg, "cwd-project") {
-		t.Fatalf("workspace-aware CLI migration did not import project plugin: %+v", cfg.Plugins)
+	if cfg := config.LoadForEdit(config.UserConfigPath()); hasPluginNamed(cfg, "cwd-project") {
+		t.Fatalf("CLI workspace startup imported the project plugin: %+v", cfg.Plugins)
 	}
 }
 
@@ -256,7 +256,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "reasonix test-version") {
+	if !strings.Contains(out, "Rillagent vtest-version") {
 		t.Fatalf("version output = %q", out)
 	}
 
@@ -268,7 +268,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 	if !strings.Contains(out, "Usage:") && !strings.Contains(out, "用法：") {
 		t.Fatalf("help output missing usage:\n%s", out)
 	}
-	if !strings.Contains(out, "reasonix run [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] [--copy] [--output-format FORMAT] <task>") {
+	if !strings.Contains(out, "rillagent run [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] [--copy] [--output-format FORMAT] <task>") {
 		t.Fatalf("help output missing run resume flags:\n%s", out)
 	}
 }
@@ -332,7 +332,7 @@ func TestRunNoArgsNonInteractivePrintsUsage(t *testing.T) {
 			t.Fatalf("Run(nil) rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "reasonix —") || !strings.Contains(out, "reasonix run") {
+	if !strings.Contains(out, "Rillagent —") || !strings.Contains(out, "rillagent run") {
 		t.Fatalf("non-interactive no-arg Run should print usage, got:\n%s", out)
 	}
 }
@@ -381,7 +381,7 @@ func TestRunPrintAliasDispatchesRunFlags(t *testing.T) {
 	}
 }
 
-// TestRunPrintFlagAfterLeadingFlagsDispatchesRun covers `reasonix --model X -p`:
+// TestRunPrintFlagAfterLeadingFlagsDispatchesRun covers `rillagent --model X -p`:
 // a print flag trailing other top-level flags must still route to `run --print`,
 // not into the interactive session parser (which has no -p and returns 2).
 func TestRunPrintFlagAfterLeadingFlagsDispatchesRun(t *testing.T) {
@@ -444,20 +444,24 @@ func TestRunKeepsChatAndCodeCompatibilityAliases(t *testing.T) {
 	}
 }
 
-func TestRunMigratesLegacyConfigBeforeConfigOnlyCommands(t *testing.T) {
-	isolateCLIConfigHome(t)
-	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "reasonix.toml")
-	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(legacyPath, []byte(`
-default_model = "deepseek-flash"
+func TestRunDoesNotMigrateForeignBrandConfigBeforeConfigOnlyCommands(t *testing.T) {
+	home := isolateCLIConfigHome(t)
+	for _, legacyPath := range []string{
+		filepath.Join(home, ".reasonix", "config.toml"),
+		filepath.Join(home, ".ldagent", "config.toml"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(legacyPath, []byte(`
+default_model = "foreign-model"
 
 [[plugins]]
-name = "legacy-cli"
-command = "legacy-bin"
+name = "foreign-cli"
+command = "foreign-bin"
 `), 0o644); err != nil {
-		t.Fatal(err)
+			t.Fatal(err)
+		}
 	}
 
 	out := captureStdout(t, func() {
@@ -465,18 +469,11 @@ command = "legacy-bin"
 			t.Fatalf("mcp list rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "legacy-cli") {
-		t.Fatalf("mcp list should include migrated legacy config:\n%s", out)
+	if strings.Contains(out, "foreign-cli") {
+		t.Fatalf("mcp list imported a foreign-brand config:\n%s", out)
 	}
-
-	body, err := os.ReadFile(config.UserConfigPath())
-	if err != nil {
-		t.Fatalf("read migrated user config: %v", err)
-	}
-	for _, want := range []string{`config_version = 4`, `[desktop]`, `name    = "legacy-cli"`} {
-		if !strings.Contains(string(body), want) {
-			t.Fatalf("migrated config missing %q:\n%s", want, body)
-		}
+	if _, err := os.Stat(config.UserConfigPath()); !os.IsNotExist(err) {
+		t.Fatalf("config-only command created Rill config from foreign data, stat err=%v", err)
 	}
 }
 
@@ -507,7 +504,7 @@ func TestRunAppliesUserConfigUpgradesOnStartup(t *testing.T) {
 
 func TestRunMetadataCommandsDoNotMigrateLegacyConfig(t *testing.T) {
 	isolateCLIConfigHome(t)
-	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "reasonix.toml")
+	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "rillagent.toml")
 	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +517,7 @@ func TestRunMetadataCommandsDoNotMigrateLegacyConfig(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "reasonix test-version") {
+	if !strings.Contains(out, "Rillagent vtest-version") {
 		t.Fatalf("version output = %q", out)
 	}
 	if _, err := os.Stat(config.UserConfigPath()); !os.IsNotExist(err) {
@@ -562,8 +559,8 @@ func TestConfigAutoPlanLocalIsRejected(t *testing.T) {
 	if !strings.Contains(errOut, "--local is not supported") {
 		t.Fatalf("config auto-plan --local stderr = %q", errOut)
 	}
-	if _, err := os.Stat("reasonix.toml"); !os.IsNotExist(err) {
-		t.Fatalf("reasonix.toml should not be written, stat err=%v", err)
+	if _, err := os.Stat("rillagent.toml"); !os.IsNotExist(err) {
+		t.Fatalf("rillagent.toml should not be written, stat err=%v", err)
 	}
 
 	cfg, err := config.Load()
@@ -634,8 +631,8 @@ func TestConfigMemoryV5LocalIsRejected(t *testing.T) {
 	if !strings.Contains(errOut, "--local is not supported") {
 		t.Fatalf("config memory-v5 --local stderr = %q", errOut)
 	}
-	if _, err := os.Stat("reasonix.toml"); !os.IsNotExist(err) {
-		t.Fatalf("reasonix.toml should not be written, stat err=%v", err)
+	if _, err := os.Stat("rillagent.toml"); !os.IsNotExist(err) {
+		t.Fatalf("rillagent.toml should not be written, stat err=%v", err)
 	}
 }
 
@@ -649,7 +646,7 @@ func TestConfigAutoPlanIgnoresProjectConfig(t *testing.T) {
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("write user config: %v", err)
 	}
-	if err := os.WriteFile("reasonix.toml", []byte("[agent]\nauto_plan = \"on\"\n"), 0o644); err != nil {
+	if err := os.WriteFile("rillagent.toml", []byte("[agent]\nauto_plan = \"on\"\n"), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
 
@@ -667,7 +664,7 @@ func TestConfigAutoPlanIgnoresProjectConfig(t *testing.T) {
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("rewrite user config: %v", err)
 	}
-	if err := os.WriteFile("reasonix.toml", []byte("[agent]\nauto_plan = \"off\"\n"), 0o644); err != nil {
+	if err := os.WriteFile("rillagent.toml", []byte("[agent]\nauto_plan = \"off\"\n"), 0o644); err != nil {
 		t.Fatalf("rewrite project config: %v", err)
 	}
 	cfg, err = config.Load()
@@ -714,7 +711,7 @@ func TestConfigReasoningLanguageLocalCreatesMinimalProjectOverride(t *testing.T)
 		t.Fatalf("config reasoning-language --local output = %q", out)
 	}
 
-	body, err := os.ReadFile("reasonix.toml")
+	body, err := os.ReadFile("rillagent.toml")
 	if err != nil {
 		t.Fatalf("read project config: %v", err)
 	}
@@ -1031,10 +1028,10 @@ func TestFetchOrFallback(t *testing.T) {
 	})
 
 	t.Run("no key set returns static list (offline first-run)", func(t *testing.T) {
-		t.Setenv("REASONIX_FETCH_TEST_KEY", "")
+		t.Setenv("RILLAGENT_FETCH_TEST_KEY", "")
 		probe := config.ProviderEntry{
 			BaseURL:   "http://127.0.0.1:1", // unreachable, no listener
-			APIKeyEnv: "REASONIX_FETCH_TEST_KEY",
+			APIKeyEnv: "RILLAGENT_FETCH_TEST_KEY",
 			Models:    []string{"preset-a"},
 		}
 		got := fetchOrFallback(&probe, "Test")
@@ -1454,7 +1451,7 @@ func TestRepairInvalidProviderKeyEnvs(t *testing.T) {
 
 // TestFilterStaleCustomEntries covers the wizard's auto-cleanup of legacy
 // "custom" / "anthropic" magic-name entries that previous versions wrote
-// into reasonix.toml. These collide with the wizard's own menu items, so
+// into rillagent.toml. These collide with the wizard's own menu items, so
 // they're dropped from the providers list before grouping — but the caller
 // still gets them back in the dropped slice to surface a warning.
 func TestFilterStaleCustomEntries(t *testing.T) {
@@ -1502,7 +1499,7 @@ func TestFilterStaleCustomEntries(t *testing.T) {
 }
 
 func TestWithBuiltinFamiliesDoesNotAddMissingMimo(t *testing.T) {
-	// The user's case: a reasonix.toml that defines only deepseek providers.
+	// The user's case: a rillagent.toml that defines only deepseek providers.
 	cfg := []config.ProviderEntry{
 		{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com"},
 		{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com"},
@@ -1543,7 +1540,7 @@ func TestWithBuiltinFamiliesForLanguageUsesDeepSeekPricing(t *testing.T) {
 
 // TestWithBuiltinFamiliesRestoresSiblingEntries covers the re-run scenario:
 // a user previously selected only deepseek-v4-flash (saved as deepseek-flash
-// with a single model). Re-running `reasonix setup` must still surface the
+// with a single model). Re-running `rillagent setup` must still surface the
 // sibling deepseek-pro entry so the user can pick deepseek-v4-pro too,
 // rather than only showing the previously selected model.
 func TestWithBuiltinFamiliesRestoresSiblingEntries(t *testing.T) {
@@ -1591,7 +1588,7 @@ func groupByFamilyKeys(ps []config.ProviderEntry, key string) []int {
 }
 
 func TestWriteDefaultConfigOmitsLegacyInternalMCPSections(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "reasonix.toml")
+	path := filepath.Join(t.TempDir(), "rillagent.toml")
 	if rc := writeDefaultConfig(path); rc != 0 {
 		t.Fatalf("writeDefaultConfig rc = %d", rc)
 	}

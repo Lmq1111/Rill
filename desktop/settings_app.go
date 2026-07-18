@@ -25,7 +25,7 @@ import (
 // resolved config and applies edits through internal/config/edit.go (the
 // purpose-built mutation API), then rebuilds the controller so the change takes
 // effect live — the same snapshot→reload→resume pattern as SetModel. Secrets are
-// the exception: they go to Reasonix's global .env (upsertDotEnv), since config
+// the exception: they go to Rill's global .env (upsertDotEnv), since config
 // stores only the env-var name, not the key.
 
 // --- read ---
@@ -1087,7 +1087,7 @@ func botDomainOrDefault(domain string) string {
 // applyConfigChange mutates the user-global config and rebuilds the controller so
 // the change takes effect this session. Desktop settings such as providers and
 // keys are account-level, not per-project: writing them to the global config
-// rather than the cwd's reasonix.toml is what lets them survive a workspace switch.
+// rather than the cwd's rillagent.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
 	_, err := a.applyConfigChangeWithWarning("settings", mutate)
 	return err
@@ -1248,7 +1248,7 @@ func (a *App) loadDesktopUserConfigForEdit() (*config.Config, string, error) {
 // config.LockUserConfigEdits(). Legacy migrations (provider-access normalize,
 // legacy bot-config merge) are applied to the returned copy in memory only;
 // the on-disk file migrates the first time a locked write path runs
-// loadDesktopUserConfigForEdit. Credentials (Reasonix global .env) are not
+// loadDesktopUserConfigForEdit. Credentials (Rill global .env) are not
 // loaded; callers that hand the config to a runtime resolving secrets from the
 // process env must use loadDesktopUserConfigForViewWithCredentials.
 func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
@@ -1256,7 +1256,7 @@ func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
 }
 
 // loadDesktopUserConfigForViewWithCredentials is loadDesktopUserConfigForView
-// plus credential resolution: like config.LoadForEdit it loads Reasonix's
+// plus credential resolution: like config.LoadForEdit it loads Rill's
 // global .env into the process env. Use it for read-only loads whose result
 // feeds a runtime that resolves env-based secrets — the bot runtime
 // (app-secret/control-token envs) and MCP server connects. It still never
@@ -1474,9 +1474,9 @@ func providerCredentialSourceNotice(apiKeyEnv, value string) string {
 
 func projectConfigPathForRoot(root string) string {
 	if strings.TrimSpace(root) == "" || root == "." {
-		return "reasonix.toml"
+		return "rillagent.toml"
 	}
-	return filepath.Join(root, "reasonix.toml")
+	return filepath.Join(root, "rillagent.toml")
 }
 
 func sameConfigPath(a, b string) bool {
@@ -2234,7 +2234,7 @@ func (a *App) AddProviderPresetAccess(id, key string) (string, error) {
 
 // ResetProviderPresetAccess intentionally overwrites same-name provider entries
 // with the curated preset template. It only mutates config; provider secrets stay
-// in Reasonix home .env under whichever api_key_env the resulting preset uses.
+// in Rill home .env under whichever api_key_env the resulting preset uses.
 func (a *App) ResetProviderPresetAccess(id string) error {
 	preset, ok := config.CuratedProviderPreset(id)
 	if !ok {
@@ -2621,7 +2621,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	return nil
 }
 
-// SetProviderKey writes a secret to Reasonix's global .env under the given
+// SetProviderKey writes a secret to Rill's global .env under the given
 // env-var name (the one a provider's api_key_env points at) and rebuilds so it
 // resolves immediately.
 func (a *App) SetProviderKey(apiKeyEnv, value string) (string, error) {
@@ -2712,7 +2712,7 @@ func (a *App) ensureProviderAccessForKey(apiKeyEnv string) error {
 	return cfg.SaveTo(path)
 }
 
-// ClearProviderKey removes a provider secret from Reasonix's global .env
+// ClearProviderKey removes a provider secret from Rill's global .env
 // and rebuilds so the provider immediately becomes unauthenticated.
 func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {

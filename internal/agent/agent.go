@@ -336,7 +336,7 @@ type Agent struct {
 	sandboxEscapeApprover sandbox.EscapeApprover
 
 	// configWriteApprover, when non-nil, can ask the user whether a file tool
-	// may write a Reasonix-managed config file outside the workspace roots.
+	// may write a Rill-managed config file outside the workspace roots.
 	configWriteApprover tool.ConfigWriteApprover
 
 	// hooks, when non-nil, fires PreToolUse / PostToolUse shell hooks around each
@@ -757,7 +757,7 @@ func (a *Agent) SetSandboxEscapeApprover(g sandbox.EscapeApprover) {
 }
 
 // SetConfigWriteApprover installs the optional per-write approval path used by
-// the file tools when a target is a Reasonix-managed config file outside the
+// the file tools when a target is a Rill-managed config file outside the
 // workspace write roots.
 func (a *Agent) SetConfigWriteApprover(g tool.ConfigWriteApprover) {
 	if nilutil.IsNil(g) {
@@ -815,7 +815,7 @@ func (a *Agent) Session() *Session {
 }
 
 // SetSession replaces the agent's conversation wholesale. Used by
-// `reasonix --resume` to load a saved JSONL transcript before the first turn,
+// `rillagent --resume` to load a saved JSONL transcript before the first turn,
 // so the model picks up exactly where it left off. Callers serialise it against a
 // running turn (it only fires while idle); sessMu guards the pointer swap itself.
 func (a *Agent) SetSession(s *Session) {
@@ -1013,7 +1013,7 @@ type Options struct {
 	// enforced OS sandbox fails. nil keeps fail-closed behavior.
 	SandboxEscapeApprover sandbox.EscapeApprover
 
-	// ConfigWriteApprover confirms file-tool writes to Reasonix-managed config
+	// ConfigWriteApprover confirms file-tool writes to Rill-managed config
 	// files outside the workspace roots. nil keeps fail-closed behavior.
 	ConfigWriteApprover tool.ConfigWriteApprover
 

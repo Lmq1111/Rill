@@ -774,7 +774,7 @@ func TestSetReasoningLanguagePersistsToUserConfig(t *testing.T) {
 func TestSetDesktopLanguagePersistsResponseLanguageAndUpdatesLiveTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	projectRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("language = \"zh\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "rillagent.toml"), []byte("language = \"zh\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -821,7 +821,7 @@ func TestSetDesktopLanguagePersistsResponseLanguageAndUpdatesLiveTabs(t *testing
 func TestSetReasoningLanguageUpdatesLiveTabControllers(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	projectRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("[agent]\nreasoning_language = \"en\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "rillagent.toml"), []byte("[agent]\nreasoning_language = \"en\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -910,7 +910,7 @@ func TestSetAutoPlanUpdatesLiveTabControllers(t *testing.T) {
 func TestSetAutoPlanIgnoresProjectOverrideForLiveTab(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	projectRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("[agent]\nauto_plan = \"on\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "rillagent.toml"), []byte("[agent]\nauto_plan = \"on\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1253,7 +1253,7 @@ func TestProjectHooksSettingsUseActiveWorkspaceRootAndTrust(t *testing.T) {
 	if len(view.Hooks) != 1 || view.Hooks[0].Event != string(hook.Stop) || view.Hooks[0].Description != "Turn done" {
 		t.Fatalf("project hooks = %+v", view.Hooks)
 	}
-	if _, err := os.Stat(filepath.Join(project, ".reasonix", "settings.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(project, ".rillagent", "settings.json")); err != nil {
 		t.Fatalf("project hooks settings file missing: %v", err)
 	}
 }
@@ -1297,10 +1297,10 @@ func TestSaveHooksSettingsForRootUsesDisplayedProjectRoot(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("SaveHooksSettingsForRoot: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(projectA, ".reasonix", "settings.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(projectA, ".rillagent", "settings.json")); err != nil {
 		t.Fatalf("displayed project root settings missing: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(projectB, ".reasonix", "settings.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(projectB, ".rillagent", "settings.json")); err == nil {
 		t.Fatal("active project root was written instead of displayed project root")
 	}
 }
@@ -1371,7 +1371,7 @@ func TestLoadDesktopUserConfigViewKeepsLegacyBotConfigMigrationInMemory(t *testi
 		t.Fatal(err)
 	}
 	legacyRoot := t.TempDir()
-	legacyPath := filepath.Join(legacyRoot, "reasonix.toml")
+	legacyPath := filepath.Join(legacyRoot, "rillagent.toml")
 	legacyBody := "[bot]\nenabled = true\nmodel = \"local/m1\"\n"
 	if err := os.WriteFile(legacyPath, []byte(legacyBody), 0o644); err != nil {
 		t.Fatal(err)

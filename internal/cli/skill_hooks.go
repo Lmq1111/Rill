@@ -63,7 +63,7 @@ func (m *chatTUI) skillList() {
 		skills = managementSlashSkills(m.ctrl)
 	}
 	if len(skills) == 0 {
-		m.notice("no skills found. Add SKILL.md / <name>.md under .reasonix/skills (project) or ~/.reasonix/skills (global); .agents/.agent/.claude skills dirs also work. Invoke with /<name> or run_skill.")
+		m.notice("no skills found. Add SKILL.md / <name>.md under .rillagent/skills (project) or ~/.rillagent/skills (global); .agents/.agent/.claude skills dirs also work. Invoke with /<name> or run_skill.")
 		return
 	}
 	m.commitLine(renderSkillList(m.width, sortedSkills(skills), m.disabledSkillNames()))
@@ -305,7 +305,7 @@ func (m *chatTUI) runHooksSubcommand(input string) {
 			m.notice("hooks trust: " + err.Error())
 			return
 		}
-		m.notice("trusted this project's hooks — restart Reasonix to load them")
+		m.notice("trusted this project's hooks — restart Rill to load them")
 	default:
 		m.notice("unknown /hooks subcommand " + args[1] + " — try: /hooks, /hooks trust")
 	}

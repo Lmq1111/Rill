@@ -64,18 +64,18 @@ func TestACPInitializesWithoutAPIKey(t *testing.T) {
 			t.Fatalf("Run --acp initialize rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"reasonix"`) {
+	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"rillagent"`) {
 		t.Fatalf("initialize output = %s", out)
 	}
 }
 
 func TestACPFactoryLoadsSessionCwdProjectConfig(t *testing.T) {
 	home := isolateCLIConfigHome(t)
-	if _, err := config.SetCredential("REASONIX_TEST_KEY", "test-key"); err != nil {
+	if _, err := config.SetCredential("RILLAGENT_TEST_KEY", "test-key"); err != nil {
 		t.Fatalf("SetCredential: %v", err)
 	}
 	project := t.TempDir()
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "rillagent.toml"), []byte(`
 default_model = "local"
 
 [[providers]]
@@ -83,11 +83,11 @@ name = "local"
 kind = "acp-test-provider"
 base_url = "http://example.invalid"
 model = "fake-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmdDir := filepath.Join(project, ".reasonix", "commands")
+	cmdDir := filepath.Join(project, ".rillagent", "commands")
 	if err := os.MkdirAll(cmdDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +114,11 @@ api_key_env = "REASONIX_TEST_KEY"
 
 func TestACPFactoryClearsEffortOverrideForUnsupportedModel(t *testing.T) {
 	isolateCLIConfigHome(t)
-	if _, err := config.SetCredential("REASONIX_TEST_KEY", "test-key"); err != nil {
+	if _, err := config.SetCredential("RILLAGENT_TEST_KEY", "test-key"); err != nil {
 		t.Fatalf("SetCredential: %v", err)
 	}
 	project := t.TempDir()
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "rillagent.toml"), []byte(`
 default_model = "reasoner/reasoning-model"
 
 [[providers]]
@@ -126,7 +126,7 @@ name = "reasoner"
 kind = "acp-test-provider"
 base_url = "http://example.invalid"
 model = "reasoning-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 supported_efforts = ["low", "high"]
 
 [[providers]]
@@ -134,7 +134,7 @@ name = "plain"
 kind = "acp-test-provider"
 base_url = "http://example.invalid"
 model = "plain-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 effort = "high"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -171,11 +171,11 @@ effort = "high"
 
 func TestACPFactoryAdvertisesAndNormalizesRuntimeProfiles(t *testing.T) {
 	isolateCLIConfigHome(t)
-	if _, err := config.SetCredential("REASONIX_TEST_KEY", "test-key"); err != nil {
+	if _, err := config.SetCredential("RILLAGENT_TEST_KEY", "test-key"); err != nil {
 		t.Fatalf("SetCredential: %v", err)
 	}
 	project := t.TempDir()
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "rillagent.toml"), []byte(`
 default_model = "local"
 
 [[providers]]
@@ -183,7 +183,7 @@ name = "local"
 kind = "acp-test-provider"
 base_url = "http://example.invalid"
 model = "fake-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}

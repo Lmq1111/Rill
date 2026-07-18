@@ -46,12 +46,12 @@ func TestNormalizeVersion(t *testing.T) {
 
 func TestUpdateSiblingNamesCoverEveryReplacedEntryPoint(t *testing.T) {
 	windows := strings.Join(updateSiblingNames("windows"), "\x00")
-	for _, want := range []string{"reasonix-guard.exe", "reasonix-launcher.exe", "reasonix-update-helper.exe", "Reasonix.exe"} {
+	for _, want := range []string{"rill-guard.exe", "rill-launcher.exe", "rill-update-helper.exe", "Rill.exe"} {
 		if !strings.Contains(windows, want) {
 			t.Errorf("Windows release unit omits %q: %q", want, windows)
 		}
 	}
-	if got := updateSiblingNames("linux"); len(got) != 1 || got[0] != "reasonix-guard" {
+	if got := updateSiblingNames("linux"); len(got) != 1 || got[0] != "rill-guard" {
 		t.Fatalf("Linux release unit = %q", got)
 	}
 	if got := updateSiblingNames("darwin"); got != nil {
@@ -142,8 +142,8 @@ func TestChannelSelectsDistinctPointers(t *testing.T) {
 	if strings.Contains(downloadPage(), "/releases/latest") {
 		t.Errorf("download page should not use GitHub's repository-wide latest release: %q", downloadPage())
 	}
-	if downloadPage() != "https://reasonix.io/?download=desktop#start" {
-		t.Errorf("download page = %q, want the desktop install deep link", downloadPage())
+	if downloadPage() != "https://github.com/Lmq1111/Rill/releases" {
+		t.Errorf("download page = %q, want the Rill releases page", downloadPage())
 	}
 }
 
@@ -169,7 +169,7 @@ func TestSaveCachedUpdateMarksEvaluateDownloaded(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -200,7 +200,7 @@ func TestCachedUpdateRejectsTamperedArtifact(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -227,7 +227,7 @@ func TestCachedUpdateRejectsDifferentChannel(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -257,11 +257,11 @@ func TestCheckSHA256(t *testing.T) {
 }
 
 func TestExtractBinary(t *testing.T) {
-	want := []byte("#!/bin/sh\necho reasonix\n")
+	want := []byte("#!/bin/sh\necho rillagent\n")
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	files := map[string][]byte{"README": []byte("ignore me"), "reasonix-desktop": want}
+	files := map[string][]byte{"README": []byte("ignore me"), "rill-desktop": want}
 	for name, body := range files {
 		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
 			t.Fatal(err)
@@ -273,7 +273,7 @@ func TestExtractBinary(t *testing.T) {
 	tw.Close()
 	gz.Close()
 
-	got, err := extractBinary(buf.Bytes(), "reasonix-desktop")
+	got, err := extractBinary(buf.Bytes(), "rill-desktop")
 	if err != nil {
 		t.Fatalf("extractBinary: %v", err)
 	}

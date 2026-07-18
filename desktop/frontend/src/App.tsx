@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { useToast } from "./lib/toast";
+import { brand } from "./lib/brand";
 import { useWailsResizeFix } from "./lib/useWailsResizeFix";
 import { asArray } from "./lib/array";
 import { clearLegacyLangPref, normalizeLangPref, readLegacyLangPref, t, useI18n, useT, type Translator } from "./lib/i18n";
@@ -213,7 +214,7 @@ function noticePreviewItems(): Item[] {
     notice(11, "info", "Plan detection was uncertain; using the fallback planner heuristic.", "plan detector confidence=0.48; fallback heuristic selected because files and tests are involved"),
     notice(12, "info", "Goal is not ready to complete yet; continuing the remaining work.", "goal completion check found pending validation: desktop/frontend typecheck"),
     notice(13, "info", "Goal still has unfinished task state; continuing the remaining work.", "active goal has open task state: implement preview, verify browser, report result"),
-    notice(14, "warn", "AutoResearch status update failed.", "autoresearch task completion update failed: write .reasonix/autoresearch/task-42/state/task_spec.json: permission denied"),
+    notice(14, "warn", "AutoResearch status update failed.", "autoresearch task completion update failed: write .rillagent/autoresearch/task-42/state/task_spec.json: permission denied"),
     notice(15, "warn", "AutoResearch task marked blocked.", "autoresearch task blocked: task-42\nreason: missing accepted verification evidence after three turns"),
     notice(16, "warn", "background export failed: needs attention", "background export failed: session archive upload returned 503 after 3 retries"),
     notice(17, "warn", "Job artifact migration failed.", "artifact migration failed for job job_123: checksum mismatch while moving output.zip"),
@@ -915,7 +916,7 @@ function fence(label: string, value: string): string {
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || "Reasonix session"}`, ""];
+  const lines: string[] = [`# ${title.trim() || "Rill session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
       case "user":
@@ -977,7 +978,7 @@ function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): st
 
 function safeFilename(name: string): string {
   const cleaned = name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
-  return cleaned || "reasonix-session";
+  return cleaned || "rillagent-session";
 }
 
 /** Global hotkey handler for shell-expand toggle (Ctrl/Cmd+B). */
@@ -3345,7 +3346,7 @@ export default function App() {
             <>
               <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
                 <div className="sidebar__brand sidebar__brand--workbench">
-                  <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
+                  <img src={logoWordmark} alt={brand.productName} className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
                 </div>
               </div>
 
@@ -3365,7 +3366,7 @@ export default function App() {
           ) : (
             <>
               <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-                <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo" draggable={false} />
+                <img src={logoWordmark} alt={brand.productName} className="sidebar__brand-logo" draggable={false} />
               </div>
 
               <button
@@ -3805,7 +3806,7 @@ export default function App() {
             enabled={startupUpdateChecksEnabled === true}
             onShowReleaseNotes={(latest) => {
               const version = latest.replace(/^(?:desktop-)?v/, "");
-              void openExternal(`https://reasonix.io/changelog/v${version}/`);
+              void openExternal(`https://github.com/Lmq1111/Rill/releases/tag/rill-v${version}`);
             }}
           />
 

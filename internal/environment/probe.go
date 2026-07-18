@@ -240,7 +240,7 @@ func runOne(ctx context.Context, command string, opts ProbeOptions) ProbeResult 
 	// Always set the env explicitly: leaving cmd.Env nil would inherit the
 	// full process environment and bypass [secrets] filter_subprocess_env for
 	// probes that declare no extra variables of their own.
-	cmd.Env = append(secrets.ProcessEnv(), probe.Env...)
+	cmd.Env = probeProcessEnv(probe.Env)
 	prepareProbeCommand(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -269,6 +269,11 @@ func runOne(ctx context.Context, command string, opts ProbeOptions) ProbeResult 
 	res.Found = true
 	res.Output = firstLine(out)
 	return res
+}
+
+func probeProcessEnv(overrides []string) []string {
+	env := append(secrets.ProcessEnv(), overrides...)
+	return secrets.FilterDisallowedProductEnv(env)
 }
 
 func prepareProbeCommand(cmd *exec.Cmd) {

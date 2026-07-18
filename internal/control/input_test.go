@@ -85,7 +85,7 @@ func TestSkillsReflectStoreChangesAfterControllerBuild(t *testing.T) {
 	if _, ok := c.RunSkill("/hot now"); ok {
 		t.Fatal("skill should not exist before it is written")
 	}
-	writeControlSkill(t, project, ".reasonix/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
+	writeControlSkill(t, project, ".rillagent/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
 
 	if skills := c.Skills(); len(skills) != 1 || skills[0].Name != "hot" {
 		t.Fatalf("Skills() = %+v, want newly installed hot skill", skills)
@@ -736,7 +736,7 @@ func TestAutoStartResearchGoalUsesOnlyStrongSignals(t *testing.T) {
 		"持续排查这个线上卡顿直到根因明确，并验证修复",
 		"不要原地打转，把这个方向完整做成方案并验证",
 		"thoroughly implement, test, optimize, and document this feature",
-		"继续 .reasonix/autoresearch/20260618-224530-cache-audit/ 这个任务",
+		"继续 .rillagent/autoresearch/20260618-224530-cache-audit/ 这个任务",
 	} {
 		if !shouldAutoStartResearchGoal(input) {
 			t.Fatalf("shouldAutoStartResearchGoal(%q) = false, want true", input)
@@ -1078,7 +1078,7 @@ func TestSubmitRememberCommandQuickAddsMemory(t *testing.T) {
 	if len(runner.inputs) != 0 {
 		t.Fatalf("/remember should not start a model turn, inputs=%q", runner.inputs)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	body, err := os.ReadFile(filepath.Join(dir, "RILL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

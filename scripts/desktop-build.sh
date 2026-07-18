@@ -5,12 +5,12 @@
 #
 # Output lands in <repo>/dist/ with stable, platform-keyed names that
 # desktop/cmd/sign's `manifest` subcommand maps back to update.PlatformKey:
-#   macOS:   Reasonix-darwin-<arch>.zip                  (ditto archive; updater channel)
-#            Reasonix-darwin-universal.dmg               (drag-to-install; human download)
-#   Windows: Reasonix-windows-<arch>-installer.exe       (NSIS per-user installer; updater channel)
-#            Reasonix-windows-<arch>.zip                 (portable human download)
-#   Linux:   Reasonix-linux-<arch>.tar.gz                (bare binary; updater channel)
-#            Reasonix-linux-<arch>.deb                   (Debian/Ubuntu package; human download)
+#   macOS:   Rill-darwin-<arch>.zip                  (ditto archive; updater channel)
+#            Rill-darwin-universal.dmg               (drag-to-install; human download)
+#   Windows: Rill-windows-<arch>-installer.exe       (NSIS per-user installer; updater channel)
+#            Rill-windows-<arch>.zip                 (portable human download)
+#   Linux:   Rill-linux-<arch>.tar.gz                (bare binary; updater channel)
+#            Rill-linux-<arch>.deb                   (Debian/Ubuntu package; human download)
 #
 # Usage: scripts/desktop-build.sh <os/arch> <version> [channel]
 #   e.g. scripts/desktop-build.sh darwin/arm64 v1.1.0
@@ -25,10 +25,11 @@ os="${PLATFORM%/*}"
 arch="${PLATFORM#*/}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APPNAME="Reasonix"            # wails.json productName -> Reasonix.app
-BINNAME="reasonix-desktop"    # wails.json outputfilename -> linux binary name
-GUARDNAME="reasonix-guard"
-LAUNCHERNAME="reasonix-launcher"
+APPNAME="Rill"             # final user-facing bundle name -> Rill.app
+BINNAME="rill-desktop"     # wails.json outputfilename -> app/binary name
+GUARDNAME="rill-guard"
+LAUNCHERNAME="rill-launcher"
+BUNDLE_ID="io.github.lmq1111.rill"
 windows_resource_tool_dir=""
 
 cleanup() {
@@ -41,16 +42,16 @@ trap cleanup EXIT
 cd "$ROOT/desktop"
 
 build_guard() {
-	echo "==> go build Reasonix Guard"
+	echo "==> go build Rill Guard"
 	mkdir -p "$(dirname "$guard_out")"
 	if [ "$arch" = universal ]; then
 		guard_tmp=$(mktemp -d)
-		(cd "$ROOT" && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_tmp/amd64" ./cmd/reasonix-guard)
-		(cd "$ROOT" && GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_tmp/arm64" ./cmd/reasonix-guard)
+		(cd "$ROOT" && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_tmp/amd64" ./cmd/rill-guard)
+		(cd "$ROOT" && GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_tmp/arm64" ./cmd/rill-guard)
 		lipo -create "$guard_tmp/amd64" "$guard_tmp/arm64" -output "$guard_out"
 		rm -rf "$guard_tmp"
 	else
-		(cd "$ROOT" && GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_out" ./cmd/reasonix-guard)
+		(cd "$ROOT" && GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o "$guard_out" ./cmd/rill-guard)
 	fi
 }
 
@@ -79,28 +80,30 @@ node -e 'const fs=require("fs"),f="wails.json",j=JSON.parse(fs.readFileSync(f,"u
 # NSIS installer is Windows-only (Wails requires a single windows target for -nsis).
 ldflags="-X main.version=$VERSION -X main.channel=$CHANNEL"
 [ "$os" = "darwin" ] && [ "${HAS_APPLE_CERT:-}" = "true" ] && ldflags="$ldflags -X main.macSelfUpdate=true"
-UPDATE_HELPER="reasonix-update-helper.exe"
+UPDATE_HELPER="rill-update-helper.exe"
 if [ "$os" = windows ]; then
 	windows_resource_tool_dir=$(mktemp -d)
-	windows_resource_tool="$windows_resource_tool_dir/reasonix-windows-resource.exe"
+	windows_resource_tool="$windows_resource_tool_dir/rillagent-windows-resource.exe"
 	echo "==> build Windows resource stamper"
 	go build -trimpath -o "$windows_resource_tool" ./cmd/windows-resource
 	guard_out="$ROOT/desktop/build/windows/installer/$GUARDNAME.exe"
 	build_guard
-	stamp_windows_executable "$guard_out" "Reasonix Guard" "$GUARDNAME" "$GUARDNAME.exe"
+	stamp_windows_executable "$guard_out" "Rill Guard" "$GUARDNAME" "$GUARDNAME.exe"
 	launcher_out="$ROOT/desktop/build/windows/installer/$LAUNCHERNAME.exe"
 	echo "==> go build Windows GUI launcher"
 	(cd "$ROOT" && GOOS=windows GOARCH="$arch" CGO_ENABLED=0 go build -trimpath \
-		-ldflags="-s -w -H windowsgui -X main.version=$VERSION" -o "$launcher_out" ./cmd/reasonix-guard)
-	stamp_windows_executable "$launcher_out" "Reasonix Launcher" "$LAUNCHERNAME" "$LAUNCHERNAME.exe"
+		-ldflags="-s -w -H windowsgui -X main.version=$VERSION" -o "$launcher_out" ./cmd/rill-guard)
+	stamp_windows_executable "$launcher_out" "Rill Launcher" "$LAUNCHERNAME" "$LAUNCHERNAME.exe"
 	echo "==> go build Windows update helper"
 	GOOS=windows GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
 		-o "build/windows/installer/$UPDATE_HELPER" ./cmd/update-helper
-	stamp_windows_executable "build/windows/installer/$UPDATE_HELPER" "Reasonix Update Helper" "reasonix-update-helper" "$UPDATE_HELPER"
+	stamp_windows_executable "build/windows/installer/$UPDATE_HELPER" "Rill Update Helper" "rill-update-helper" "$UPDATE_HELPER"
 fi
 build_args=()
 [ "${DESKTOP_BUILD_CLEAN:-1}" != "0" ] && build_args+=(-clean)
-build_args+=(-platform "$PLATFORM" -ldflags "$ldflags")
+# Dependency files are reviewed and locked in Git. A release build must not run
+# an implicit go mod tidy or let Wails rewrite go.mod while packaging.
+build_args+=(-m -nosyncgomod -platform "$PLATFORM" -ldflags "$ldflags")
 [ "$os" = windows ] && build_args+=(-nsis -webview2 embed)
 # Link cgo against WebKitGTK 4.1: 4.0 (libwebkit2gtk-4.0.so.37) is gone on
 # Ubuntu 24.04+/Fedora 40+, while 4.1 ships from Ubuntu 22.04 onward.
@@ -117,13 +120,17 @@ mkdir -p "$ROOT/dist"
 
 case "$os" in
 darwin)
-	# Wails names the bundle after outputfilename (reasonix-desktop.app); repackage
-	# it as Reasonix.app for a clean user-facing name.
+	# Wails 2.12 names the macOS bundle after `name` (Rill.app) while keeping
+	# `outputfilename` for Contents/MacOS/rill-desktop. Copy it to staging so
+	# the guard can become the public bundle launcher without mutating build/bin.
 	staging=$(mktemp -d)
 	app="$staging/${APPNAME}.app"
-	cp -R "build/bin/reasonix-desktop.app" "$app"
+	cp -R "build/bin/${APPNAME}.app" "$app"
 	cp "$guard_out" "$app/Contents/MacOS/$GUARDNAME"
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$app/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $GUARDNAME" "$app/Contents/Info.plist"
+	bundle_identifier=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Contents/Info.plist")
+	[ "$bundle_identifier" = "$BUNDLE_ID" ] || { echo "macOS bundle identifier is $bundle_identifier, want $BUNDLE_ID" >&2; exit 1; }
 	bundle_executable=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Contents/Info.plist")
 	[ "$bundle_executable" = "$GUARDNAME" ] || { echo "macOS bundle executable is $bundle_executable, want $GUARDNAME" >&2; exit 1; }
 	bundle_icon=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$app/Contents/Info.plist")
@@ -226,10 +233,10 @@ windows)
 	;;
 linux)
 	for desktop_contract in \
-		'Exec=reasonix-guard launch --detach' \
-		'Icon=reasonix-desktop' \
-		'StartupWMClass=reasonix-desktop'; do
-		grep -F -x -q "$desktop_contract" build/linux/reasonix.desktop || { echo "Linux desktop entry missing: $desktop_contract" >&2; exit 1; }
+		'Exec=rill-guard launch --detach' \
+		'Icon=rill-desktop' \
+		'StartupWMClass=rill-desktop'; do
+		grep -F -x -q "$desktop_contract" build/linux/rill.desktop || { echo "Linux desktop entry missing: $desktop_contract" >&2; exit 1; }
 	done
 	tar -czf "$ROOT/dist/${APPNAME}-linux-${arch}.tar.gz" -C build/bin "$BINNAME" "$GUARDNAME"
 	# Also build a .deb for Debian/Ubuntu users (goreleaser/nfpm; see

@@ -19,7 +19,7 @@ func lookPath(cmd string) (string, error) {
 // probeLiveMCP starts automatic-intent servers in an isolated Host, records
 // connection results, and always closes the Host (including stdio children).
 // Persistence (startup stats / schema cache) is disabled so --live stays
-// free of cache/state side effects under Reasonix home.
+// free of cache/state side effects under Rill home.
 func probeLiveMCP(rep *MCPReport, cfg *config.Config, root, home string, timeout time.Duration) []Issue {
 	var issues []Issue
 	if cfg == nil {

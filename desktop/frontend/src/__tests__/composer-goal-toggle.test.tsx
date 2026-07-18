@@ -530,7 +530,7 @@ console.log("\ncomposer goal toggle");
 {
   const dom = installDom();
   mockApp({
-    SavePastedFile: async () => ".reasonix/attachments/notes.txt",
+    SavePastedFile: async () => ".rillagent/attachments/notes.txt",
   });
   const { root } = await renderComposer();
 
@@ -607,7 +607,7 @@ console.log("\ncomposer goal toggle");
   mockApp({
     AttachDropped: async () => ({
       kind: "attachment",
-      path: ".reasonix/attachments/report.pdf",
+      path: ".rillagent/attachments/report.pdf",
     }),
   });
   const { root } = await renderComposer();
@@ -641,7 +641,7 @@ console.log("\ncomposer goal toggle");
   mockApp({
     AttachDropped: async () => ({
       kind: "workspace",
-      path: "__reasonix_external_folder/mock/Folder-With-Spaces",
+      path: "__rillagent_external_folder/mock/Folder-With-Spaces",
       isDir: true,
       displayPath: "/Users/example/Folder With Spaces",
     }),
@@ -666,7 +666,7 @@ console.log("\ncomposer goal toggle");
   });
 
   eq(calls.send.join(","), "inspect @/Users/example/Folder With Spaces/", "external folder display text uses the real folder path");
-  eq(calls.submit.join(","), "inspect @__reasonix_external_folder/mock/Folder-With-Spaces/", "external folder submit text uses the session ref token");
+  eq(calls.submit.join(","), "inspect @__rillagent_external_folder/mock/Folder-With-Spaces/", "external folder submit text uses the session ref token");
 
   await act(async () => {
     root.unmount();
@@ -675,7 +675,7 @@ console.log("\ncomposer goal toggle");
 }
 
 {
-  const externalToken = "__reasonix_external_folder/mock/Folder-With-Spaces/src/outside.txt";
+  const externalToken = "__rillagent_external_folder/mock/Folder-With-Spaces/src/outside.txt";
   const externalDisplayPath = "/Users/example/Folder With Spaces/src/outside.txt";
   const picked = composerPickFileEntry("ask @outside", "outside", "", {
     name: "src/outside.txt",
@@ -1504,13 +1504,13 @@ console.log("\ncomposer goal toggle");
         <UserMessage
           id="h3"
           text={"Compare these commands\n/other-command"}
-          submitText={"/reasonix-develop Compare these commands\n/other-command"}
+          submitText={"/rillagent-develop Compare these commands\n/other-command"}
         />
       </LocaleProvider>,
     );
     await flushTimers();
   });
-  ok(document.querySelector(".invocation-display--message")?.textContent?.includes("Reasonix Develop") === true, "history recovery ignores slash-prefixed lines inside the task body");
+  ok(document.querySelector(".invocation-display--message")?.textContent?.includes("Rill Develop") === true, "history recovery ignores slash-prefixed lines inside the task body");
 
   await act(async () => {
     root.render(
@@ -1540,7 +1540,7 @@ console.log("\ncomposer goal toggle");
     ListSessions: async () => [{ path: "/sessions/recent.jsonl", title: "Recent session", current: false }],
     SavePastedFile: async () => {
       savedFiles += 1;
-      return ".reasonix/attachments/notes.txt";
+      return ".rillagent/attachments/notes.txt";
     },
   });
   const { root, rerender } = await renderComposer();

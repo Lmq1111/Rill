@@ -8,8 +8,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("REASONIX_CREDENTIALS_STORE") == "" {
-		_ = os.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	if os.Getenv("RILLAGENT_CREDENTIALS_STORE") == "" {
+		_ = os.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	}
 	goleak.VerifyTestMain(m)
 }

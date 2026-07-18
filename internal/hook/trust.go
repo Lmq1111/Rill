@@ -8,14 +8,14 @@ import (
 	fileencoding "reasonix/internal/fileutil/encoding"
 )
 
-// Trust gates project hooks. A project's .reasonix/settings.json can run
+// Trust gates project hooks. A project's .rillagent/settings.json can run
 // arbitrary shell commands, so cloning a repo must not silently execute its
 // hooks: project hooks load only after the user explicitly trusts that project
-// root. The trust flag lives in user-global state (<Reasonix home>/trust.json),
+// root. The trust flag lives in user-global state (<Rill home>/trust.json),
 // NOT in the project file itself — an attacker controls the latter. Global
-// hooks (<Reasonix home>/settings.json) are the user's own and always run.
+// hooks (<Rill home>/settings.json) are the user's own and always run.
 
-// TrustFilename is the user-global trust store under ~/.reasonix.
+// TrustFilename is the user-global trust store under ~/.rillagent.
 const TrustFilename = "trust.json"
 
 type trustFile struct {
@@ -23,10 +23,10 @@ type trustFile struct {
 	Projects map[string]bool `json:"projects"`
 }
 
-// TrustPath is <Reasonix home>/trust.json (homeDir overrides ~ for tests and
+// TrustPath is <Rill home>/trust.json (homeDir overrides ~ for tests and
 // legacy callers).
 func TrustPath(homeDir string) string {
-	return filepath.Join(reasonixHome(homeDir), TrustFilename)
+	return filepath.Join(rillHome(homeDir), TrustFilename)
 }
 
 // IsTrusted reports whether projectRoot has been trusted to run its hooks.
@@ -62,14 +62,6 @@ func readTrust(homeDir string) trustFile {
 	path := TrustPath(homeDir)
 	b, err := fileencoding.ReadFileUTF8(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			if legacy := legacyTrustPath(homeDir); legacy != "" {
-				if legacyBytes, legacyErr := fileencoding.ReadFileUTF8(legacy); legacyErr == nil {
-					_ = json.Unmarshal(legacyBytes, &tf)
-					return tf
-				}
-			}
-		}
 		return tf
 	}
 	_ = json.Unmarshal(b, &tf) // malformed → empty (untrusted), don't crash

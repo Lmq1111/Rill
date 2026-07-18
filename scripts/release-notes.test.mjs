@@ -24,7 +24,7 @@ test("GitHub rendering keeps product sections and source PR links", async () => 
   assert.match(markdown, /## 风险提示/);
   assert.match(markdown, /## 致谢/);
   assert.match(markdown, /\/pull\/6460/);
-  assert.match(markdown, /reasonix\.io\/changelog\/v1\.17\.13/);
+  assert.match(markdown, /rillagent\.io\/changelog\/v1\.17\.13/);
 });
 
 test("validation rejects bilingual drift", () => {

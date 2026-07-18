@@ -41,9 +41,9 @@ func InspectAndRepairConfig(opts ConfigOptions) (ConfigReport, error) {
 		opts.Now = time.Now
 	}
 	global := config.UserConfigPath()
-	project := filepath.Join(opts.Root, "reasonix.toml")
+	project := filepath.Join(opts.Root, "rillagent.toml")
 	if opts.Root == "" || opts.Root == "." {
-		project = "reasonix.toml"
+		project = "rillagent.toml"
 	}
 	paths := []struct{ scope, path string }{{"global", global}, {"project", project}}
 	report := ConfigReport{Checks: make([]ConfigCheck, 0, len(paths)), Applied: []string{}}
@@ -57,7 +57,7 @@ func InspectAndRepairConfig(opts ConfigOptions) (ConfigReport, error) {
 		if !opts.Apply || !check.Exists || check.Valid || (opts.OnlyScope != "" && item.scope != opts.OnlyScope) || (item.scope == "project" && !opts.IncludeProject) {
 			continue
 		}
-		quarantine := item.path + ".reasonix-quarantine-" + opts.Now().UTC().Format("20060102T150405Z")
+		quarantine := item.path + ".rillagent-quarantine-" + opts.Now().UTC().Format("20060102T150405Z")
 		if err := os.Rename(item.path, quarantine); err != nil {
 			return report, fmt.Errorf("quarantine %s config: %w", item.scope, err)
 		}

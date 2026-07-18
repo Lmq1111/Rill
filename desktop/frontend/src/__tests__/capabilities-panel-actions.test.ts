@@ -260,12 +260,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "test-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "test-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-1",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-1",
     topicTitle: "Test",
     label: "Test",
@@ -274,7 +274,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   let servers: ServerView[] = [{
     name: "github",
@@ -338,12 +338,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "trust-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "trust-mcp-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-trust-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-trust-mcp",
     topicTitle: "Trust MCP",
     label: "Trust MCP",
@@ -352,7 +352,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   let trustDecision = "";
   let servers: ServerView[] = [{
@@ -457,12 +457,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "managed-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "managed-mcp-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-managed-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-managed-mcp",
     topicTitle: "Managed MCP",
     label: "Managed MCP",
@@ -471,7 +471,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   const servers: ServerView[] = [{
     name: "helper",
@@ -529,12 +529,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "runtime-mcp-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "runtime-mcp-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-runtime-mcp",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-runtime-mcp",
     topicTitle: "Runtime MCP",
     label: "Runtime MCP",
@@ -543,7 +543,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   const servers: ServerView[] = [{
     name: "runtime-only",
@@ -591,12 +591,12 @@ console.log("capabilities panel MCP actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-editor-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "mcp-editor-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-mcp-editor",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-mcp-editor",
     topicTitle: "MCP editor",
     label: "MCP editor",
@@ -605,7 +605,7 @@ console.log("capabilities panel MCP actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   let addedInput: MCPServerInput | undefined;
   let servers: ServerView[] = [
@@ -755,12 +755,12 @@ console.log("capabilities panel plugin actions");
   const rootEl = document.getElementById("root");
   if (!rootEl) throw new Error("missing root");
   const root = createRoot(rootEl);
-  const meta: Meta = { label: "test", ready: true, eventChannel: "plugin-channel", cwd: "/tmp/reasonix-test", workspaceRoot: "/tmp/reasonix-test" };
+  const meta: Meta = { label: "test", ready: true, eventChannel: "plugin-channel", cwd: "/tmp/rillagent-test", workspaceRoot: "/tmp/rillagent-test" };
   const tabs: TabMeta[] = [{
     id: "tab-plugin",
     scope: "project",
-    workspaceRoot: "/tmp/reasonix-test",
-    workspaceName: "reasonix-test",
+    workspaceRoot: "/tmp/rillagent-test",
+    workspaceName: "rillagent-test",
     topicId: "topic-plugin",
     topicTitle: "Plugins",
     label: "Plugins",
@@ -769,7 +769,7 @@ console.log("capabilities panel plugin actions");
     mode: "normal",
     toolApprovalMode: "auto",
     active: true,
-    cwd: "/tmp/reasonix-test",
+    cwd: "/tmp/rillagent-test",
   }];
   let planCalls = 0;
   let installCalls = 0;
@@ -785,8 +785,8 @@ console.log("capabilities panel plugin actions");
     version: "0.1.0",
     description: "Shared agent skills and hooks.",
     source: "git:github.com/obra/superpowers",
-    root: "~/.reasonix/plugins/superpowers",
-    manifestKind: "reasonix",
+    root: "~/.rillagent/plugins/superpowers",
+    manifestKind: "rillagent",
     enabled: true,
     skills: 2,
     hooks: 1,
@@ -821,8 +821,8 @@ console.log("capabilities panel plugin actions");
             version: "0.1.1",
             description: "Shared agent skills and hooks.",
             source,
-            root: "~/.reasonix/plugins/superpowers",
-            manifestKind: "reasonix",
+            root: "~/.rillagent/plugins/superpowers",
+            manifestKind: "rillagent",
             enabled: true,
             skills: 3,
             commands: 2,

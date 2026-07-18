@@ -1,19 +1,19 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "reasonix-desktop",
-  "outputfilename": "reasonix-desktop",
+  "name": "Rill",
+  "outputfilename": "rill-desktop",
   "frontend:install": "pnpm install",
   "frontend:build": "pnpm build",
   "frontend:dev:watcher": "pnpm dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "esengine"
+    "name": "Lmq1111"
   },
   "info": {
-    "companyName": "Reasonix",
-    "productName": "Reasonix",
-    "productVersion": "0.0.0",
-    "copyright": "Copyright © 2026 Reasonix Contributors",
-    "comments": "Reasonix desktop — a Wails shell around the Go kernel."
+    "companyName": "Rill",
+    "productName": "Rill",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright © 2026 Rill Contributors",
+    "comments": "Rill desktop — a Wails shell around the Go kernel."
   }
 }

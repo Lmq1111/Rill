@@ -34,6 +34,7 @@ import (
 	"reasonix/internal/billing"
 	"reasonix/internal/boot"
 	"reasonix/internal/botruntime"
+	"reasonix/internal/brand"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -63,7 +64,7 @@ import (
 // `data:` frames.
 const eventChannel = "agent:event"
 
-const singleInstanceIDPrefix = "com.reasonix.desktop"
+const singleInstanceIDPrefix = brand.BundleID
 
 // singleInstanceID is used by Wails to route a second desktop launch back to the
 // running instance. It is stable for a given binary path, while allowing a dev
@@ -351,13 +352,13 @@ func (a *App) jsProfilingMiddleware() func(http.Handler) http.Handler {
 }
 
 // workspaceMediaMiddleware returns an HTTP middleware that intercepts
-// /__reasonix_workspace_media/{token}/{filename} requests and serves the
+// /__rillagent_workspace_media/{token}/{filename} requests and serves the
 // corresponding workspace file. All other paths pass through to the Wails
 // default asset handler unchanged.
 func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			prefix := "/__reasonix_workspace_media/"
+			prefix := "/__rillagent_workspace_media/"
 			if !strings.HasPrefix(r.URL.Path, prefix) {
 				next.ServeHTTP(w, r)
 				return
@@ -5839,7 +5840,7 @@ type CommandInfo struct {
 }
 
 // Commands lists the slash commands available this session — built-in actions,
-// custom commands (.reasonix/commands), and MCP prompts — for the composer's "/"
+// custom commands (.rillagent/commands), and MCP prompts — for the composer's "/"
 // autocomplete menu.
 func (a *App) Commands() []CommandInfo {
 	out := []CommandInfo{
@@ -5850,7 +5851,6 @@ func (a *App) Commands() []CommandInfo {
 		{Name: "provider", Description: i18n.M.CmdProvider, Kind: "builtin", Group: "management"},
 		{Name: "effort", Description: i18n.M.CmdEffort, Kind: "builtin", Group: "actions"},
 		{Name: "memory", Description: i18n.M.CmdMemory, Kind: "builtin", Group: "management"},
-		{Name: "migrate", Description: i18n.M.CmdMigrate, Kind: "builtin", Group: "management"},
 		{Name: "goal", Description: i18n.M.CmdGoal, Kind: "builtin", Group: "actions"},
 		{Name: "remember", Description: i18n.M.CmdRemember, Kind: "builtin", Group: "management"},
 		{Name: "mcp", Description: i18n.M.CmdMcp, Kind: "builtin", Group: "integrations"},
@@ -5933,7 +5933,7 @@ func (a *App) SlashArgs(input string) SlashArgsResult {
 		DisconnectedMCP: ctrl.DisconnectedMCPNames(),
 		CurrentModel:    model,
 	}
-	if names, err := pluginpkg.InstalledNames(config.ReasonixHomeDir()); err == nil {
+	if names, err := pluginpkg.InstalledNames(config.RillHomeDir()); err == nil {
 		data.PluginNames = names
 	}
 	seen := map[string]bool{}
@@ -6386,8 +6386,8 @@ func (a *App) mcpTrustSpec(name string) (plugin.Spec, error) {
 	}
 	specs := boot.PluginSpecsForRootWithOptions([]config.PluginEntry{*entry}, root, boot.PluginSpecOptions{
 		DefaultCallTimeout: time.Duration(cfg.MCPCallTimeoutSeconds()) * time.Second,
-		TrustManager:       mcptrust.ForWorkspace(config.ReasonixHomeDir(), root),
-		ConfigSource:       "workspace_config", StateHome: config.ReasonixHomeDir(),
+		TrustManager:       mcptrust.ForWorkspace(config.RillHomeDir(), root),
+		ConfigSource:       "workspace_config", StateHome: config.RillHomeDir(),
 		WriterRoots: cfg.WriteRootsForRoot(root), ForbidReadRoots: boot.RuntimeForbidReadRoots(cfg, root),
 		Network:         cfg.Sandbox.Network,
 		OfficialServers: boot.LoadOfficialMCPTrust(context.Background(), cfg),
@@ -7924,9 +7924,9 @@ func (e *sessionLeaseBusyError) Error() string {
 	// the session itself (startup bind), not changing a setting on it.
 	setting := strings.TrimSpace(e.setting)
 	if setting == "" {
-		return "this session is already open in another Reasonix window or still running in the background; close the other window or open a copy"
+		return "this session is already open in another Rill window or still running in the background; close the other window or open a copy"
 	}
-	return fmt.Sprintf("this session is already open in another Reasonix window or still running in the background; close the other window or open a copy before changing %s", setting)
+	return fmt.Sprintf("this session is already open in another Rill window or still running in the background; close the other window or open a copy before changing %s", setting)
 }
 
 func (e *sessionLeaseBusyError) Unwrap() error {
@@ -8843,7 +8843,7 @@ func (a *App) ReadFileForTab(tabID, rel string) FilePreview {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
 		out.Kind = kind
 		out.Mime = mime
-		out.URL = "/__reasonix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		out.URL = "/__rillagent_workspace_media/" + token + "/" + url.PathEscape(info.Name())
 		return out
 	}
 	f, err := os.Open(path)
@@ -9104,7 +9104,7 @@ func (a *App) withActiveWorkspaceDo(fn func() error) error {
 }
 
 // SavePastedImage stores a browser clipboard image data URL under the active
-// tab's workspace .reasonix/attachments and returns the relative @-reference path.
+// tab's workspace .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SavePastedImage(dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveImageDataURL(dataURL)
@@ -9112,14 +9112,14 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 }
 
 // SaveClipboardImage reads the native OS clipboard image under the active tab's
-// workspace .reasonix/attachments and returns the relative @-reference path.
+// workspace .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
 }
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes
 // as a data URL but not a real path) under the active tab's workspace
-// .reasonix/attachments and returns the relative @-reference path.
+// .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
@@ -9175,7 +9175,7 @@ func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
 func safeExportFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "reasonix-session.md"
+		return "rillagent-session.md"
 	}
 	return filepath.Base(name)
 }
@@ -9207,7 +9207,7 @@ func (a *App) AttachmentDataURL(path string) (string, error) {
 // DroppedItem is one OS-dropped file resolved into a composer context entry: an
 // in-tree file becomes a workspace @reference (read in place, no copy), while an
 // outside directory becomes a session-scoped workspace @reference; an image or
-// out-of-tree file is copied into .reasonix/attachments.
+// out-of-tree file is copied into .rillagent/attachments.
 type DroppedItem struct {
 	Kind        string `json:"kind"` // "workspace" | "attachment"
 	Path        string `json:"path"`
@@ -9220,7 +9220,7 @@ type DroppedItem struct {
 // composer context entry. Images are stored as attachments so the chip shows a
 // thumbnail; in-workspace files are referenced relatively (no copy); directories
 // outside the workspace are registered as current-session folder references;
-// files outside the workspace are copied into .reasonix/attachments.
+// files outside the workspace are copied into .rillagent/attachments.
 func (a *App) AttachDropped(path string) (DroppedItem, error) {
 	var item DroppedItem
 	err := a.withActiveWorkspaceDo(func() error {
@@ -9347,7 +9347,7 @@ type MemoryView struct {
 // writableScopes are the quick-add targets the panel offers, broad → specific.
 var writableScopes = []memory.Scope{memory.ScopeUser, memory.ScopeProject, memory.ScopeLocal}
 
-// Memory returns the loaded memory for the panel: the REASONIX.md hierarchy,
+// Memory returns the loaded memory for the panel: the RILL.md hierarchy,
 // active/archived auto-memories, and the writable scopes. Read-only; mutations
 // go through Remember / SaveDoc.
 func (a *App) Memory() MemoryView {
@@ -9586,7 +9586,7 @@ func (a *App) NeedsOnboarding() bool {
 }
 
 // ConnectKey validates apiKey against the balance endpoint, persists it to
-// Reasonix's global .env, and rebuilds the controller so the new key takes effect.
+// Rill's global .env, and rebuilds the controller so the new key takes effect.
 func (a *App) ConnectKey(apiKey string) (string, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {

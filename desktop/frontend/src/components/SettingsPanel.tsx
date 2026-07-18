@@ -3,6 +3,7 @@ import { Bot as BotIcon, Check, CheckCircle2, ChevronDown, ChevronUp, Clipboard,
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
 import { app, openExternal } from "../lib/bridge";
+import { brand } from "../lib/brand";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { apiKeyEnvFromProviderName, inferredVisionModels, mergedFetchedProviderModels, providerApiKeyEnvForSave, providerDefaultModel, providerIsConfigured, providerModelCandidates, providerRequiresKey } from "../lib/providerModels";
 import { useUpdater } from "../lib/useUpdater";
@@ -963,7 +964,7 @@ function defaultBotSettings(): BotSettingsView {
     control: {
       enabled: false,
       addr: "127.0.0.1:37913",
-      tokenEnv: "REASONIX_BOT_CONTROL_TOKEN",
+      tokenEnv: "RILLAGENT_BOT_CONTROL_TOKEN",
     },
     pairing: {
       enabled: true,
@@ -6891,6 +6892,7 @@ function UpdatesSection({
 
   return (
     <SettingsSection title={t("updater.title")}>
+      <div className="mem-hint">{brand.productName} · {brand.slogan}</div>
       <SettingsField
         className="settings-field--wide-copy"
         label={t("updater.autoCheckLabel")}
@@ -6973,7 +6975,7 @@ function UpdatesSection({
         label={t("changelog.title")}
         hint={t("changelog.subtitle")}
       >
-        <button className="btn btn--small" onClick={() => void openExternal("https://reasonix.io/changelog/")}>
+        <button className="btn btn--small" onClick={() => void openExternal("https://github.com/Lmq1111/Rill/releases")}>
           {t("changelog.openWeb")}
           <ExternalLink size={14} aria-hidden="true" />
         </button>

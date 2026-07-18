@@ -156,11 +156,11 @@ func isolateDesktopUserDirs(t *testing.T) string {
 		}
 	}
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
-	t.Setenv("REASONIX_STATE_HOME", filepath.Join(home, "state"))
-	t.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("RILLAGENT_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("RILLAGENT_CACHE_HOME", filepath.Join(home, "cache"))
 	t.Setenv("AppData", appData)
 	return home
 }
@@ -201,7 +201,7 @@ func TestNeedsOnboardingIgnoresInheritedEnv(t *testing.T) {
 
 	app := NewApp()
 	if !app.NeedsOnboarding() {
-		t.Fatal("NeedsOnboarding should require a key saved in Reasonix global .env")
+		t.Fatal("NeedsOnboarding should require a key saved in Rill global .env")
 	}
 	setDesktopTestCredential(t, onboardingKeyEnv, "saved-key")
 	if app.NeedsOnboarding() {
@@ -763,7 +763,7 @@ func TestSettingsUsesUserDesktopPreferencesNotProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "rillagent.toml"), []byte(`
 [desktop]
 language = "zh"
 layout_style = "workbench"
@@ -873,11 +873,11 @@ func BenchmarkDesktopSettingsPayloads(b *testing.B) {
 		}
 	}
 	b.Setenv("HOME", home)
-	b.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	b.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	b.Setenv("USERPROFILE", home)
 	b.Setenv("XDG_CONFIG_HOME", xdg)
-	b.Setenv("REASONIX_STATE_HOME", filepath.Join(home, "state"))
-	b.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
+	b.Setenv("RILLAGENT_STATE_HOME", filepath.Join(home, "state"))
+	b.Setenv("RILLAGENT_CACHE_HOME", filepath.Join(home, "cache"))
 	b.Setenv("AppData", appData)
 	b.Setenv("SHARED_PROVIDER_KEY", "sk-test")
 
@@ -997,8 +997,8 @@ func TestSettingsShowsGlobalCredentialWithoutMutatingWorkspaceEnv(t *testing.T) 
 		if p.Name != "settings-provider" {
 			continue
 		}
-		if !p.KeySet || !strings.Contains(p.KeySource, "Reasonix credentials") {
-			t.Fatalf("settings-provider key = set:%v source:%q, want Reasonix credentials: %+v", p.KeySet, p.KeySource, p)
+		if !p.KeySet || !strings.Contains(p.KeySource, "Rill credentials") {
+			t.Fatalf("settings-provider key = set:%v source:%q, want Rill credentials: %+v", p.KeySet, p.KeySource, p)
 		}
 		if env := os.Getenv("SHARED_SETTINGS_KEY"); env != "from-project" {
 			t.Fatalf("Settings mutated SHARED_SETTINGS_KEY = %q, want existing project env", env)
@@ -1012,7 +1012,7 @@ func TestSettingsSeedsMissingUserConfigFromLegacyProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "rillagent.toml"), []byte(`
 default_model = "legacy-provider/legacy-model"
 
 [desktop]
@@ -1930,7 +1930,7 @@ func TestSetProviderKeyLeaseHeldKeepsCurrentController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetProviderKey: %v", err)
 	}
-	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Rill window") {
 		t.Fatalf("SetProviderKey warning = %q, want deferred rebuild warning", warning)
 	}
 	if strings.Contains(warning, sessionPath) || strings.Contains(warning, "held by") {
@@ -2074,7 +2074,7 @@ func TestSaveProviderWithKeyLeaseHeldPersistsCustomProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SaveProviderWithKey: %v", err)
 	}
-	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "current session could not refresh yet") || !strings.Contains(warning, "another Rill window") {
 		t.Fatalf("SaveProviderWithKey warning = %q, want deferred rebuild warning", warning)
 	}
 	if strings.Contains(warning, sessionPath) || strings.Contains(warning, "held by") {
@@ -2892,7 +2892,7 @@ base_url = "https://api.deepseek.com"
 model = "deepseek-v4-flash"
 api_key_env = "DEEPSEEK_API_KEY"
 `
-	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte(projectConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "rillagent.toml"), []byte(projectConfig), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
 
@@ -3803,8 +3803,8 @@ func TestEnsureTabControllerWorkspaceWarnsWhenPinnedSessionSwitchesWorkspace(t *
 }
 
 func TestDescribeSessionBindingWorkspaceKeepsWindowsPathReadable(t *testing.T) {
-	path := `C:\Users\Jane Doe\Reasonix`
-	want := `project workspace "C:\Users\Jane Doe\Reasonix"`
+	path := `C:\Users\Jane Doe\Rill`
+	want := `project workspace "C:\Users\Jane Doe\Rill"`
 	if got := describeSessionBindingWorkspace("project", path); got != want {
 		t.Fatalf("describeSessionBindingWorkspace = %q, want %q", got, want)
 	}
@@ -3855,7 +3855,7 @@ api_key_env = "OWNER_MODEL_KEY"
 supported_efforts = ["max"]
 default_effort = "max"
 `
-	if err := os.WriteFile(filepath.Join(projectA, "reasonix.toml"), []byte(ownerConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectA, "rillagent.toml"), []byte(ownerConfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	staleConfig := `default_model = "stale/stale-model"
@@ -3867,7 +3867,7 @@ model = "stale-model"
 api_key_env = "STALE_MODEL_KEY"
 reasoning_protocol = "none"
 `
-	if err := os.WriteFile(filepath.Join(projectB, "reasonix.toml"), []byte(staleConfig), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectB, "rillagent.toml"), []byte(staleConfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -4144,13 +4144,13 @@ func TestSaveProviderPersistsReasoningProtocol(t *testing.T) {
 
 func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a2"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	cfg.Agent.PlannerModel = "prov-a"
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
@@ -4211,13 +4211,13 @@ func assertTabBuildSuperseded(t *testing.T, app *App, tab *WorkspaceTab, generat
 
 func TestDeleteProviderSupersedesInFlightStartupBuild(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
@@ -4250,13 +4250,13 @@ func TestDeleteProviderSupersedesInFlightStartupBuild(t *testing.T) {
 
 func TestRemoveBuiltInProviderAccessSupersedesInFlightStartupBuild(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-chat", APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	cfg.Desktop.ProviderAccess = []string{"deepseek", "prov-b"}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
@@ -4418,13 +4418,13 @@ func TestClearActiveSessionRuntimeReleasesResourcesWhenTabReplaced(t *testing.T)
 
 func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4452,13 +4452,13 @@ func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 
 func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4490,13 +4490,13 @@ func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 
 func TestDeleteProviderRejectsUnaffectedBackgroundJobsBeforeSavingConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -4639,7 +4639,7 @@ func TestConnectKeyRebuildLeaseHeldKeepsCurrentController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConnectKey: %v", err)
 	}
-	if !strings.Contains(warning, "another Reasonix window") {
+	if !strings.Contains(warning, "another Rill window") {
 		t.Fatalf("ConnectKey warning = %q, want user-facing lease warning", warning)
 	}
 	if tab.Ctrl != oldCtrl {
@@ -6694,7 +6694,7 @@ func TestSubmitToTabHistoryDisplaysRawInputAfterMemoryCompose(t *testing.T) {
 
 	app := NewApp()
 	app.setTestCtrl(ctrl, "deepseek/test")
-	ctrl.QueueMemory(`Saved memory "reasonix-contributions": contribution count updated`)
+	ctrl.QueueMemory(`Saved memory "rillagent-contributions": contribution count updated`)
 
 	const prompt = "不要，删了"
 	app.SubmitToTab("test", prompt)
@@ -6723,7 +6723,7 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	workspace := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(workspace, "reasonix.toml"), []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, "rillagent.toml"), []byte(""), 0o644); err != nil {
 		t.Fatalf("write workspace config: %v", err)
 	}
 	dir := config.SessionDir()
@@ -6817,7 +6817,7 @@ func TestCapabilitiesShowsDefaultMCPAsAutomaticIdleNotDisabled(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -6848,8 +6848,8 @@ args = ["-y", "@playwright/mcp"]
 
 func TestCapabilitiesIncludesInstalledPlugins(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	reasonixHome := config.ReasonixHomeDir()
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	rillHome := config.RillHomeDir()
+	root := filepath.Join(rillHome, "plugins", "superpowers")
 	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -6870,7 +6870,7 @@ func TestCapabilitiesIncludesInstalledPlugins(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "6.1.0",
@@ -6902,7 +6902,7 @@ func TestDesktopSharedHostBackgroundMCPAutoConnectsOnBoot(t *testing.T) {
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(fmt.Sprintf(`
 [[plugins]]
 name = "h"
 type = "http"
@@ -6958,7 +6958,7 @@ func TestMCPServersMatchesCapabilitiesServerProjection(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -6980,7 +6980,7 @@ func TestConfiguredMCPWithFormerBuiltInNameIsUserServer(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -7031,7 +7031,7 @@ func TestSetMCPServerEnabledSharedHostPreservesSiblingTabs(t *testing.T) {
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(fmt.Sprintf(`
 [[plugins]]
 name = "h"
 type = "http"
@@ -7119,7 +7119,7 @@ func TestSetMCPTrustWorkspaceRefreshesEverySharedHostRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	helperArgs := []string{"-test.run=TestDesktopMCPHelperProcess", "--"}
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(fmt.Sprintf(`
 [[plugins]]
 name = "h"
 command = %q
@@ -7131,7 +7131,7 @@ GO_WANT_DESKTOP_MCP_HELPER = "1"
 		t.Fatal(err)
 	}
 
-	manager := mcptrust.ForWorkspace(config.ReasonixHomeDir(), dir)
+	manager := mcptrust.ForWorkspace(config.RillHomeDir(), dir)
 	entry := config.PluginEntry{
 		Name: "h", Command: exe, Args: helperArgs,
 		Env: map[string]string{"GO_WANT_DESKTOP_MCP_HELPER": "1"},
@@ -7144,7 +7144,7 @@ GO_WANT_DESKTOP_MCP_HELPER = "1"
 		DefaultCallTimeout: time.Duration(cfg.MCPCallTimeoutSeconds()) * time.Second,
 		TrustManager:       manager,
 		ConfigSource:       "workspace_config",
-		StateHome:          config.ReasonixHomeDir(),
+		StateHome:          config.RillHomeDir(),
 		WriterRoots:        cfg.WriteRootsForRoot(dir),
 		ForbidReadRoots:    cfg.ForbidReadRootsForRoot(dir),
 		Network:            cfg.Sandbox.Network,
@@ -7248,7 +7248,7 @@ func TestEditAndRemoveConfiguredMCPWithBuiltInName(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -7294,10 +7294,10 @@ func TestRemoveMCPServerClearsRecordedStartupFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "rillagent-missing-mcp-binary"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -7307,7 +7307,7 @@ command = "reasonix-missing-mcp-binary"
 	defer app.activeCtrl().Close()
 	recordMCPFailure(app.activeCtrl(), config.PluginEntry{
 		Name:    "broken",
-		Command: "reasonix-missing-mcp-binary",
+		Command: "rillagent-missing-mcp-binary",
 	}, errors.New("connect: missing binary"))
 
 	view := app.Capabilities()
@@ -7368,8 +7368,8 @@ func TestRemoveMCPServerRejectsPluginManagedServerWithoutDisconnecting(t *testin
 
 	srv := desktopMCPHTTPServer(t)
 	defer srv.Close()
-	reasonixHome := config.ReasonixHomeDir()
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	rillHome := config.RillHomeDir()
+	root := filepath.Join(rillHome, "plugins", "superpowers")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -7382,11 +7382,11 @@ func TestRemoveMCPServerRejectsPluginManagedServerWithoutDisconnecting(t *testin
 }`, srv.URL)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "1.0.0",
-		ManifestKind: "reasonix",
+		ManifestKind: "rillagent",
 		Enabled:      true,
 	}); err != nil {
 		t.Fatal(err)
@@ -7477,7 +7477,7 @@ func TestUpdateMCPServerEditsProjectMCPJSONEntry(t *testing.T) {
 	if err := app.UpdateMCPServer("codegraph", MCPServerInput{
 		Name:      "codegraph",
 		Transport: "stdio",
-		Command:   "reasonix-missing-mcp-binary",
+		Command:   "rillagent-missing-mcp-binary",
 		Args:      []string{"serve", "--mcp"},
 		Env:       map[string]string{"CODEGRAPH_LOG": "debug"},
 	}); err != nil {
@@ -7499,7 +7499,7 @@ func TestUpdateMCPServerEditsProjectMCPJSONEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := doc.MCPServers["codegraph"]
-	if got.Command != "reasonix-missing-mcp-binary" || !reflect.DeepEqual(got.Args, []string{"serve", "--mcp"}) || got.Env["CODEGRAPH_LOG"] != "debug" {
+	if got.Command != "rillagent-missing-mcp-binary" || !reflect.DeepEqual(got.Args, []string{"serve", "--mcp"}) || got.Env["CODEGRAPH_LOG"] != "debug" {
 		t.Fatalf(".mcp.json codegraph = %+v, want updated command/args/env", got)
 	}
 	if _, ok := findPluginEntry(config.LoadForEdit(config.UserConfigPath()).Plugins, "codegraph"); ok {
@@ -7694,7 +7694,7 @@ func TestCapabilitiesMarksBackgroundRemoteMCPAuthPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "dida"
 type = "http"
@@ -7724,7 +7724,7 @@ func TestCapabilitiesDoesNotMarkRemoteMCPWithAuthHeaderPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "stripe"
 type = "http"
@@ -7755,7 +7755,7 @@ func TestCapabilitiesMarksAuthFailureRequired(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "figma"
 type = "http"
@@ -7787,7 +7787,7 @@ func TestClearMCPServerAuthenticationClearsConfigAndFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "figma"
 type = "http"
@@ -7847,7 +7847,7 @@ func TestUpdateMCPServerMigratesLegacyTierToBackground(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -7895,7 +7895,7 @@ tier = "lazy"
 	if userPlugin.Tier != "" {
 		t.Fatalf("user plugin tier = %q, want migrated empty", userPlugin.Tier)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "reasonix.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "rillagent.toml"))
 	if _, ok := findPluginEntry(projectCfg.Plugins, "playwright"); ok {
 		t.Fatalf("project plugin should be removed after desktop migration: %+v", projectCfg.Plugins)
 	}
@@ -7918,7 +7918,7 @@ func TestUpdateMCPServerSplitsPastedCommandLine(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -7956,7 +7956,7 @@ func TestUpdateMCPServerRecordsReconnectFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "broken"
 command = "npx"
@@ -7972,7 +7972,7 @@ tier = "background"
 	if err := app.UpdateMCPServer("broken", MCPServerInput{
 		Name:      "broken",
 		Transport: "stdio",
-		Command:   "reasonix-missing-mcp-binary",
+		Command:   "rillagent-missing-mcp-binary",
 	}); err != nil {
 		t.Fatalf("UpdateMCPServer should persist config even when reconnect fails: %v", err)
 	}
@@ -7980,7 +7980,7 @@ tier = "background"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Plugins[0].Command; got != "reasonix-missing-mcp-binary" {
+	if got := cfg.Plugins[0].Command; got != "rillagent-missing-mcp-binary" {
 		t.Fatalf("updated command = %q, want missing binary", got)
 	}
 	if got := cfg.Plugins[0].Tier; got != "" {
@@ -7995,7 +7995,7 @@ tier = "background"
 			if s.Status != "failed" {
 				t.Fatalf("server status = %q, want failed; server = %+v", s.Status, s)
 			}
-			if s.Command != "reasonix-missing-mcp-binary" || s.Tier != "background" {
+			if s.Command != "rillagent-missing-mcp-binary" || s.Tier != "background" {
 				t.Fatalf("server config not refreshed after failed reconnect: %+v", s)
 			}
 			return
@@ -8008,7 +8008,7 @@ func TestReconnectMCPServerClearsInitializingPlaceholderAndRecordsFailure(t *tes
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "codegraph"
 `), 0o644); err != nil {
@@ -8064,10 +8064,10 @@ func TestSetMCPServerTierRecordsConnectFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "rillagent-missing-mcp-binary"
 tier = "lazy"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -8099,7 +8099,7 @@ tier = "lazy"
 	if userPlugin.Tier != "" {
 		t.Fatalf("user plugin tier = %q, want migrated empty", userPlugin.Tier)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "reasonix.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "rillagent.toml"))
 	if _, ok := findPluginEntry(projectCfg.Plugins, "broken"); ok {
 		t.Fatalf("project plugin should be removed after desktop migration: %+v", projectCfg.Plugins)
 	}
@@ -8131,7 +8131,7 @@ func TestSetMCPServerTierRejectsBackgroundJobsBeforeSavingConfig(t *testing.T) {
 	if err := os.WriteFile(config.UserConfigPath(), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "rillagent-missing-mcp-binary"
 tier = "lazy"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -8157,10 +8157,10 @@ func TestCapabilitiesMigratesFailedMCPConfiguredTierAfterRestart(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "rillagent.toml"), []byte(`
 [[plugins]]
 name = "broken"
-command = "reasonix-missing-mcp-binary"
+command = "rillagent-missing-mcp-binary"
 tier = "eager"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -8171,7 +8171,7 @@ tier = "eager"
 	defer app.activeCtrl().Close()
 	recordMCPFailure(app.activeCtrl(), config.PluginEntry{
 		Name:    "broken",
-		Command: "reasonix-missing-mcp-binary",
+		Command: "rillagent-missing-mcp-binary",
 		Tier:    "eager",
 	}, errors.New("connect: missing binary"))
 

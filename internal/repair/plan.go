@@ -177,7 +177,7 @@ func PreviewRepairPlan(plan RepairPlan, opts ApplyPlanOptions) ([]RepairPlanPrev
 			if err != nil {
 				return nil, fmt.Errorf("action %d: no rollback-ready update: %w", i+1, err)
 			}
-			preview.Description = fmt.Sprintf("Restore Reasonix %s over probationary %s", tx.FromVersion, tx.ToVersion)
+			preview.Description = fmt.Sprintf("Restore Rill %s over probationary %s", tx.FromVersion, tx.ToVersion)
 		}
 		previews = append(previews, preview)
 	}
@@ -274,7 +274,7 @@ func configSnapshotByID(id string) (ConfigSnapshot, error) {
 func projectConfigPath(root string) string {
 	root = strings.TrimSpace(root)
 	if root == "" || root == "." {
-		return "reasonix.toml"
+		return "rillagent.toml"
 	}
-	return filepath.Join(root, "reasonix.toml")
+	return filepath.Join(root, "rillagent.toml")
 }

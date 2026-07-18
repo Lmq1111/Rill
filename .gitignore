@@ -2,9 +2,8 @@
 /bin/
 /dist/
 /stage/
-/npm/.stage/
-/reasonix
-/reasonix.exe
+/rillagent
+/rillagent.exe
 
 # Website (Astro) build output
 /site/dist/
@@ -23,30 +22,33 @@ mem.prof
 /desktop/build/*
 !/desktop/build/appicon.png
 !/desktop/build/appicon.svg
-/desktop/desktop
+/desktop/rill-desktop
 /desktop/frontend/dist/*
 !/desktop/frontend/dist/.gitkeep
 /desktop/frontend/sourcemaps/
 /desktop/frontend/wailsjs/
 /desktop/frontend/package.json.md5
 
-# Environment / local config (reasonix.example.toml is the shared template)
+# Environment / local config (rillagent.example.toml is the shared template)
 .env
 .env.local
 *.local
-/reasonix.toml
+RILL.local.md
+AGENTS.local.md
+CLAUDE.local.md
+/rillagent.toml
 /desktop/.env
-/desktop/reasonix.toml
+/desktop/rillagent.toml
 
 # Node / frontend dependencies and caches
 node_modules/
 .pnpm-store/
 .npm/
 
-# Project-local Reasonix state; keep the checked-in review command.
-/.reasonix/*
-!/.reasonix/commands/
-!/.reasonix/commands/review.md
+# Project-local Rillagent state; keep the checked-in review command.
+/.rillagent/*
+!/.rillagent/commands/
+!/.rillagent/commands/review.md
 
 # CodeGraph per-project index (rebuilt locally; never committed)
 .codegraph/

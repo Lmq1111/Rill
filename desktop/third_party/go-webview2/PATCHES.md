@@ -1,11 +1,11 @@
-# Reasonix WebView2 Patch
+# Rill WebView2 Patch
 
 This directory contains the Windows packages used by Wails v2 from
 `github.com/wailsapp/go-webview2` v1.0.23 (commit
 `e08e9397f04ad0b1050d7e5bdc8e27faddc87987`). The original MIT license is in
 `LICENSE`.
 
-Reasonix carries one behavioral patch in `pkg/edge/chromium.go`: WebView2
+Rill carries one behavioral patch in `pkg/edge/chromium.go`: WebView2
 monitor-scale detection remains enabled while raw-pixel bounds mode is active.
 Without it, a frameless window minimized on a mixed-DPI Windows desktop can
 adopt another monitor's rasterization scale and restore with stale WebView

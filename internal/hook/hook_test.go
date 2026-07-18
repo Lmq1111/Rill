@@ -225,18 +225,18 @@ func TestNormalizeCommandRepairsOnlyPowerShellFileEscapedQuotes(t *testing.T) {
 	}{
 		{
 			name:    "powershell file path copied with json escaped quotes",
-			command: `powershell -File \"C:\Users\Example\.reasonix\hooks\archive-attachments.ps1\"`,
-			want:    `powershell -File "C:\Users\Example\.reasonix\hooks\archive-attachments.ps1"`,
+			command: `powershell -File \"C:\Users\Example\.rillagent\hooks\archive-attachments.ps1\"`,
+			want:    `powershell -File "C:\Users\Example\.rillagent\hooks\archive-attachments.ps1"`,
 		},
 		{
 			name:    "pwsh file path with spaces",
-			command: `pwsh.exe -NoProfile -NonInteractive -File \"C:\Program Files\Reasonix Hooks\archive attachments.ps1\"`,
-			want:    `pwsh.exe -NoProfile -NonInteractive -File "C:\Program Files\Reasonix Hooks\archive attachments.ps1"`,
+			command: `pwsh.exe -NoProfile -NonInteractive -File \"C:\Program Files\Rill Hooks\archive attachments.ps1\"`,
+			want:    `pwsh.exe -NoProfile -NonInteractive -File "C:\Program Files\Rill Hooks\archive attachments.ps1"`,
 		},
 		{
 			name:    "doubly escaped copied quotes",
-			command: `pwsh -File \\\"C:\Program Files\Reasonix Hooks\archive attachments.ps1\\\" \"arg with spaces\"`,
-			want:    `pwsh -File "C:\Program Files\Reasonix Hooks\archive attachments.ps1" "arg with spaces"`,
+			command: `pwsh -File \\\"C:\Program Files\Rill Hooks\archive attachments.ps1\\\" \"arg with spaces\"`,
+			want:    `pwsh -File "C:\Program Files\Rill Hooks\archive attachments.ps1" "arg with spaces"`,
 		},
 		{
 			name:    "powershell executable path copied with escaped quotes",
@@ -245,8 +245,8 @@ func TestNormalizeCommandRepairsOnlyPowerShellFileEscapedQuotes(t *testing.T) {
 		},
 		{
 			name:    "well formed file command stays unchanged",
-			command: `powershell -NoProfile -File "C:\Program Files\Reasonix Hooks\archive attachments.ps1"`,
-			want:    `powershell -NoProfile -File "C:\Program Files\Reasonix Hooks\archive attachments.ps1"`,
+			command: `powershell -NoProfile -File "C:\Program Files\Rill Hooks\archive attachments.ps1"`,
+			want:    `powershell -NoProfile -File "C:\Program Files\Rill Hooks\archive attachments.ps1"`,
 		},
 		{
 			name:    "command mode may intentionally contain escaped quotes",
@@ -295,8 +295,8 @@ func TestNormalizeCommandRepairsOnlyPowerShellFileEscapedQuotes(t *testing.T) {
 
 func TestLoadNormalizesPowerShellFileEscapedQuotes(t *testing.T) {
 	home := t.TempDir()
-	bad := `powershell -File \"C:\Program Files\Reasonix Hooks\archive attachments.ps1\"`
-	want := `powershell -File "C:\Program Files\Reasonix Hooks\archive attachments.ps1"`
+	bad := `powershell -File \"C:\Program Files\Rill Hooks\archive attachments.ps1\"`
+	want := `powershell -File "C:\Program Files\Rill Hooks\archive attachments.ps1"`
 	writeSettings(t, home, hookSettingsWithCommand(t, SessionStart, bad))
 
 	hooks := Load(LoadOptions{HomeDir: home})
@@ -309,7 +309,7 @@ func TestLoadNormalizesPowerShellFileEscapedQuotes(t *testing.T) {
 }
 
 func TestRepairablePowerShellFileArgs(t *testing.T) {
-	command := `powershell -NoProfile -NonInteractive -File \"C:\Program Files\Reasonix Hooks\archive attachments.ps1\" -Mode \"startup\"`
+	command := `powershell -NoProfile -NonInteractive -File \"C:\Program Files\Rill Hooks\archive attachments.ps1\" -Mode \"startup\"`
 	name, args, ok := repairablePowerShellFileArgs(command)
 	if !ok {
 		t.Fatalf("repairablePowerShellFileArgs(%q) ok = false, want true", command)
@@ -317,7 +317,7 @@ func TestRepairablePowerShellFileArgs(t *testing.T) {
 	if name != "powershell" {
 		t.Fatalf("name = %q, want powershell", name)
 	}
-	wantArgs := []string{"-NoProfile", "-NonInteractive", "-File", `C:\Program Files\Reasonix Hooks\archive attachments.ps1`, "-Mode", "startup"}
+	wantArgs := []string{"-NoProfile", "-NonInteractive", "-File", `C:\Program Files\Rill Hooks\archive attachments.ps1`, "-Mode", "startup"}
 	if strings.Join(args, "\x00") != strings.Join(wantArgs, "\x00") {
 		t.Fatalf("args = %#v, want %#v", args, wantArgs)
 	}
@@ -347,8 +347,8 @@ func TestLoadPermissionRequestHook(t *testing.T) {
 
 func TestLoadIncludesPluginSessionStartHook(t *testing.T) {
 	home := t.TempDir()
-	reasonixHome := filepath.Join(home, ".reasonix")
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	rillHome := filepath.Join(home, ".rillagent")
+	root := filepath.Join(rillHome, "plugins", "superpowers")
 	writeSettings(t, home, `{"hooks":{"PostToolUse":[{"command":"echo global"}]}}`)
 	writeHookTestFile(t, filepath.Join(root, pluginpkg.CodexManifest), `{
   "name": "superpowers",
@@ -356,7 +356,7 @@ func TestLoadIncludesPluginSessionStartHook(t *testing.T) {
   "skills": "./skills/"
 }`)
 	writeHookTestFile(t, filepath.Join(root, "hooks", "session-start-codex"), "#!/usr/bin/env bash\necho ok\n")
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "6.1.0",
@@ -373,7 +373,7 @@ func TestLoadIncludesPluginSessionStartHook(t *testing.T) {
 	if got[0].Scope != ScopePlugin || got[0].Event != SessionStart {
 		t.Fatalf("first hook = %+v, want plugin SessionStart", got[0])
 	}
-	if got[0].Env["REASONIX_PLUGIN_NAME"] != "superpowers" || got[0].Env["REASONIX_WORKSPACE_ROOT"] != "/workspace" {
+	if got[0].Env["RILLAGENT_PLUGIN_NAME"] != "superpowers" || got[0].Env["RILLAGENT_WORKSPACE_ROOT"] != "/workspace" {
 		t.Fatalf("plugin env = %#v", got[0].Env)
 	}
 	if got[1].Scope != ScopeGlobal {
@@ -383,8 +383,8 @@ func TestLoadIncludesPluginSessionStartHook(t *testing.T) {
 
 func TestLoadIncludesPluginClaudeCompatibilityHooks(t *testing.T) {
 	home := t.TempDir()
-	reasonixHome := filepath.Join(home, ".reasonix")
-	root := filepath.Join(reasonixHome, "plugins", "claude-pack")
+	rillHome := filepath.Join(home, ".rillagent")
+	root := filepath.Join(rillHome, "plugins", "claude-pack")
 	writeHookTestFile(t, filepath.Join(root, pluginpkg.CodexManifest), `{
   "name": "claude-pack",
   "version": "1.0.0",
@@ -410,7 +410,7 @@ func TestLoadIncludesPluginClaudeCompatibilityHooks(t *testing.T) {
     ]
   }
 }`)
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "claude-pack",
 		Root:         "plugins/claude-pack",
 		Version:      "1.0.0",
@@ -440,7 +440,7 @@ func TestLoadIncludesPluginClaudeCompatibilityHooks(t *testing.T) {
 	if h := byEvent[UserPromptSubmit]; h.Command != "node hooks/prompt.js" || h.Cwd != root {
 		t.Fatalf("UserPromptSubmit hook = %+v", h)
 	}
-	if h := byEvent[PostToolUse]; h.Env["CLAUDE_PROJECT_DIR"] != "/workspace" || h.Env["REASONIX_PLUGIN_NAME"] != "claude-pack" {
+	if h := byEvent[PostToolUse]; h.Env["CLAUDE_PROJECT_DIR"] != "/workspace" || h.Env["RILLAGENT_PLUGIN_NAME"] != "claude-pack" {
 		t.Fatalf("plugin env = %#v", h.Env)
 	}
 	if h := byEvent[PostToolUse]; h.PayloadFormat != "claude" || h.Env["CLAUDE_PLUGIN_ROOT"] != root {
@@ -448,10 +448,10 @@ func TestLoadIncludesPluginClaudeCompatibilityHooks(t *testing.T) {
 	}
 }
 
-func TestLoadExpandsReasonixPluginRootBeforeShellLaunch(t *testing.T) {
+func TestLoadExpandsRillagentPluginRootBeforeShellLaunch(t *testing.T) {
 	home := t.TempDir()
-	reasonixHome := filepath.Join(home, ".reasonix")
-	root := filepath.Join(reasonixHome, "plugins", "impeccable")
+	rillHome := filepath.Join(home, ".rillagent")
+	root := filepath.Join(rillHome, "plugins", "impeccable")
 	projectRoot := filepath.Join(home, "$CLAUDE_PLUGIN_ROOT-project")
 	writeHookTestFile(t, filepath.Join(root, pluginpkg.NativeManifest), `{
   "name": "impeccable",
@@ -459,14 +459,14 @@ func TestLoadExpandsReasonixPluginRootBeforeShellLaunch(t *testing.T) {
   "hooks": {
     "PostToolUse": [{
       "match": "edit",
-      "command": "node \"${REASONIX_PLUGIN_ROOT}/skills/impeccable/scripts/hook.mjs\"",
+      "command": "node \"${RILLAGENT_PLUGIN_ROOT}/skills/impeccable/scripts/hook.mjs\"",
       "shellCommand": true,
-      "cwd": "${REASONIX_PLUGIN_ROOT}/work",
-      "env": {"IMPECCABLE_CACHE": "%REASONIX_PLUGIN_ROOT%/cache"}
+      "cwd": "${RILLAGENT_PLUGIN_ROOT}/work",
+      "env": {"IMPECCABLE_CACHE": "%RILLAGENT_PLUGIN_ROOT%/cache"}
     }]
   }
 }`)
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "impeccable",
 		Root:         "plugins/impeccable",
 		Version:      "3.9.1",
@@ -490,16 +490,16 @@ func TestLoadExpandsReasonixPluginRootBeforeShellLaunch(t *testing.T) {
 	if got[0].Cwd != filepath.Join(root, "work") || got[0].Env["IMPECCABLE_CACHE"] != root+"/cache" {
 		t.Fatalf("expanded plugin cwd/env = cwd %q env %#v", got[0].Cwd, got[0].Env)
 	}
-	if got[0].Env["CLAUDE_PROJECT_DIR"] != projectRoot || got[0].Env["REASONIX_WORKSPACE_ROOT"] != projectRoot {
+	if got[0].Env["CLAUDE_PROJECT_DIR"] != projectRoot || got[0].Env["RILLAGENT_WORKSPACE_ROOT"] != projectRoot {
 		t.Fatalf("host-provided workspace paths were expanded: %#v", got[0].Env)
 	}
 }
 
-func TestExpandPluginRootSupportsClaudeReasonixAndCmdAliases(t *testing.T) {
-	root := `C:\Program Files\Reasonix\plugins\impeccable`
+func TestExpandPluginRootSupportsClaudeRillagentAndCmdAliases(t *testing.T) {
+	root := `C:\Program Files\Rill\plugins\impeccable`
 	for _, token := range []string{
 		"${CLAUDE_PLUGIN_ROOT}", "$CLAUDE_PLUGIN_ROOT", "%CLAUDE_PLUGIN_ROOT%",
-		"${REASONIX_PLUGIN_ROOT}", "$REASONIX_PLUGIN_ROOT", "%REASONIX_PLUGIN_ROOT%",
+		"${RILLAGENT_PLUGIN_ROOT}", "$RILLAGENT_PLUGIN_ROOT", "%RILLAGENT_PLUGIN_ROOT%",
 	} {
 		t.Run(token, func(t *testing.T) {
 			command := `node "` + token + `/skills/impeccable/scripts/hook.mjs"`
@@ -517,7 +517,7 @@ func TestExpandPluginRootSupportsClaudeReasonixAndCmdAliases(t *testing.T) {
 	}
 	for _, longerName := range []string{
 		"$CLAUDE_PLUGIN_ROOT_SUFFIX",
-		"$REASONIX_PLUGIN_ROOT_OLD",
+		"$RILLAGENT_PLUGIN_ROOT_OLD",
 		"$CLAUDE_PLUGIN_ROOT2",
 	} {
 		if got := expandPluginRoot(longerName, root); got != longerName {
@@ -527,14 +527,14 @@ func TestExpandPluginRootSupportsClaudeReasonixAndCmdAliases(t *testing.T) {
 	if got, want := expandPluginRoot(`$CLAUDE_PLUGIN_ROOT-child`, root), root+"-child"; got != want {
 		t.Fatalf("delimited unbraced variable = %q, want %q", got, want)
 	}
-	if got, want := expandPluginRoot(`$CLAUDE_PLUGIN_ROOT/$REASONIX_PLUGIN_ROOT`, root), root+"/"+root; got != want {
+	if got, want := expandPluginRoot(`$CLAUDE_PLUGIN_ROOT/$RILLAGENT_PLUGIN_ROOT`, root), root+"/"+root; got != want {
 		t.Fatalf("both root aliases = %q, want %q", got, want)
 	}
 }
 
 func TestExpandPluginRootDoesNotReprocessResolvedRoot(t *testing.T) {
-	root := `/tmp/$REASONIX_PLUGIN_ROOT/%CLAUDE_PLUGIN_ROOT%/${CLAUDE_PLUGIN_ROOT}`
-	value := `${CLAUDE_PLUGIN_ROOT}|$REASONIX_PLUGIN_ROOT|%CLAUDE_PLUGIN_ROOT%`
+	root := `/tmp/$RILLAGENT_PLUGIN_ROOT/%CLAUDE_PLUGIN_ROOT%/${CLAUDE_PLUGIN_ROOT}`
+	value := `${CLAUDE_PLUGIN_ROOT}|$RILLAGENT_PLUGIN_ROOT|%CLAUDE_PLUGIN_ROOT%`
 	want := root + "|" + root + "|" + root
 	if got := expandPluginRoot(value, root); got != want {
 		t.Fatalf("resolved root was expanded again: got %q, want %q", got, want)
@@ -660,44 +660,44 @@ func TestDecodeHookOutputPreservesTruncatedUTF8Prefix(t *testing.T) {
 	}
 }
 
-func TestReasonixHomeOverridesGlobalHookPaths(t *testing.T) {
+func TestRillHomeOverridesGlobalHookPaths(t *testing.T) {
 	home := t.TempDir()
-	reasonixHome := filepath.Join(t.TempDir(), "rx-home")
+	rillHome := filepath.Join(t.TempDir(), "rill-home")
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("REASONIX_HOME", reasonixHome)
-	if err := os.MkdirAll(reasonixHome, 0o755); err != nil {
+	t.Setenv("RILLAGENT_HOME", rillHome)
+	if err := os.MkdirAll(rillHome, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(reasonixHome, SettingsFilename), []byte(`{"hooks":{"PostToolUse":[{"command":"echo rx"}]}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(rillHome, SettingsFilename), []byte(`{"hooks":{"PostToolUse":[{"command":"echo rx"}]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	writeSettings(t, home, `{"hooks":{"PostToolUse":[{"command":"echo old"}]}}`)
 
-	if got := GlobalSettingsPath(""); got != filepath.Join(reasonixHome, SettingsFilename) {
-		t.Fatalf("GlobalSettingsPath = %q, want Reasonix home", got)
+	if got := GlobalSettingsPath(""); got != filepath.Join(rillHome, SettingsFilename) {
+		t.Fatalf("GlobalSettingsPath = %q, want Rill home", got)
 	}
-	if got := TrustPath(""); got != filepath.Join(reasonixHome, TrustFilename) {
-		t.Fatalf("TrustPath = %q, want Reasonix home", got)
+	if got := TrustPath(""); got != filepath.Join(rillHome, TrustFilename) {
+		t.Fatalf("TrustPath = %q, want Rill home", got)
 	}
 	hooks := Load(LoadOptions{})
 	if len(hooks) != 1 || hooks[0].Command != "echo rx" {
-		t.Fatalf("Load hooks = %+v, want Reasonix home hook only", hooks)
+		t.Fatalf("Load hooks = %+v, want Rill home hook only", hooks)
 	}
 }
 
-func TestReasonixHomeDoesNotFallBackToLegacyWhenIsolated(t *testing.T) {
+func TestRillHomeDoesNotFallBackToLegacyWhenIsolated(t *testing.T) {
 	home := t.TempDir()
-	reasonixHome := filepath.Join(t.TempDir(), "rx-home")
+	rillHome := filepath.Join(t.TempDir(), "rill-home")
 	proj := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("REASONIX_HOME", reasonixHome)
+	t.Setenv("RILLAGENT_HOME", rillHome)
 	writeSettings(t, home, `{"hooks":{"PostToolUse":[{"command":"echo old"}]}}`)
 
 	hooks := Load(LoadOptions{})
 	if len(hooks) != 0 {
-		t.Fatalf("Load hooks = %+v, want empty (isolated REASONIX_HOME must not load legacy hooks)", hooks)
+		t.Fatalf("Load hooks = %+v, want empty (isolated RILLAGENT_HOME must not load legacy hooks)", hooks)
 	}
 
 	absProj, err := filepath.Abs(proj)
@@ -713,13 +713,13 @@ func TestReasonixHomeDoesNotFallBackToLegacyWhenIsolated(t *testing.T) {
 		t.Fatal(err)
 	}
 	if IsTrusted(proj, "") {
-		t.Fatal("legacy trust must not be honored when REASONIX_HOME is set and trust.json is absent")
+		t.Fatal("legacy trust must not be honored when RILLAGENT_HOME is set and trust.json is absent")
 	}
 	if err := Trust(proj, ""); err != nil {
 		t.Fatalf("Trust: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(reasonixHome, TrustFilename)); err != nil {
-		t.Fatalf("Trust should write current Reasonix home trust file: %v", err)
+	if _, err := os.Stat(filepath.Join(rillHome, TrustFilename)); err != nil {
+		t.Fatalf("Trust should write current Rill home trust file: %v", err)
 	}
 }
 
@@ -785,40 +785,40 @@ func TestMatchesToolTranslatesClaudeToolNames(t *testing.T) {
 		return ResolvedHook{HookConfig: HookConfig{Match: match, PayloadFormat: "claude"}, Event: PreToolUse}
 	}
 	if !MatchesTool(claude("Bash"), "bash") {
-		t.Error(`Claude matcher "Bash" should match Reasonix tool "bash"`)
+		t.Error(`Claude matcher "Bash" should match Rill tool "bash"`)
 	}
 	if !MatchesTool(claude("Write|Edit"), "write_file") {
-		t.Error(`Claude matcher "Write|Edit" should match Reasonix tool "write_file"`)
+		t.Error(`Claude matcher "Write|Edit" should match Rill tool "write_file"`)
 	}
 	if !MatchesTool(claude("Write|Edit"), "edit_file") {
-		t.Error(`Claude matcher "Write|Edit" should match Reasonix tool "edit_file"`)
+		t.Error(`Claude matcher "Write|Edit" should match Rill tool "edit_file"`)
 	}
 	if MatchesTool(claude("Bash"), "write_file") {
-		t.Error(`Claude matcher "Bash" must not match Reasonix tool "write_file"`)
+		t.Error(`Claude matcher "Bash" must not match Rill tool "write_file"`)
 	}
-	// A native (non-Claude) hook's matcher stays in Reasonix's own vocabulary.
+	// A native (non-Claude) hook's matcher stays in Rill's own vocabulary.
 	native := ResolvedHook{HookConfig: HookConfig{Match: "bash"}, Event: PreToolUse}
 	if MatchesTool(native, "Bash") {
 		t.Error("native hook matcher must not be interpreted against Claude tool names")
 	}
 	// The subagent tool was renamed "Task" -> "Agent" by Claude; a matcher
-	// using either name must still fire against Reasonix's "task" tool.
+	// using either name must still fire against Rill's "task" tool.
 	if !MatchesTool(claude("Agent"), "task") {
-		t.Error(`Claude matcher "Agent" (current name) should match Reasonix tool "task"`)
+		t.Error(`Claude matcher "Agent" (current name) should match Rill tool "task"`)
 	}
 	if !MatchesTool(claude("Task"), "task") {
-		t.Error(`Claude matcher "Task" (legacy alias) should still match Reasonix tool "task"`)
+		t.Error(`Claude matcher "Task" (legacy alias) should still match Rill tool "task"`)
 	}
 	if !MatchesTool(claude("AskUserQuestion"), "ask") {
-		t.Error(`Claude matcher "AskUserQuestion" should match Reasonix tool "ask"`)
+		t.Error(`Claude matcher "AskUserQuestion" should match Rill tool "ask"`)
 	}
 	for _, name := range []string{"bash_output", "wait"} {
 		if !MatchesTool(claude("TaskOutput"), name) || !MatchesTool(claude("BashOutput"), name) {
-			t.Errorf(`current "TaskOutput" and legacy "BashOutput" matchers should match Reasonix tool %q`, name)
+			t.Errorf(`current "TaskOutput" and legacy "BashOutput" matchers should match Rill tool %q`, name)
 		}
 	}
 	if !MatchesTool(claude("TaskStop"), "kill_shell") || !MatchesTool(claude("KillShell"), "kill_shell") {
-		t.Error(`current "TaskStop" and legacy "KillShell" matchers should match Reasonix tool "kill_shell"`)
+		t.Error(`current "TaskStop" and legacy "KillShell" matchers should match Rill tool "kill_shell"`)
 	}
 }
 
@@ -853,11 +853,11 @@ func TestClaudeFacingToolNameUsesCurrentNames(t *testing.T) {
 		}
 		claude := ResolvedHook{HookConfig: HookConfig{Match: "Agent", PayloadFormat: "claude"}, Event: PreToolUse}
 		if !MatchesTool(claude, name) {
-			t.Errorf(`Claude matcher "Agent" should match Reasonix tool %q`, name)
+			t.Errorf(`Claude matcher "Agent" should match Rill tool %q`, name)
 		}
 		legacy := ResolvedHook{HookConfig: HookConfig{Match: "Task", PayloadFormat: "claude"}, Event: PreToolUse}
 		if !MatchesTool(legacy, name) {
-			t.Errorf(`legacy Claude matcher "Task" should still match Reasonix tool %q`, name)
+			t.Errorf(`legacy Claude matcher "Task" should still match Rill tool %q`, name)
 		}
 	}
 }
@@ -913,7 +913,7 @@ func TestClaudeFacingToolInputAdaptsMappedTools(t *testing.T) {
 }
 
 // TestClaudeFacingToolInputResolvesAbsolutePaths checks the Claude file-tool
-// contract ("file_path must be absolute"): a relative Reasonix path resolves
+// contract ("file_path must be absolute"): a relative Rill path resolves
 // against the payload cwd — the same root the tool itself resolves against —
 // so a prefix-matching guard sees the path the tool actually accesses.
 func TestClaudeFacingToolInputResolvesAbsolutePaths(t *testing.T) {
@@ -1010,7 +1010,7 @@ func TestDecideOutcome(t *testing.T) {
 		{"timeout-nonblocking", Stop, "", SpawnResult{TimedOut: true}, DecisionWarn},
 		{"spawn-error", PreToolUse, "", SpawnResult{SpawnErr: os.ErrNotExist}, DecisionError},
 		// Claude's own PermissionRequest contract blocks on exit 2/timeout the
-		// same way PreToolUse does; native Reasonix PermissionRequest hooks
+		// same way PreToolUse does; native Rill PermissionRequest hooks
 		// (format == "") stay advisory-only, verified above.
 		{"claude-permission-exit2-blocks", PermissionRequest, "claude", SpawnResult{ExitCode: 2}, DecisionBlock},
 		{"claude-permission-timeout-blocks", PermissionRequest, "claude", SpawnResult{TimedOut: true}, DecisionBlock},
@@ -1268,7 +1268,7 @@ func TestRunClaudePayloadAndDirectArgs(t *testing.T) {
 		t.Fatalf("Claude payload = %#v", payload)
 	}
 	if payload["tool_name"] != "Bash" {
-		t.Fatalf("Claude payload tool_name = %v, want the Claude vocabulary name Bash for Reasonix tool bash", payload["tool_name"])
+		t.Fatalf("Claude payload tool_name = %v, want the Claude vocabulary name Bash for Rill tool bash", payload["tool_name"])
 	}
 	response, ok := payload["tool_response"].(map[string]any)
 	if !ok || response["stdout"] != "remote: denied" || response["stderr"] != "exit 1" || response["interrupted"] != false {
@@ -1282,7 +1282,7 @@ func TestRunClaudePayloadAndDirectArgs(t *testing.T) {
 // TestRunClaudeWriteFileGuardFiresAndSeesFilePath is an end-to-end check that
 // a Claude plugin's "block writes to secrets" style PreToolUse guard —
 // matcher "Write", reading .tool_input.file_path — actually fires against a
-// Reasonix write_file call and sees the absolute target path Claude's
+// Rill write_file call and sees the absolute target path Claude's
 // file-tool contract specifies.
 func TestRunClaudeWriteFileGuardFiresAndSeesFilePath(t *testing.T) {
 	cwd := t.TempDir()
@@ -1296,7 +1296,7 @@ func TestRunClaudeWriteFileGuardFiresAndSeesFilePath(t *testing.T) {
 		ToolArgs: json.RawMessage(`{"path":"secrets/.env","content":"KEY=1"}`),
 	}, hooks, func(_ context.Context, in SpawnInput) SpawnResult { input = in; return SpawnResult{ExitCode: 0} })
 	if input.Command == "" {
-		t.Fatal(`matcher "Write" did not fire for Reasonix tool "write_file"`)
+		t.Fatal(`matcher "Write" did not fire for Rill tool "write_file"`)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(input.Stdin), &payload); err != nil {
@@ -1310,12 +1310,12 @@ func TestRunClaudeWriteFileGuardFiresAndSeesFilePath(t *testing.T) {
 		t.Fatalf(`tool_input.file_path = %v, want absolute %q (a prefix-matching guard must see the path the tool accesses)`, toolInput["file_path"], want)
 	}
 	if _, hasPath := toolInput["path"]; hasPath {
-		t.Fatalf("tool_input still has Reasonix's \"path\" key: %#v", toolInput)
+		t.Fatalf("tool_input still has Rill's \"path\" key: %#v", toolInput)
 	}
 }
 
 // TestRunClaudeAgentGuardFiresAndSeesRequiredFields covers the full matcher to
-// stdin path for a dedicated Reasonix subagent wrapper. Claude Agent requires
+// stdin path for a dedicated Rill subagent wrapper. Claude Agent requires
 // both prompt and description even though the wrapper only accepts task.
 func TestRunClaudeAgentGuardFiresAndSeesRequiredFields(t *testing.T) {
 	hooks := []ResolvedHook{{
@@ -1328,7 +1328,7 @@ func TestRunClaudeAgentGuardFiresAndSeesRequiredFields(t *testing.T) {
 		ToolArgs: json.RawMessage(`{"task":"audit the auth changes"}`),
 	}, hooks, func(_ context.Context, in SpawnInput) SpawnResult { input = in; return SpawnResult{ExitCode: 0} })
 	if input.Command == "" {
-		t.Fatal(`matcher "Agent" did not fire for Reasonix tool "security_review"`)
+		t.Fatal(`matcher "Agent" did not fire for Rill tool "security_review"`)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(input.Stdin), &payload); err != nil {
@@ -1471,6 +1471,31 @@ func TestDefaultSpawner(t *testing.T) {
 	r = DefaultSpawner(ctx, SpawnInput{Command: "sleep 5", Timeout: 100 * time.Millisecond})
 	if !r.TimedOut {
 		t.Errorf("expected timeout, got %+v", r)
+	}
+}
+
+func TestDefaultSpawnerRejectsRetiredProductEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell parameter expansion")
+	}
+	t.Setenv("REASONIX_HOME", "/tmp/inherited-reasonix")
+	t.Setenv("LDAGENT_HOME", "/tmp/inherited-ldagent")
+
+	r := DefaultSpawner(context.Background(), SpawnInput{
+		Command: `printf 'reasonix=%s;ldagent=%s;rill=%s;hook=%s' "${REASONIX_HOME:-none}" "${LDAGENT_HOME:-none}" "${RILLAGENT_HOME:-none}" "${HOOK_ENV:-none}"`,
+		Env: map[string]string{
+			"REASONIX_HOME":  "/tmp/explicit-reasonix",
+			"LDAGENT_HOME":   "/tmp/explicit-ldagent",
+			"RILLAGENT_HOME": "/tmp/rill",
+			"HOOK_ENV":       "allowed",
+		},
+		Timeout: realSpawnTimeout,
+	})
+	if r.ExitCode != 0 || r.SpawnErr != nil {
+		t.Fatalf("DefaultSpawner failed: code=%d stderr=%q err=%v", r.ExitCode, r.Stderr, r.SpawnErr)
+	}
+	if want := "reasonix=none;ldagent=none;rill=/tmp/rill;hook=allowed"; r.Stdout != want {
+		t.Fatalf("subprocess environment = %q, want %q", r.Stdout, want)
 	}
 }
 

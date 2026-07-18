@@ -51,8 +51,8 @@ export type ShortcutDefinition = {
   configurable?: boolean;
 };
 
-const SHORTCUTS_STORAGE_KEY = "reasonix.customShortcuts";
-const SHORTCUTS_CHANGED_EVENT = "reasonix:shortcuts-changed";
+const SHORTCUTS_STORAGE_KEY = "rillagent.customShortcuts";
+const SHORTCUTS_CHANGED_EVENT = "rillagent:shortcuts-changed";
 
 export const SHORTCUT_DEFINITIONS: readonly ShortcutDefinition[] = [
   {

@@ -26,13 +26,13 @@ func main() {
 func run(args []string) int {
 	var parentPID uint
 	var installer, installDir, relaunch, toVersion string
-	fs := flag.NewFlagSet("reasonix-update-helper", flag.ContinueOnError)
+	fs := flag.NewFlagSet("rill-update-helper", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	fs.UintVar(&parentPID, "parent-pid", 0, "Reasonix process id to wait for before installing")
+	fs.UintVar(&parentPID, "parent-pid", 0, "Rill process id to wait for before installing")
 	fs.StringVar(&installer, "installer", "", "verified NSIS installer path")
-	fs.StringVar(&installDir, "install-dir", "", "Reasonix installation directory")
-	fs.StringVar(&relaunch, "relaunch", "", "Reasonix executable to start after the installer succeeds")
-	fs.StringVar(&toVersion, "to-version", "", "Reasonix version being installed")
+	fs.StringVar(&installDir, "install-dir", "", "Rill installation directory")
+	fs.StringVar(&relaunch, "relaunch", "", "Rill executable to start after the installer succeeds")
+	fs.StringVar(&toVersion, "to-version", "", "Rill version being installed")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -80,7 +80,7 @@ func run(args []string) int {
 func newLogger() *log.Logger {
 	dir, err := os.UserCacheDir()
 	if err == nil {
-		dir = filepath.Join(dir, "Reasonix", "updates")
+		dir = filepath.Join(dir, "Rill", "updates")
 		if err := os.MkdirAll(dir, 0o700); err == nil {
 			if f, err := os.OpenFile(filepath.Join(dir, "update-helper.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
 				return log.New(f, "", log.LstdFlags)

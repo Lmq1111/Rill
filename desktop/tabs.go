@@ -1799,7 +1799,7 @@ func (a *App) openTopicTabWithActivation(scope, workspaceRoot, topicID, sessionP
 }
 
 // OpenGlobalTab opens a new global-scope tab (no project root). The global
-// workspace root is the reasonix user config directory.
+// workspace root is the rillagent user config directory.
 func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	globalRoot := globalWorkspaceRoot()
 	if err := os.MkdirAll(globalRoot, 0o755); err != nil {
@@ -3924,7 +3924,7 @@ func singleSurfaceTabsFile(f desktopTabsFile) desktopTabsFile {
 }
 
 func desktopConfigDir() string {
-	return config.ReasonixHomeDir()
+	return config.RillHomeDir()
 }
 
 func (a *App) saveTabsLocked() {
@@ -4736,28 +4736,28 @@ func topicTitlesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicTitlesFile)
+	return filepath.Join(workspaceRoot, ".rillagent", topicTitlesFile)
 }
 
 func topicTitleSourcesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitleSourcesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicTitleSourcesFile)
+	return filepath.Join(workspaceRoot, ".rillagent", topicTitleSourcesFile)
 }
 
 func topicCreatedAtsPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicCreatedAtsFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicCreatedAtsFile)
+	return filepath.Join(workspaceRoot, ".rillagent", topicCreatedAtsFile)
 }
 
 func topicAutoTitleMetaPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicAutoTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".reasonix", topicAutoTitlesFile)
+	return filepath.Join(workspaceRoot, ".rillagent", topicAutoTitlesFile)
 }
 
 const topicFileReadTimeout = 200 * time.Millisecond

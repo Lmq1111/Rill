@@ -43,7 +43,7 @@ import (
 const (
 	r2Base             = "https://dl.reasonix.io"
 	releaseGatewayBase = "https://crash.reasonix.io/v1/desktop/releases"
-	downloadPageURL    = "https://reasonix.io/?download=desktop#start"
+	downloadPageURL    = "https://github.com/Lmq1111/Rill/releases"
 	httpTimeout        = 15 * time.Second
 )
 
@@ -78,7 +78,7 @@ func manifestEndpoints() []string {
 // lets the release edge allowlist updater requests and makes them attributable
 // in server logs.
 func updaterUserAgent() string {
-	return fmt.Sprintf("Reasonix-Updater/%s (%s/%s; %s)", version, runtime.GOOS, runtime.GOARCH, channel)
+	return fmt.Sprintf("Rill-Updater/%s (%s/%s; %s)", version, runtime.GOOS, runtime.GOARCH, channel)
 }
 
 // downloadPage is the human-facing releases page shown when self-update is
@@ -243,7 +243,7 @@ func defaultUpdateCacheBaseDir() (string, error) {
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "Reasonix", "updates"), nil
+	return filepath.Join(base, "Rill", "updates"), nil
 }
 
 func updateCacheDir() (string, error) {
@@ -272,7 +272,7 @@ func assetFileName(asset update.Asset, version string) string {
 		}
 	}
 	clean := strings.NewReplacer("/", "-", "\\", "-", ":", "-", " ", "-").Replace(version)
-	return "Reasonix-" + clean + "-" + update.CurrentPlatform() + ".update"
+	return "Rill-" + clean + "-" + update.CurrentPlatform() + ".update"
 }
 
 func writeAtomic(path string, data []byte, mode os.FileMode) error {
@@ -591,11 +591,11 @@ func extractBinary(targz []byte, name string) ([]byte, error) {
 // applyLinux replaces the running binary with the one inside the downloaded
 // tar.gz; the caller relaunches afterwards.
 func applyLinux(targz []byte) error {
-	bin, err := extractBinary(targz, "reasonix-desktop")
+	bin, err := extractBinary(targz, "rill-desktop")
 	if err != nil {
 		return err
 	}
-	guard, err := extractBinary(targz, "reasonix-guard")
+	guard, err := extractBinary(targz, "rill-guard")
 	if err != nil {
 		return err
 	}
@@ -603,7 +603,7 @@ func applyLinux(targz []byte) error {
 	if exe == "" {
 		return fmt.Errorf("update: current executable path is unavailable")
 	}
-	if err := writeAtomic(filepath.Join(filepath.Dir(exe), "reasonix-guard"), guard, 0o700); err != nil {
+	if err := writeAtomic(filepath.Join(filepath.Dir(exe), "rill-guard"), guard, 0o700); err != nil {
 		return fmt.Errorf("update Guard: %w", err)
 	}
 	return selfupdate.Apply(bytes.NewReader(bin), selfupdate.Options{})
@@ -657,9 +657,9 @@ func updateSiblingArtifacts() []string {
 func updateSiblingNames(goos string) []string {
 	switch goos {
 	case "windows":
-		return []string{"reasonix-guard.exe", "reasonix-launcher.exe", "reasonix-update-helper.exe", "Reasonix.exe"}
+		return []string{"rill-guard.exe", "rill-launcher.exe", "rill-update-helper.exe", "Rill.exe"}
 	case "linux":
-		return []string{"reasonix-guard"}
+		return []string{"rill-guard"}
 	default:
 		return nil
 	}
@@ -672,7 +672,7 @@ func relaunchThroughGuard() error {
 	if err != nil {
 		return err
 	}
-	launcher := filepath.Join(filepath.Dir(exe), "reasonix-guard")
+	launcher := filepath.Join(filepath.Dir(exe), "rill-guard")
 	if runtime.GOOS == "windows" {
 		launcher += ".exe"
 	}
@@ -689,16 +689,16 @@ func currentLauncherPath() string {
 	if exe == "" {
 		return ""
 	}
-	name := "reasonix-guard"
+	name := "rill-guard"
 	if runtime.GOOS == "windows" {
-		name = "reasonix-launcher.exe"
+		name = "rill-launcher.exe"
 	}
 	launcher := filepath.Join(filepath.Dir(exe), name)
 	if _, err := os.Stat(launcher); err == nil {
 		return launcher
 	}
 	if runtime.GOOS == "windows" {
-		guard := filepath.Join(filepath.Dir(exe), "reasonix-guard.exe")
+		guard := filepath.Join(filepath.Dir(exe), "rill-guard.exe")
 		if _, err := os.Stat(guard); err == nil {
 			return guard
 		}

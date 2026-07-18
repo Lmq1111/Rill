@@ -6,8 +6,8 @@
       "date": "2026-07-16",
       "channel": "stable",
       "title": {
-        "en": "Reasonix 1.17.14",
-        "zh": "Reasonix 1.17.14"
+        "en": "Rill 1.17.14",
+        "zh": "Rill 1.17.14"
       },
       "summary": {
         "en": "This release improves the desktop experience with clearer MCP error messages, Windows plugin hook fixes, executable icons, and a new bilingual changelog.",
@@ -23,8 +23,8 @@
             "zh": "桌面 Hook"
           },
           "body": {
-            "en": "Guide for creating and using hooks in Reasonix Desktop.",
-            "zh": "在 Reasonix 桌面端中创建和使用 Hook 的指南。"
+            "en": "Guide for creating and using hooks in Rill Desktop.",
+            "zh": "在 Rill 桌面端中创建和使用 Hook 的指南。"
           },
           "href": "https://github.com/esengine/DeepSeek-Reasonix/blob/cc9b1f52e6bc787719b78e70db8d7e487fe2fdd1/docs/DESKTOP_HOOKS.zh-CN.md"
         },
@@ -34,8 +34,8 @@
             "zh": "插件包"
           },
           "body": {
-            "en": "How to create, configure, and distribute Reasonix plugins.",
-            "zh": "如何创建、配置和分发 Reasonix 插件。"
+            "en": "How to create, configure, and distribute Rill plugins.",
+            "zh": "如何创建、配置和分发 Rill 插件。"
           },
           "href": "https://github.com/esengine/DeepSeek-Reasonix/blob/cc9b1f52e6bc787719b78e70db8d7e487fe2fdd1/docs/PLUGIN_PACKAGES.md"
         },
@@ -45,8 +45,8 @@
             "zh": "插件包（中文）"
           },
           "body": {
-            "en": "Chinese guide for creating, configuring, and distributing Reasonix plugins.",
-            "zh": "中文指南：创建、配置和分发 Reasonix 插件。"
+            "en": "Chinese guide for creating, configuring, and distributing Rill plugins.",
+            "zh": "中文指南：创建、配置和分发 Rill 插件。"
           },
           "href": "https://github.com/esengine/DeepSeek-Reasonix/blob/cc9b1f52e6bc787719b78e70db8d7e487fe2fdd1/docs/PLUGIN_PACKAGES.zh-CN.md"
         },
@@ -56,8 +56,8 @@
             "zh": "发布流程"
           },
           "body": {
-            "en": "How to build, validate, and publish a Reasonix release.",
-            "zh": "如何构建、验证和发布 Reasonix 版本。"
+            "en": "How to build, validate, and publish a Rill release.",
+            "zh": "如何构建、验证和发布 Rill 版本。"
           },
           "href": "https://github.com/esengine/DeepSeek-Reasonix/blob/cc9b1f52e6bc787719b78e70db8d7e487fe2fdd1/docs/RELEASING.md"
         }
@@ -98,8 +98,8 @@
             "zh": "Windows 插件 Hook 兼容性"
           },
           "body": {
-            "en": "Plugin hooks on Windows now correctly expand aliases like ${REASONIX_PLUGIN_ROOT}, support bash hooks, and handle non-UTF-8 output.",
-            "zh": "Windows 插件 Hook 现在能正确展开 ${REASONIX_PLUGIN_ROOT} 等别名，支持 bash Hook，并能处理非 UTF-8 输出。"
+            "en": "Plugin hooks on Windows now correctly expand aliases like ${RILLAGENT_PLUGIN_ROOT}, support bash hooks, and handle non-UTF-8 output.",
+            "zh": "Windows 插件 Hook 现在能正确展开 ${RILLAGENT_PLUGIN_ROOT} 等别名，支持 bash Hook，并能处理非 UTF-8 输出。"
           },
           "refs": [
             6550
@@ -112,8 +112,8 @@
             "zh": "Windows 可执行程序图标"
           },
           "body": {
-            "en": "Windows launcher, guard, and updater now display the Reasonix icon and include version metadata.",
-            "zh": "Windows 启动器、守护程序和更新程序现在显示 Reasonix 图标，并包含版本元数据。"
+            "en": "Windows launcher, guard, and updater now display the Rill icon and include version metadata.",
+            "zh": "Windows 启动器、守护程序和更新程序现在显示 Rill 图标，并包含版本元数据。"
           },
           "refs": [
             6549
@@ -157,8 +157,8 @@
               "zh": "Windows 可执行程序图标"
             },
             "body": {
-              "en": "Launcher, guard, and update helper now have the Reasonix icon and version metadata.",
-              "zh": "启动器、守护程序和更新助手现具有 Reasonix 图标及版本元数据。"
+              "en": "Launcher, guard, and update helper now have the Rill icon and version metadata.",
+              "zh": "启动器、守护程序和更新助手现具有 Rill 图标及版本元数据。"
             },
             "refs": [
               6549
@@ -215,7 +215,7 @@
       "links": {
         "github": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.14",
         "compare": "https://github.com/esengine/DeepSeek-Reasonix/compare/v1.17.13...desktop-v1.17.14",
-        "download": "https://reasonix.io/?download=desktop#start"
+        "download": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.14"
       }
     },
     {
@@ -244,8 +244,8 @@
             "zh": "恢复损坏的安装"
           },
           "body": {
-            "en": "Use reasonix-guard to diagnose configuration and installation failures, restore a snapshot, or start in Safe Mode.",
-            "zh": "使用 reasonix-guard 诊断配置与安装故障、恢复快照，或进入安全模式。"
+            "en": "Use rill-guard to diagnose configuration and installation failures, restore a snapshot, or start in Safe Mode.",
+            "zh": "使用 rill-guard 诊断配置与安装故障、恢复快照，或进入安全模式。"
           },
           "href": "https://github.com/esengine/DeepSeek-Reasonix/blob/main-v2/docs/RECOVERY.zh-CN.md"
         },
@@ -315,8 +315,8 @@
             "zh": "Claude 插件兼容"
           },
           "body": {
-            "en": "Reasonix can consume Claude-compatible plugin packages and adapt their commands and hooks into the existing plugin runtime.",
-            "zh": "Reasonix 现在可以加载 Claude 兼容插件包，并把其中的命令与 Hooks 接入现有插件运行时。"
+            "en": "Rill can consume Claude-compatible plugin packages and adapt their commands and hooks into the existing plugin runtime.",
+            "zh": "Rill 现在可以加载 Claude 兼容插件包，并把其中的命令与 Hooks 接入现有插件运行时。"
           },
           "refs": [
             6434
@@ -450,8 +450,8 @@
             "zh": "Windows 原生沙箱后端已退役"
           },
           "body": {
-            "en": "If you previously selected the retired native Windows sandbox, open Settings → Sandbox after upgrading and choose a supported isolation mode. Reasonix reports a remediation message instead of silently falling back.",
-            "zh": "如果此前选择了已退役的 Windows 原生沙箱，升级后请打开“设置 → 沙箱”并选择受支持的隔离方式。Reasonix 会显示修复提示，不会静默降级。"
+            "en": "If you previously selected the retired native Windows sandbox, open Settings → Sandbox after upgrading and choose a supported isolation mode. Rill reports a remediation message instead of silently falling back.",
+            "zh": "如果此前选择了已退役的 Windows 原生沙箱，升级后请打开“设置 → 沙箱”并选择受支持的隔离方式。Rill 会显示修复提示，不会静默降级。"
           },
           "refs": [
             6516
@@ -464,8 +464,8 @@
             "zh": "MCP 信任可能需要重新确认"
           },
           "body": {
-            "en": "When a package identity or executable no longer matches its stored receipt, Reasonix asks for a new approval rather than reusing stale trust.",
-            "zh": "当插件包身份或可执行文件与已保存回执不一致时，Reasonix 会请求新的审批，而不会沿用过期信任。"
+            "en": "When a package identity or executable no longer matches its stored receipt, Rill asks for a new approval rather than reusing stale trust.",
+            "zh": "当插件包身份或可执行文件与已保存回执不一致时，Rill 会请求新的审批，而不会沿用过期信任。"
           },
           "refs": [
             6482
@@ -501,7 +501,7 @@
       "links": {
         "github": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.13",
         "compare": "https://github.com/esengine/DeepSeek-Reasonix/compare/desktop-v1.17.12...desktop-v1.17.13",
-        "download": "https://reasonix.io/?download=desktop#start"
+        "download": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.13"
       }
     },
     {
@@ -527,8 +527,8 @@
         {
           "kind": "new",
           "title": {
-            "en": "Provider manager in reasonix setup",
-            "zh": "reasonix setup 变成 Provider 管理器"
+            "en": "Provider manager in rillagent setup",
+            "zh": "rillagent setup 变成 Provider 管理器"
           },
           "body": {
             "en": "Add, edit, test, and choose provider access from one terminal workflow instead of rerunning a first-use wizard.",
@@ -620,8 +620,8 @@
         {
           "level": "info",
           "title": {
-            "en": "No manual migration required",
-            "zh": "无需手动迁移"
+            "en": "Existing settings remain valid",
+            "zh": "现有设置继续有效"
           },
           "body": {
             "en": "Existing providers and desktop preferences continue to load unchanged.",
@@ -638,7 +638,7 @@
       "links": {
         "github": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.12",
         "compare": "https://github.com/esengine/DeepSeek-Reasonix/compare/desktop-v1.17.11...desktop-v1.17.12",
-        "download": "https://reasonix.io/?download=desktop#start"
+        "download": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.12"
       }
     },
     {
@@ -650,8 +650,8 @@
         "zh": "运行档、插件命令与更安全的会话交接"
       },
       "summary": {
-        "en": "This release introduces configurable subagent and runtime profiles, maps Claude plugin commands into Reasonix, and closes several session handoff gaps that could hide messages, drop turns, or obscure provider failures.",
-        "zh": "这一版新增可配置子智能体与运行档，把 Claude 插件命令接入 Reasonix，并修复多个会话交接缺口，避免消息隐藏、回合丢失或 Provider 错误被掩盖。"
+        "en": "This release introduces configurable subagent and runtime profiles, maps Claude plugin commands into Rill, and closes several session handoff gaps that could hide messages, drop turns, or obscure provider failures.",
+        "zh": "这一版新增可配置子智能体与运行档，把 Claude 插件命令接入 Rill，并修复多个会话交接缺口，避免消息隐藏、回合丢失或 Provider 错误被掩盖。"
       },
       "surfaces": [
         "agent",
@@ -758,8 +758,8 @@
         {
           "level": "info",
           "title": {
-            "en": "No manual migration required",
-            "zh": "无需手动迁移"
+            "en": "Existing settings remain valid",
+            "zh": "现有设置继续有效"
           },
           "body": {
             "en": "Runtime profiles and plugin command qualification preserve existing configuration.",
@@ -775,7 +775,7 @@
       "links": {
         "github": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.11",
         "compare": "https://github.com/esengine/DeepSeek-Reasonix/compare/desktop-v1.17.10...desktop-v1.17.11",
-        "download": "https://reasonix.io/?download=desktop#start"
+        "download": "https://github.com/esengine/DeepSeek-Reasonix/releases/tag/desktop-v1.17.11"
       }
     }
   ]

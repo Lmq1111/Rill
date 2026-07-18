@@ -73,7 +73,7 @@ func SetProtectSensitiveFiles(enabled bool) { protectSensitiveFilesEnabled.Store
 func ProtectSensitiveFiles() bool { return protectSensitiveFilesEnabled.Load() }
 
 // RegisterCredentialEnvKeys permanently marks names whose values came from
-// Reasonix's credential store. Registration is a process-lifetime union so two
+// Rill's credential store. Registration is a process-lifetime union so two
 // concurrent workspaces with different custom providers cannot make each
 // other's saved keys visible to tools. Explicit per-tool/plugin env config may
 // still add a value back after ProcessEnv has produced the safe base env.
@@ -96,6 +96,28 @@ func registeredCredentialEnvKey(key string) bool {
 	defer credentialEnvKeys.RUnlock()
 	_, ok := credentialEnvKeys.keys[credentialEnvKey(key)]
 	return ok
+}
+
+// DisallowedProductEnvKey reports whether key belongs to a retired product
+// namespace that Rill must never inherit or forward to subprocesses. This
+// boundary is unconditional: unlike credential filtering, it cannot be
+// disabled by user configuration.
+func DisallowedProductEnvKey(key string) bool {
+	key = strings.ToUpper(strings.TrimSpace(key))
+	return strings.HasPrefix(key, "REASONIX_") || strings.HasPrefix(key, "LDAGENT_")
+}
+
+// SanitizeProcessEnvironment removes retired product variables from the Rill
+// process itself. Public entry points call this before reading configuration so
+// subprocesses that intentionally inherit the parent environment cannot carry
+// retired product control values forward.
+func SanitizeProcessEnvironment() {
+	for _, item := range os.Environ() {
+		key, _, ok := strings.Cut(item, "=")
+		if ok && DisallowedProductEnvKey(key) {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
 
 // EnvKeySensitive reports whether an environment variable name is likely to
@@ -134,15 +156,34 @@ func filterRegisteredCredentialEnv(env []string) []string {
 	return out
 }
 
-// ProcessEnv returns the environment for shell/tool subprocesses. Values loaded
-// from Reasonix's credential store are always removed. Other credential-like
-// inherited variables are removed only when the user opted into [secrets]
-// filter_subprocess_env, preserving existing gh/git/npm workflows by default.
-func ProcessEnv() []string {
-	if !filterSubprocessEnvEnabled.Load() {
-		return filterRegisteredCredentialEnv(os.Environ())
+// FilterDisallowedProductEnv removes retired product control variables from an
+// environment vector. Callers that merge explicit subprocess overrides must
+// apply the same rule after merging so an override cannot reopen this boundary.
+func FilterDisallowedProductEnv(env []string) []string {
+	out := env[:0]
+	for _, item := range env {
+		key, _, ok := strings.Cut(item, "=")
+		if !ok || DisallowedProductEnvKey(key) {
+			continue
+		}
+		out = append(out, item)
 	}
-	return FilterEnv(os.Environ())
+	return out
+}
+
+// ProcessEnv returns the environment for shell/tool subprocesses. Retired
+// product namespaces and values loaded from Rill's credential store are always
+// removed. Other credential-like inherited variables are removed only when the
+// user opted into [secrets] filter_subprocess_env, preserving existing
+// gh/git/npm workflows by default.
+func ProcessEnv() []string {
+	var env []string
+	if !filterSubprocessEnvEnabled.Load() {
+		env = filterRegisteredCredentialEnv(os.Environ())
+	} else {
+		env = FilterEnv(os.Environ())
+	}
+	return FilterDisallowedProductEnv(env)
 }
 
 // Redact masks credential-like values for explicit diagnostic, export, and

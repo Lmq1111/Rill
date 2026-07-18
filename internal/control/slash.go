@@ -11,7 +11,6 @@ import (
 	"reasonix/internal/hook"
 	"reasonix/internal/i18n"
 	"reasonix/internal/memorycompiler"
-	"reasonix/internal/migration"
 	"reasonix/internal/pluginpkg"
 	"reasonix/internal/skill"
 )
@@ -420,9 +419,6 @@ func (c *Controller) managementNotice(trimmed string) bool {
 		c.notice(c.memoryListText())
 	case "/memory-v5":
 		c.memoryV5Notice(fields)
-	case "/migrate", "/migration":
-		args := strings.TrimSpace(strings.TrimPrefix(trimmed, fields[0]))
-		migration.RunLegacyRescueCommand(args, c.sink)
 	case "/skill", "/skills":
 		sub := ""
 		if len(fields) >= 2 {
@@ -447,7 +443,7 @@ func (c *Controller) managementNotice(trimmed string) bool {
 		}
 		switch sub {
 		case "", "list", "ls":
-			text, err := pluginpkg.InstalledListText(config.ReasonixHomeDir())
+			text, err := pluginpkg.InstalledListText(config.RillHomeDir())
 			if err != nil {
 				c.notice("plugins: " + err.Error())
 			} else {
@@ -458,7 +454,7 @@ func (c *Controller) managementNotice(trimmed string) bool {
 				c.notice("usage: /plugins show <name>")
 				return true
 			}
-			text, err := pluginpkg.InstalledShowText(config.ReasonixHomeDir(), fields[2])
+			text, err := pluginpkg.InstalledShowText(config.RillHomeDir(), fields[2])
 			if err != nil {
 				c.notice("plugins: " + err.Error())
 			} else {
@@ -499,7 +495,7 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			if err := hook.Trust(root, ""); err != nil {
 				c.notice("hooks trust: " + err.Error())
 			} else {
-				c.notice("trusted this project's hooks — restart Reasonix to load them")
+				c.notice("trusted this project's hooks — restart Rill to load them")
 			}
 		default:
 			c.notice("unknown /hooks subcommand " + fields[1] + " — try: /hooks, /hooks trust")

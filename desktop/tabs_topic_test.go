@@ -99,23 +99,6 @@ func writeLegacySession(t *testing.T, dir, name, prompt string, modTime time.Tim
 	return path
 }
 
-func writeLegacyEventSession(t *testing.T, dir, name, prompt, reply string, modTime time.Time) string {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir legacy sessions: %v", err)
-	}
-	path := filepath.Join(dir, name)
-	body := `{"type":"user.message","id":1,"ts":"t","turn":0,"text":` + strconv.Quote(prompt) + `}` + "\n" +
-		`{"type":"model.final","id":2,"ts":"t","turn":0,"content":` + strconv.Quote(reply) + `,"toolCalls":[],"usage":{},"costUsd":0}` + "\n"
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatalf("write legacy event session: %v", err)
-	}
-	if err := os.Chtimes(path, modTime, modTime); err != nil {
-		t.Fatalf("chtimes legacy event session: %v", err)
-	}
-	return path
-}
-
 func TestSessionListCacheRefillsAfterInvalidate(t *testing.T) {
 	cache := &sessionListCache{byDir: map[string]sessionListCacheEntry{}}
 	dir := t.TempDir()
@@ -1316,47 +1299,6 @@ func TestTopicMigrationDefersEmptyLegacySession(t *testing.T) {
 	}
 }
 
-func TestV05LegacyEventSessionsImportIntoGlobalTopic(t *testing.T) {
-	home := isolateDesktopUserDirs(t)
-
-	legacyDir := filepath.Join(home, ".reasonix", "sessions")
-	destDir := config.SessionDir()
-	writeLegacyEventSession(t, legacyDir, "v053-chat.events.jsonl", "hello from v0.53", "hi from v0.53", time.Now().Add(-time.Hour))
-
-	imported, err := agent.MigrateLegacySessions(legacyDir, destDir, config.ProjectSessionDir)
-	if err != nil {
-		t.Fatalf("migrate legacy sessions: %v", err)
-	}
-	if imported != 1 {
-		t.Fatalf("imported legacy sessions = %d, want 1", imported)
-	}
-	migratedSession := filepath.Join(destDir, "v053-chat.jsonl")
-	if _, err := os.Stat(migratedSession); err != nil {
-		t.Fatalf("legacy v0.5 session was not imported to %s: %v", migratedSession, err)
-	}
-
-	wantTopicID := legacySessionTopicID(migratedSession)
-	migratedTopics := migrateLegacySessionsIntoGlobalTopics(destDir)
-	if len(migratedTopics) != 1 || migratedTopics[0] != wantTopicID {
-		t.Fatalf("migrated topics = %#v, want imported v0.5 topic %q", migratedTopics, wantTopicID)
-	}
-
-	nodes := NewApp().ListProjectTree()
-	if len(nodes) != 1 || nodes[0].Kind != "global_folder" {
-		t.Fatalf("project tree = %#v, want global folder", nodes)
-	}
-	if len(nodes[0].Children) != 1 || nodes[0].Children[0].TopicID != wantTopicID {
-		t.Fatalf("global topics = %#v, want imported v0.5 topic %q", nodes[0].Children, wantTopicID)
-	}
-	meta, ok, err := agent.LoadBranchMeta(migratedSession)
-	if err != nil || !ok {
-		t.Fatalf("load imported v0.5 meta: ok=%v err=%v", ok, err)
-	}
-	if meta.Scope != "global" || meta.TopicID != wantTopicID {
-		t.Fatalf("imported v0.5 meta = %+v", meta)
-	}
-}
-
 func TestLegacySessionTopicIDsKeepNormalizedNameCollisionsDistinct(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
@@ -1570,7 +1512,7 @@ func TestPersistTabSessionPathUsesSessionDirOwnerBeforeSavingMeta(t *testing.T) 
 
 func TestBuildTabControllerIgnoresStaleSessionModelWhenTabModelResolves(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+	t.Setenv("RILLAGENT_TEST_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -1582,14 +1524,14 @@ name = "default-provider"
 kind = "openai"
 base_url = "https://default.invalid/v1"
 model = "default-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 
 [[providers]]
 name = "tab-provider"
 kind = "openai"
 base_url = "https://tab.invalid/v1"
 model = "tab-model"
-api_key_env = "REASONIX_TEST_KEY"
+api_key_env = "RILLAGENT_TEST_KEY"
 `), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -1635,7 +1577,7 @@ func TestLoadPinnedTabSessionFallsBackToMigratedBasename(t *testing.T) {
 		t.Fatalf("mkdir sessions: %v", err)
 	}
 	path := writeLegacySession(t, dir, "migrated-tab.jsonl", "resume after path migration", time.Now())
-	oldPath := filepath.Join(t.TempDir(), "old-reasonix", "projects", "slug", "sessions", filepath.Base(path))
+	oldPath := filepath.Join(t.TempDir(), "old-rillagent", "projects", "slug", "sessions", filepath.Base(path))
 
 	loaded, pinnedPath, ok := loadPinnedTabSession(dir, oldPath)
 	if !ok || loaded == nil {

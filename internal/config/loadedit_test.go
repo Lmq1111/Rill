@@ -11,7 +11,7 @@ import (
 
 func TestLoadForEdit(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "reasonix.toml")
+	path := filepath.Join(dir, "rillagent.toml")
 	custom := `default_model = "custom"
 [[providers]]
 name = "custom"
@@ -67,7 +67,7 @@ api_key_env = "LOCAL_KEY"
 
 func TestLoadForEditMigratesLegacyMCPTiers(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "reasonix.toml")
+	path := filepath.Join(dir, "rillagent.toml")
 	body := `
 [[plugins]]
 name = "playwright"
@@ -101,7 +101,7 @@ model = "m"
 }
 
 func TestLoadForEditReadOnlyStrictDoesNotMigrateDisk(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "reasonix.toml")
+	path := filepath.Join(t.TempDir(), "rillagent.toml")
 	body := []byte(`
 [[plugins]]
 name = "playwright"
@@ -131,7 +131,7 @@ func TestLoadForEditIgnoresProjectDotEnvForProviderCredentials(t *testing.T) {
 	project := t.TempDir()
 	launch := t.TempDir()
 	home := t.TempDir()
-	path := filepath.Join(project, "reasonix.toml")
+	path := filepath.Join(project, "rillagent.toml")
 	body := `default_model = "custom/m"
 [[providers]]
 name = "custom"

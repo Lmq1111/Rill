@@ -1,96 +1,56 @@
-# Releasing
+# Releasing Rill
 
-How Reasonix ships, who can ship what, and the canary-before-stable flow.
+Rill releases belong to
+[`Lmq1111/Rill`](https://github.com/Lmq1111/Rill). The upstream
+[DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) repository is
+a source and attribution reference, not a Rill publication target.
 
-## Branch model: trunk + tags
+## Current Repository Contract
 
-- **`main-v2`** is the single development line (the v2 / 1.x trunk). Every PR merges here.
-- **Production is a tag, not a branch.** A release is a tagged snapshot of `main-v2`:
-  `v1.4.0` (CLI), `npm-v1.4.0` (npm), `desktop-v1.4.0` (desktop).
-- **`v1`** is the archived 1.0/legacy line — maintenance only.
-- **Hotfix** an already-released version by branching from its tag, fixing, and tagging again.
+- Development and pull requests target `main`.
+- Release tags use `v<semver>` for the Rill release series.
+- CLI archives contain `rillagent` (or `rillagent.exe`).
+- Desktop artifacts use the `Rill-<platform>-<arch>` prefix.
+- Checksums are published as `SHA256SUMS`.
+- GitHub release and download URLs must use `Lmq1111/Rill`.
 
-There is no separate "production" or "develop" branch by design — the canary channel
-provides the pre-release buffer instead of a long-lived branch.
+The repository currently has CI but no public release-publishing workflow.
+Do not claim that npm, Homebrew, CDN, canary, signing, or in-app update channels
+have published a Rill release until those channels are configured and verified.
 
-## Channels
+## Pre-release Checklist
 
-| Surface | Stable | Pre-release buffer |
-|---|---|---|
-| npm | `latest` (current 1.x stable) | `next` (rc), `canary` (`npm i reasonix@canary`) |
-| Desktop | R2 `latest/` pointer + release gateway | R2 `canary/` pointer + release gateway proxy (never on the GitHub releases page) |
+1. Update `CHANGELOG.md` and any user-facing release notes.
+2. Confirm all public commands and paths use `rillagent`, `~/.rillagent/`,
+   `rillagent.toml`, and `RILLAGENT_*`.
+3. Run the repository test suite:
 
-A canary build is isolated: it **never** moves `latest` / `next` / desktop `latest/`.
-Testers opt in explicitly. (Desktop builds carry `-X main.channel=canary`; npm versions
-ending in `-canary.N` publish under the `canary` dist-tag.)
-
-## Who can release what
-
-| Action | Who | Mechanism |
-|---|---|---|
-| **Cut a canary** | any maintainer (write access) | `workflow_dispatch`, runs free (open `canary` environment) |
-| **Ship `next` / stable** | **esengine only** | stable publish jobs gate on the `release` environment — esengine must approve before anything goes public |
-
-So a maintainer can dispatch a canary anytime, but a stable release — even one a
-maintainer starts by pushing a tag — pauses in the Actions UI until **esengine approves**
-the `release` environment deployment.
-
-> Repo settings backing this: Environments → `release` has esengine as a required
-> reviewer; `canary` has none. (Optional hardening: a tag ruleset restricting
-> `v*`/`npm-v*`/`desktop-v*` creation to esengine, so maintainers can't even start a
-> stable release.)
-
-## The release loop
-
-1. **Develop** — PRs land on `main-v2` (branch auto-deletes on merge).
-2. **Prepare the release notes** — Actions → **Prepare release notes**. Enter the
-   intended version and, when needed, the previous desktop tag. The workflow sends
-   only public merged-PR metadata to DeepSeek, creates equivalent English and Chinese
-   product notes, validates their structure and citations, and opens a review PR.
-   Review and edit that PR like product copy. Once merged, the same catalog entry
-   drives `/changelog/` and both CLI and Desktop GitHub Releases; the desktop
-   app links to that web history from Settings → Updates. A missing catalog
-   entry blocks stable publication.
-3. **Cut a canary** before the intended release (e.g. heading for `1.4.0`):
-   - Desktop: Actions → **Release desktop** → `channel: canary`, `base_version: 1.4.0`
-   - CLI: Actions → **Release npm** → `base_version: 1.4.0`
-   - Publishes `1.4.0-canary.N` to the desktop R2 `canary/` pointer (no GitHub release) and npm `@canary`.
-4. **Test** — testers install `reasonix@canary` (CLI) or grab the desktop canary
-   build from its R2 link, and report bugs.
-5. **Fix** on `main-v2` via PRs; re-cut the canary as needed (`canary.N` bumps).
-   Re-run **Prepare release notes** after material fixes; it updates the same branch
-   and PR without publishing anything.
-6. **Ship stable** when the canary is clean and the release-notes PR is merged — push the three tags:
    ```sh
-   git tag v1.4.0         && git push origin v1.4.0          # CLI binaries + Homebrew
-   git tag npm-v1.4.0     && git push origin npm-v1.4.0      # npm -> latest
-   git tag desktop-v1.4.0 && git push origin desktop-v1.4.0  # desktop -> R2 latest/
+   go test ./...
+   go vet ./...
+   cd desktop && go test ./...
    ```
-   Each stable run **waits for esengine to approve the `release` environment** before publishing.
-   A stable `npm-v*` publish moves the `latest` dist-tag automatically (build.mjs)
-   and release-npm.yml verifies it landed. **Do not skip the npm tag**: the stable
-   CLI release (release.yml) fails when the matching `npm-v*` tag was never pushed
-   — that guard exists because 1.0.0–1.17.5 shipped without stable npm tags and
-   `npm update -g` silently downgraded users to 0.53.2 (#5822). A pushed tag whose
-   publish is still awaiting approval only warns; release-npm.yml's verify step
-   owns asserting the dist-tag lands.
-7. **Next cycle** — the canary rolls on toward `1.5.0`.
 
-## Notes
+4. Build and inspect the CLI:
 
-- Canary version numbers use the workflow `run_number`, so the desktop and CLI canary
-  numbers differ (e.g. `canary.11` vs `canary.2`). Only monotonicity per channel matters.
-- A stable `-rc` tag (e.g. `npm-v1.4.0-rc.1`) still ships under `next`, not `canary`.
-- Desktop in-app updates use R2 first, then the `crash.reasonix.io` desktop release
-  gateway. The gateway resolves the `desktop-v*` release line directly and never uses
-  GitHub's repository-wide `/releases/latest`, because plain `v*` tags are the CLI
-  release line. Stable CLI releases also carry a compatibility `latest.json` asset so
-  older desktop builds that still use GitHub `latest` do not 404.
-- Canary uses R2 plus the same gateway proxy for the `canary/` pointer; it never
-  appears on the GitHub releases page.
-- DeepSeek is an editorial drafting dependency, not a runtime or publishing dependency.
-  The API key is available only to the manually dispatched preparation workflow; tag
-  workflows publish the reviewed JSON already committed to `main-v2` and never call a model.
-- Windows and Linux apply downloaded, minisign-verified artifacts in place. macOS
-  applies in-app only for Developer ID signed and notarized builds; ad-hoc/local
-  builds fall back to the download page.
+   ```sh
+   make build
+   ./bin/rillagent version
+   ```
+
+5. Build the desktop artifacts using the repository's release scripts once
+   those scripts and signing inputs have been reviewed for the intended tag.
+6. Verify every artifact checksum and, where applicable, its minisign
+   signature before uploading.
+7. Wait for the `main` commit's required CI check to pass.
+
+## Publishing
+
+Create the release only in
+[`Lmq1111/Rill/releases`](https://github.com/Lmq1111/Rill/releases). The release
+body should identify the exact commit, supported platforms, checksum file, known
+limitations, and whether packages are signed or ad-hoc.
+
+After publication, verify the release page and each download from a clean
+machine before announcing availability. The `rillagent upgrade` command and
+desktop manifests must resolve assets from the same `Lmq1111/Rill` release.

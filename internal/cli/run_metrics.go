@@ -77,7 +77,7 @@ type RunMetrics struct {
 }
 
 // RunMemoryCompilerMetrics is a content-free per-turn Memory v5 snapshot in
-// `reasonix run --metrics`. It mirrors the event payload's counts and estimated
+// `rillagent run --metrics`. It mirrors the event payload's counts and estimated
 // token sizes without carrying memory text, prompts, tool output, paths, or IDs.
 type RunMemoryCompilerMetrics struct {
 	Injected         bool `json:"injected"`

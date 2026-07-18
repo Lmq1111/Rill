@@ -266,7 +266,7 @@ func TestReadStream(t *testing.T) {
 
 // LongCat's Anthropic-compatible SSE stream can omit message_start.usage and
 // report the complete usage object in message_delta. Those input/cache counters
-// must not disappear from Reasonix metrics and billing estimates.
+// must not disappear from Rill metrics and billing estimates.
 func TestReadStreamUsageFromMessageDelta(t *testing.T) {
 	sse := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_1"}}
@@ -544,7 +544,7 @@ func TestStreamSupportsBearerAuthHeaderAndCustomHeaders(t *testing.T) {
 		Extra: map[string]any{
 			"auth_header": true,
 			"headers": map[string]string{
-				"User-Agent":        "Reasonix",
+				"User-Agent":        "Rill",
 				"Authorization":     "Bearer wrong",
 				"x-api-key":         "wrong",
 				"anthropic-version": "bad",
@@ -572,8 +572,8 @@ func TestStreamSupportsBearerAuthHeaderAndCustomHeaders(t *testing.T) {
 	if gotVersion != anthropicVersion {
 		t.Fatalf("anthropic-version = %q, want %q", gotVersion, anthropicVersion)
 	}
-	if gotUserAgent != "Reasonix" {
-		t.Fatalf("User-Agent = %q, want Reasonix", gotUserAgent)
+	if gotUserAgent != "Rill" {
+		t.Fatalf("User-Agent = %q, want Rill", gotUserAgent)
 	}
 }
 

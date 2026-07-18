@@ -18,7 +18,7 @@ const (
 	RenderScopeProject RenderScope = "project"
 )
 
-// RenderTOML renders the config as annotated TOML in the `reasonix setup` house style:
+// RenderTOML renders the config as annotated TOML in the `rillagent setup` house style:
 // comments preserved, system_prompt as a multi-line string, helpful hints. The
 // output round-trips back through Load (see render_test.go).
 func RenderTOML(c *Config) string {
@@ -27,7 +27,7 @@ func RenderTOML(c *Config) string {
 
 // RenderTOMLForScope renders an annotated TOML file for a specific persistence
 // target. User configs can carry desktop and account-level preferences; project
-// reasonix.toml stays focused on project behavior and intentionally excludes
+// rillagent.toml stays focused on project behavior and intentionally excludes
 // desktop-only preferences.
 func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c == nil {
@@ -44,28 +44,28 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	defaults := Default()
 	var b strings.Builder
 
-	b.WriteString("# Reasonix configuration.\n")
-	fmt.Fprintf(&b, "# Resolution order: flag > ./reasonix.toml > %s > built-in defaults.\n", userConfigDisplayPath())
-	b.WriteString("# Fields marked user/global only are not overridden by ./reasonix.toml.\n")
-	b.WriteString("# Secrets are named via api_key_env and stored in Reasonix's global .env; never put keys here.\n\n")
+	b.WriteString("# Rill configuration.\n")
+	fmt.Fprintf(&b, "# Resolution order: flag > ./rillagent.toml > %s > built-in defaults.\n", userConfigDisplayPath())
+	b.WriteString("# Fields marked user/global only are not overridden by ./rillagent.toml.\n")
+	b.WriteString("# Secrets are named via api_key_env and stored in Rill's global .env; never put keys here.\n\n")
 
 	fmt.Fprintf(&b, "config_version = %d   # schema marker for diagnostics; old versions may ignore it\n", configVersion(c))
 	fmt.Fprintf(&b, "default_model = %q\n", c.DefaultModel)
 	if c.Language != "" {
-		fmt.Fprintf(&b, "language      = %q   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG\n", c.Language)
+		fmt.Fprintf(&b, "language      = %q   # ui/model language; empty = auto-detect from $LANG / $RILLAGENT_LANG\n", c.Language)
 	} else {
-		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG\n")
+		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $RILLAGENT_LANG\n")
 	}
 	if scope != RenderScopeProject {
-		fmt.Fprintf(&b, "credentials_store = %q   # legacy compatibility; provider keys are saved in Reasonix's global .env\n", normalizeCredentialsStore(c.CredentialsStore))
+		fmt.Fprintf(&b, "credentials_store = %q   # legacy compatibility; provider keys are saved in Rill's global .env\n", normalizeCredentialsStore(c.CredentialsStore))
 	}
 	b.WriteString("\n")
 
 	if shouldRenderUI(c, defaults, scope) {
 		b.WriteString("[ui]\n")
-		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; REASONIX_THEME can override per run\n", c.UITheme())
+		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; RILLAGENT_THEME can override per run\n", c.UITheme())
 		if style := c.UIThemeStyle(); style != "" {
-			fmt.Fprintf(&b, "theme_style = %q   # CLI accent palette; REASONIX_THEME_STYLE can override per run\n", style)
+			fmt.Fprintf(&b, "theme_style = %q   # CLI accent palette; RILLAGENT_THEME_STYLE can override per run\n", style)
 		} else {
 			b.WriteString("# theme_style = \"graphite\"   # graphite|aurora|slate|carbon|nocturne|amber and legacy aliases\n")
 		}
@@ -127,7 +127,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("\n")
 	} else if c.Desktop.ProviderAccess != nil {
 		// provider_access is intentionally mergeable across user and project
-		// configs. It is the only desktop field written to reasonix.toml: local
+		// configs. It is the only desktop field written to rillagent.toml: local
 		// providers then appear in that workspace's desktop model switcher without
 		// copying user-global appearance or security preferences into the project.
 		b.WriteString("[desktop]\n")
@@ -180,7 +180,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if c.Network.Proxy.Password != "" {
 			fmt.Fprintf(&b, "password = %q   # supports ${VAR} expansion\n", c.Network.Proxy.Password)
 		} else {
-			b.WriteString("# password = \"${REASONIX_PROXY_PASSWORD}\"   # optional; supports ${VAR} expansion\n")
+			b.WriteString("# password = \"${RILLAGENT_PROXY_PASSWORD}\"   # optional; supports ${VAR} expansion\n")
 		}
 		b.WriteString("\n")
 	}
@@ -518,7 +518,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if strings.TrimSpace(c.Bot.Control.TokenEnv) != "" {
 			fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Control.TokenEnv)
 		} else {
-			b.WriteString("# token_env = \"REASONIX_BOT_CONTROL_TOKEN\"\n")
+			b.WriteString("# token_env = \"RILLAGENT_BOT_CONTROL_TOKEN\"\n")
 		}
 		if len(c.Bot.Routes) > 0 {
 			for _, route := range c.Bot.Routes {
@@ -637,7 +637,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	// user's saved toggles survive config rewrites (WriteFile re-renders the
 	// whole file from the struct).
 	if scope != RenderScopeProject {
-		b.WriteString("[secrets]   # credential protection; user/global only, ./reasonix.toml cannot override\n")
+		b.WriteString("[secrets]   # credential protection; user/global only, ./rillagent.toml cannot override\n")
 		if c.Secrets.FilterSubprocessEnv {
 			b.WriteString("filter_subprocess_env = true   # strip credential-named env vars from tool/hook/LSP/MCP subprocesses\n")
 		} else {
@@ -656,7 +656,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if len(c.Plugins) == 0 {
 		b.WriteString("# [[plugins]]\n")
 		b.WriteString("# name    = \"example\"\n")
-		b.WriteString("# command = \"reasonix-plugin-example\"\n")
+		b.WriteString("# command = \"rillagent-plugin-example\"\n")
 		b.WriteString("# call_timeout_seconds = 600       # optional per-server MCP call timeout\n")
 		b.WriteString("# tool_timeout_seconds = { \"generate_video\" = 1800 }   # raw MCP tool names\n")
 		b.WriteString("# default_tools_approval_mode = \"auto\"   # auto|prompt|writes|approve\n")
@@ -1682,7 +1682,7 @@ func renderBotDesktopWatcher(b *strings.Builder, watcher BotDesktopWatcherConfig
 }
 
 // renderRuleList emits a permission rule list. A populated list renders as an
-// active TOML array; an empty one renders as a commented example so `reasonix setup`
+// active TOML array; an empty one renders as a commented example so `rillagent setup`
 // scaffolds discoverable guidance without imposing surprising rules.
 func renderRuleList(key string, rules []string, example string) string {
 	if len(rules) == 0 {

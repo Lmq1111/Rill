@@ -182,8 +182,8 @@ func TestEditFile(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "a.txt")
 	os.WriteFile(f, []byte("hello world\n"), 0o644)
 
-	out := runTool(t, editFile{}, map[string]any{"path": f, "old_string": "world", "new_string": "reasonix"})
-	for _, want := range []string{"Actual replacement receipt after write:", "-world", "+reasonix"} {
+	out := runTool(t, editFile{}, map[string]any{"path": f, "old_string": "world", "new_string": "rillagent"})
+	for _, want := range []string{"Actual replacement receipt after write:", "-world", "+rillagent"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("edit result should contain %q in actual post-write receipt:\n%s", want, out)
 		}
@@ -191,7 +191,7 @@ func TestEditFile(t *testing.T) {
 	if strings.Contains(out, "hello") {
 		t.Fatalf("edit receipt should not include unchanged same-line content:\n%s", out)
 	}
-	if b, _ := os.ReadFile(f); string(b) != "hello reasonix\n" {
+	if b, _ := os.ReadFile(f); string(b) != "hello rillagent\n" {
 		t.Fatalf("after edit = %q", b)
 	}
 
@@ -218,22 +218,22 @@ func TestMultiEdit(t *testing.T) {
 		"path": f,
 		"edits": []map[string]any{
 			{"old_string": "package old", "new_string": "package new"},
-			{"old_string": "old", "new_string": "reasonix", "replace_all": true},
+			{"old_string": "old", "new_string": "fresh", "replace_all": true},
 		},
 	})
 	if !strings.Contains(out, "multi_edit") || !strings.Contains(out, "2 edits applied") {
 		t.Errorf("summary unexpected: %q", out)
 	}
-	for _, want := range []string{"Actual replacement receipt after write:", "-package old", "+package new", "-old", "+reasonix"} {
+	for _, want := range []string{"Actual replacement receipt after write:", "-package old", "+package new", "-old", "+fresh"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("multi_edit result should contain %q in actual post-write receipt:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "func reasonix") {
+	if strings.Contains(out, "func fresh") {
 		t.Fatalf("multi_edit receipt should not include unchanged same-line content:\n%s", out)
 	}
 	got, _ := os.ReadFile(f)
-	want := "package new\n\nfunc reasonix() {\n\treasonix()\n}\n"
+	want := "package new\n\nfunc fresh() {\n\tfresh()\n}\n"
 	if string(got) != want {
 		t.Errorf("after multi_edit = %q\n          want = %q", got, want)
 	}
@@ -533,13 +533,13 @@ func TestMultiEditGB18030RoundTrip(t *testing.T) {
 		"path": f,
 		"edits": []map[string]any{
 			{"old_string": "package old", "new_string": "package new"},
-			{"old_string": "old", "new_string": "reasonix", "replace_all": true},
+			{"old_string": "old", "new_string": "fresh", "replace_all": true},
 		},
 	})
 
 	got, _ := os.ReadFile(f)
 	dec, _ := simplifiedchinese.GB18030.NewDecoder().Bytes(got)
-	want := "package new\n\nfunc reasonix() {\n\treasonix()\n}\n"
+	want := "package new\n\nfunc fresh() {\n\tfresh()\n}\n"
 	if string(dec) != want {
 		t.Errorf("after multi_edit = %q (decoded), want %q", dec, want)
 	}

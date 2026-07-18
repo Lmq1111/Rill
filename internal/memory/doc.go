@@ -1,7 +1,7 @@
-// Package memory implements Reasonix's persistent memory. It mirrors Claude
-// Code's two-layer model while honoring Reasonix's cache-first architecture:
+// Package memory implements Rill's persistent memory. It mirrors Claude
+// Code's two-layer model while honoring Rill's cache-first architecture:
 //
-//   - Hierarchical doc memory: REASONIX.md / AGENTS.md files discovered from the
+//   - Hierarchical doc memory: RILL.md / AGENTS.md files discovered from the
 //     user config dir and up the project tree, with "@path" imports. This is the
 //     analog of CLAUDE.md.
 //   - Auto-memory store: per-project fact files with frontmatter plus a MEMORY.md
@@ -29,29 +29,28 @@ import (
 type Scope string
 
 const (
-	ScopeUser     Scope = "user"     // ~/.reasonix/REASONIX.md
-	ScopeAncestor Scope = "ancestor" // a REASONIX.md above the project root
-	ScopeProject  Scope = "project"  // ./REASONIX.md (committed, shared)
-	ScopeLocal    Scope = "local"    // ./REASONIX.local.md (personal, git-ignored)
+	ScopeUser     Scope = "user"     // ~/.rillagent/RILL.md
+	ScopeAncestor Scope = "ancestor" // a RILL.md above the project root
+	ScopeProject  Scope = "project"  // ./RILL.md (committed, shared)
+	ScopeLocal    Scope = "local"    // ./RILL.local.md (personal, git-ignored)
 )
 
 // docNames are the recognized memory filenames at each level, in load order.
-// REASONIX.md is ours; AGENTS.md and CLAUDE.md are the cross-tool conventions.
+// RILL.md is ours; AGENTS.md and CLAUDE.md are the cross-tool conventions.
 // When several distinct files exist in one directory, all load (each labeled with
 // its source path), so a repo already carrying an AGENTS.md / CLAUDE.md is picked
-// up without renaming. New docs are created as AGENTS.md (the universal
-// convention) — see defaultDocName / Set.DocPath.
-var docNames = []string{"REASONIX.md", "AGENTS.md", "CLAUDE.md"}
+// up without renaming. New docs are created as RILL.md — see defaultDocName /
+// Set.DocPath.
+var docNames = []string{"RILL.md", "AGENTS.md", "CLAUDE.md"}
 
 // localNames are the personal, git-ignored overrides, highest precedence.
-var localNames = []string{"REASONIX.local.md", "AGENTS.local.md", "CLAUDE.local.md"}
+var localNames = []string{"RILL.local.md", "AGENTS.local.md", "CLAUDE.local.md"}
 
-// defaultDocName / defaultLocalName are the filenames a fresh doc is created as
-// when a directory has none yet: AGENTS.md is the widely-shared convention, so a
-// new project's memory is portable to other agent tools out of the box.
+// defaultDocName / defaultLocalName are the Rill-owned filenames created when a
+// directory has no recognized memory document yet.
 const (
-	defaultDocName   = "AGENTS.md"
-	defaultLocalName = "AGENTS.local.md"
+	defaultDocName   = "RILL.md"
+	defaultLocalName = "RILL.local.md"
 )
 
 // maxImportDepth bounds "@path" import recursion (matches Claude Code's limit).

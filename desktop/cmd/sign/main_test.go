@@ -29,7 +29,7 @@ func TestSignFiles(t *testing.T) {
 	t.Setenv("MINISIGN_PASSWORD", "pw")
 
 	dir := t.TempDir()
-	artifact := filepath.Join(dir, "Reasonix-linux-amd64.tar.gz")
+	artifact := filepath.Join(dir, "Rill-linux-amd64.tar.gz")
 	payload := []byte("pretend this is a release tarball")
 	if err := os.WriteFile(artifact, payload, 0o644); err != nil {
 		t.Fatal(err)
@@ -53,23 +53,25 @@ func TestSignFiles(t *testing.T) {
 func TestGenManifest(t *testing.T) {
 	dir := t.TempDir()
 	names := []string{
-		"Reasonix-darwin-arm64.zip",
-		"Reasonix-darwin-amd64.zip",
-		"Reasonix-windows-amd64-installer.exe",
-		"Reasonix-windows-amd64.zip", // portable download, not the updater channel
-		"Reasonix-windows-arm64-installer.exe",
-		"Reasonix-windows-arm64.zip", // portable download, not the updater channel
-		"Reasonix-linux-amd64.tar.gz",
-		"Reasonix-linux-amd64.deb",            // human download, not the updater channel
-		"Reasonix-linux-amd64.tar.gz.minisig", // must be skipped
-		"README.txt",                          // unmatched, must be skipped
+		"Rill-darwin-arm64.zip",
+		"Rill-darwin-amd64.zip",
+		"Rill-windows-amd64-installer.exe",
+		"Rill-windows-amd64.zip", // portable download, not the updater channel
+		"Rill-windows-arm64-installer.exe",
+		"Rill-windows-arm64.zip", // portable download, not the updater channel
+		"Rill-linux-amd64.tar.gz",
+		"Rill-linux-amd64.deb",            // human download, not the updater channel
+		"Rill-linux-amd64.tar.gz.minisig", // must be skipped
+		"README.txt",                      // unmatched, must be skipped
 	}
 	for _, n := range names {
 		if err := os.WriteFile(filepath.Join(dir, n), []byte(n), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("GITHUB_REPOSITORY", "esengine/reasonix")
+	// A stale upstream workflow value must not send Rill assets to an upstream
+	// repository. The manifest generator falls back to the Rill product repo.
+	t.Setenv("GITHUB_REPOSITORY", "esengine/DeepSeek-Reasonix")
 
 	if err := genManifest(dir, "v1.2.0", "desktop-v1.2.0"); err != nil {
 		t.Fatalf("genManifest: %v", err)
@@ -85,7 +87,7 @@ func TestGenManifest(t *testing.T) {
 	if m.Version != "v1.2.0" {
 		t.Fatalf("version = %q, want v1.2.0", m.Version)
 	}
-	if m.DownloadPage != "https://reasonix.io/?download=desktop#start" {
+	if m.DownloadPage != "https://github.com/Lmq1111/Rill/releases" {
 		t.Fatalf("download_page = %q, want official install page", m.DownloadPage)
 	}
 	if len(m.Platforms) != 5 {
@@ -95,7 +97,7 @@ func TestGenManifest(t *testing.T) {
 	if !ok {
 		t.Fatal("windows-amd64 missing")
 	}
-	wantURL := "https://github.com/esengine/DeepSeek-Reasonix/releases/download/desktop-v1.2.0/Reasonix-windows-amd64-installer.exe"
+	wantURL := "https://github.com/Lmq1111/Rill/releases/download/desktop-v1.2.0/Rill-windows-amd64-installer.exe"
 	if win.URL != wantURL {
 		t.Fatalf("windows url = %q, want %q", win.URL, wantURL)
 	}
@@ -111,7 +113,7 @@ func TestGenManifest(t *testing.T) {
 	if !ok {
 		t.Fatal("windows-arm64 missing")
 	}
-	if !strings.HasSuffix(arm.URL, "/Reasonix-windows-arm64-installer.exe") {
+	if !strings.HasSuffix(arm.URL, "/Rill-windows-arm64-installer.exe") {
 		t.Fatalf("windows-arm64 url = %q, want the installer, not the portable zip", arm.URL)
 	}
 	// The Linux updater channel must stay the .tar.gz; the co-located .deb is a
@@ -120,7 +122,7 @@ func TestGenManifest(t *testing.T) {
 	if !ok {
 		t.Fatal("linux-amd64 missing")
 	}
-	if !strings.HasSuffix(lin.URL, "/Reasonix-linux-amd64.tar.gz") {
+	if !strings.HasSuffix(lin.URL, "/Rill-linux-amd64.tar.gz") {
 		t.Fatalf("linux-amd64 url = %q, want the .tar.gz, not the .deb", lin.URL)
 	}
 }

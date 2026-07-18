@@ -9,13 +9,13 @@ import (
 	"reasonix/internal/control"
 )
 
-// sessionLeaseResumeRefusal is the startup-time refusal for `reasonix
-// [--resume|--continue]` and `reasonix run --resume/--continue`: it names the
+// sessionLeaseResumeRefusal is the startup-time refusal for `rillagent
+// [--resume|--continue]` and `rillagent run --resume/--continue`: it names the
 // holder and offers the two ways out (close the holder, or continue in a
 // duplicated session via --copy).
 func sessionLeaseResumeRefusal(err error) string {
 	return control.SessionInUseMessage(err) +
-		"; close the other Reasonix window or process, or rerun with --copy to continue in a duplicated session"
+		"; close the other Rill window or process, or rerun with --copy to continue in a duplicated session"
 }
 
 // sessionLeaseHeldNotice is the in-TUI refusal for /resume and /switch, where

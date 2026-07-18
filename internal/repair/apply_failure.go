@@ -37,7 +37,7 @@ func updateApplyFailurePath() string {
 func MarkUpdateApplyFailed(toVersion, reason string) error {
 	path := updateApplyFailurePath()
 	if path == "" {
-		return fmt.Errorf("update apply failure: Reasonix state directory is unavailable")
+		return fmt.Errorf("update apply failure: Rill state directory is unavailable")
 	}
 	failure := UpdateApplyFailure{
 		SchemaVersion: 1,

@@ -39,7 +39,7 @@ func RebuildDerivedState(target string) ([]string, error) {
 			}
 			return applied, err
 		}
-		quarantine := path + ".reasonix-rebuild-" + stamp
+		quarantine := path + ".rillagent-rebuild-" + stamp
 		if err := os.Rename(path, quarantine); err != nil {
 			return applied, err
 		}
@@ -58,7 +58,7 @@ func RebuildDerivedState(target string) ([]string, error) {
 
 func derivedStatePaths() map[string]string {
 	paths := map[string]string{}
-	if root := config.ReasonixHomeDir(); root != "" {
+	if root := config.RillHomeDir(); root != "" {
 		paths["tabs"] = filepath.Join(root, "desktop-tabs.json")
 		paths["projects"] = filepath.Join(root, "desktop-projects.json")
 	}

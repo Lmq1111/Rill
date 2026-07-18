@@ -1,4 +1,4 @@
-// Package cli implements reasonix's command-line entry: subcommand routing, flag
+// Package cli implements rillagent's command-line entry: subcommand routing, flag
 // parsing, assembly from config, and exit codes. The core is config-driven —
 // providers and tools are resolved from configuration, not hardcoded.
 package cli
@@ -25,6 +25,7 @@ import (
 
 	"reasonix/internal/agent"
 	"reasonix/internal/boot"
+	"reasonix/internal/brand"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -58,10 +59,10 @@ func Run(args []string, version string) int {
 	if cmd == "--acp" {
 		cmd = "acp"
 	}
-	// -p/--print is one-shot print mode. reasonix has no interactive -p, so a
+	// -p/--print is one-shot print mode. rillagent has no interactive -p, so a
 	// print flag anywhere in a leading flag run (no explicit subcommand) routes
-	// the whole set to `run --print` — `reasonix --model X -p "task"` works, not
-	// only `reasonix -p ...`.
+	// the whole set to `run --print` — `rillagent --model X -p "task"` works, not
+	// only `rillagent -p ...`.
 	if cmd == "-p" || cmd == "--print" || (isDefaultInteractiveFlag(cmd) && hasLeadingPrintFlag(args)) {
 		args = append([]string{"run", "--print"}, stripLeadingPrintFlag(args)...)
 		cmd = "run"
@@ -70,8 +71,8 @@ func Run(args []string, version string) int {
 		cmd = ""
 	}
 	doctorRepair := isDoctorRepairCommand(args)
-	if shouldMigrateLegacyConfigForCLI(cmd) && !doctorRepair {
-		migrateLegacyConfigForCLI()
+	if shouldApplyConfigUpgradesForCLI(cmd) && !doctorRepair {
+		applyConfigUpgradesForCLI()
 	}
 	if !doctorRepair {
 		if cfg, err := config.Load(); err == nil {
@@ -108,9 +109,9 @@ func Run(args []string, version string) int {
 		configureCLIThemeFromConfigNoProbe()
 		return configCommand(rest)
 	case "init":
-		// Project memory (AGENTS.md) is model-generated in-session — `/init` runs
+		// Project memory (RILL.md) is model-generated in-session — `/init` runs
 		// the codebase analysis. This CLI entry just points there (and to `setup`
-		// for config), so `reasonix init` isn't a dead end.
+		// for config), so `rillagent init` isn't a dead end.
 		configureCLIThemeFromConfigNoProbe()
 		return initHint()
 	case "acp":
@@ -140,7 +141,7 @@ func Run(args []string, version string) int {
 		configureCLIThemeFromConfigNoProbe()
 		return upgradeCommand(rest, version)
 	case "version", "--version", "-v":
-		fmt.Println("reasonix", version)
+		fmt.Printf("%s v%s\n", brand.CLIBrand, strings.TrimPrefix(version, "v"))
 		return 0
 	case "help", "--help", "-h":
 		usage()
@@ -167,7 +168,7 @@ func isDefaultInteractiveFlag(arg string) bool {
 	return false
 }
 
-func shouldMigrateLegacyConfigForCLI(cmd string) bool {
+func shouldApplyConfigUpgradesForCLI(cmd string) bool {
 	switch cmd {
 	case "", "run", "chat", "code", "serve", "setup", "config", "init", "acp", "mcp", "plugin", "subagent", "doctor", "bot", "upgrade", "update":
 		return true
@@ -176,21 +177,13 @@ func shouldMigrateLegacyConfigForCLI(cmd string) bool {
 	}
 }
 
-func migrateLegacyConfigForCLI() {
-	if _, err := config.MigrateLegacyIfNeeded(); err != nil {
-		fmt.Fprintln(os.Stderr, "warning: config migration failed:", err)
-	}
+func applyConfigUpgradesForCLI() {
 	if _, err := config.ApplyUserConfigUpgradesOnStartup(config.UserConfigPath()); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: config upgrade failed:", err)
 	}
 }
 
 func migrateMCPConfigForCLIWorkspace() {
-	if wd, err := os.Getwd(); err == nil {
-		if _, err := config.MigrateMCPToUserConfigOnUpgrade([]string{wd}); err != nil {
-			fmt.Fprintln(os.Stderr, "warning: MCP config migration failed:", err)
-		}
-	}
 }
 
 func configureCLIThemeFromConfig() {
@@ -416,7 +409,7 @@ func runAgent(args []string) int {
 	cont := fs.Bool("continue", false, "resume the most recent saved session")
 	fs.BoolVar(cont, "c", false, "shorthand for --continue")
 	resume := fs.String("resume", "", "resume a specific session file (non-interactive; takes precedence over --continue)")
-	copySession := fs.Bool("copy", false, "with --resume/--continue: duplicate the session and continue in the copy (escape hatch when the original is held by another Reasonix process)")
+	copySession := fs.Bool("copy", false, "with --resume/--continue: duplicate the session and continue in the copy (escape hatch when the original is held by another Rill process)")
 	effort := fs.String("effort", "", "session reasoning effort override")
 	permissionMode := fs.String("permission-mode", "ask", "permission mode: manual | ask | auto | acceptEdits | dontAsk | plan | bypassPermissions")
 	printOnly := fs.BoolP("print", "p", false, "print only the final response")
@@ -568,7 +561,7 @@ func runAgent(args []string) int {
 	if strings.TrimSpace(*effort) != "" {
 		effortOverride = effort
 	}
-	// `reasonix run` is headless: there is no key loop to answer approval or ask
+	// `rillagent run` is headless: there is no key loop to answer approval or ask
 	// prompts, and the approval timeout defaults to infinite. Installing the
 	// interactive approver/asker here would let an Ask rule, the `ask` tool, or a
 	// sandbox/config approval wedge the run forever. Map the mode onto a
@@ -781,7 +774,7 @@ func runServe(args []string) int {
 
 	srv := serve.New(ctrl, bc, serveCfg)
 	srv.SetSessionLeases(leases)
-	fmt.Printf("reasonix serve — %s on http://%s\n", ctrl.Label(), *addr)
+	fmt.Printf("rillagent serve — %s on http://%s\n", ctrl.Label(), *addr)
 	if srv.AuthMode() == "token" {
 		fmt.Printf("  auth: token\n")
 		fmt.Printf("  share: http://%s/?token=%s\n", *addr, srv.AuthToken())
@@ -814,7 +807,7 @@ func runServe(args []string) int {
 // prompt loop that keeps conversation context across turns. Exit with
 // 'exit'/'quit' or Ctrl-D.
 func chatREPL(args []string) int {
-	fs := pflag.NewFlagSet("reasonix", pflag.ContinueOnError)
+	fs := pflag.NewFlagSet("rillagent", pflag.ContinueOnError)
 	fs.SetInterspersed(true)
 	model := fs.String("model", "", "provider name (default: config default_model)")
 	profileFlag := fs.String("profile", "balanced", "runtime profile: economy | balanced | delivery")
@@ -823,7 +816,7 @@ func chatREPL(args []string) int {
 	fs.BoolVar(cont, "c", false, "shorthand for --continue")
 	resume := fs.StringP("resume", "r", "", "resume by session ID/query, or open the picker when no value is given")
 	fs.Lookup("resume").NoOptDefVal = resumePickerSentinel
-	copySession := fs.Bool("copy", false, "with --resume/--continue: duplicate the selected session and continue in the copy (escape hatch when the original is held by another Reasonix process)")
+	copySession := fs.Bool("copy", false, "with --resume/--continue: duplicate the selected session and continue in the copy (escape hatch when the original is held by another Rill process)")
 	yolo := fs.Bool("dangerously-skip-permissions", false, "YOLO: auto-approve approval-gated tool calls this session; same runtime mode as Ctrl+Y")
 	fs.BoolVar(yolo, "yolo", false, "alias for --dangerously-skip-permissions")
 	dir := fs.String("dir", "", "change to this directory first (project root); config, sandbox and file tools resolve from here")
@@ -1161,7 +1154,7 @@ func reserveNativeScrollbackFrame(w io.Writer, rows int) {
 }
 
 // setupTargets is where the wizard writes: the TOML config and the credential
-// store. Keys always go to Reasonix's global .env so they
+// store. Keys always go to Rill's global .env so they
 // never land in a project's own .env; only the config location is project-local
 // under --local.
 type setupTargets struct {
@@ -1170,29 +1163,29 @@ type setupTargets struct {
 }
 
 // defaultConfigTarget is the user-global config file, falling back to a
-// project-local reasonix.toml only when the user config dir can't be resolved.
+// project-local rillagent.toml only when the user config dir can't be resolved.
 func defaultConfigTarget() string {
 	if p := config.UserConfigPath(); p != "" {
 		return p
 	}
-	return "reasonix.toml"
+	return brand.ProjectConfig
 }
 
-// defaultEnvTarget is the display target for the reasonix-owned global
-// Reasonix global .env.
+// defaultEnvTarget is the display target for the rillagent-owned global
+// Rill global .env.
 func defaultEnvTarget() string {
 	return config.CredentialsTargetDescription()
 }
 
-// resolveSetupTargets picks where `reasonix setup` writes. Keys always go to the
-// global env. The config goes to the user-global dir by default, to ./reasonix.toml
+// resolveSetupTargets picks where `rillagent setup` writes. Keys always go to the
+// global env. The config goes to the user-global dir by default, to ./rillagent.toml
 // under --local, or to an explicit path argument when given.
 func resolveSetupTargets(args []string) setupTargets {
 	t := setupTargets{config: defaultConfigTarget(), env: defaultEnvTarget()}
 	for _, a := range args {
 		switch a {
 		case "--local", "-l":
-			t.config = "reasonix.toml"
+			t.config = brand.ProjectConfig
 		default:
 			t.config = a
 		}
@@ -1208,11 +1201,11 @@ func displayPath(p string) string {
 	return p
 }
 
-// setupConfig runs the configuration wizard (the `reasonix setup` command),
-// writing config.toml to the user-global dir (or ./reasonix.toml under --local)
-// and API keys to Reasonix's global .env — never a project's own .env.
+// setupConfig runs the configuration wizard (the `rillagent setup` command),
+// writing config.toml to the user-global dir (or ./rillagent.toml under --local)
+// and API keys to Rill's global .env — never a project's own .env.
 // Project memory is a separate concern — the in-session `/init` skill generates
-// AGENTS.md (see initHint).
+// RILL.md (see initHint).
 func setupConfig(args []string) int {
 	t := resolveSetupTargets(args)
 	path := t.config
@@ -1230,7 +1223,7 @@ func setupConfig(args []string) int {
 	if isInteractive() {
 		rc := interactiveSetup(t.config, t.env)
 		if rc == 0 {
-			fmt.Printf(i18n.M.TryHintFmt+"\n", bold("reasonix"))
+			fmt.Printf(i18n.M.TryHintFmt+"\n", bold("rillagent"))
 		}
 		return rc
 	}
@@ -1253,10 +1246,10 @@ func writeDefaultConfig(path string) int {
 	return 0
 }
 
-// initHint handles `reasonix init`. Unlike a config scaffold, project memory is
+// initHint handles `rillagent init`. Unlike a config scaffold, project memory is
 // model-generated by analyzing the codebase, so it lives as the in-session
 // `/init` skill rather than a CLI command. This entry just points the user there
-// (and to `reasonix setup` for config) so the verb isn't a dead end.
+// (and to `rillagent setup` for config) so the verb isn't a dead end.
 func initHint() int {
 	fmt.Println(i18n.M.InitHint)
 	return 0
@@ -1285,7 +1278,7 @@ func interactiveSetup(configPath, envPath string) int {
 	// in their language before any substantive prompt.
 	fmt.Println()
 	fmt.Print(boxed([]string{
-		accent("◆") + " " + fmt.Sprintf(i18n.M.WelcomeTitleFmt, bold("reasonix")),
+		accent("◆") + " " + fmt.Sprintf(i18n.M.WelcomeTitleFmt, bold("rillagent")),
 		"",
 		dim(i18n.M.NoConfigYet),
 	}))
@@ -1491,12 +1484,12 @@ func containsString(xs []string, v string) bool {
 
 // filterStaleCustomEntries drops the wizard's own magic-name entries
 // (Name="custom" with Kind="openai" or Name="anthropic" with Kind="anthropic")
-// that older versions of the wizard wrote into reasonix.toml. They collide
+// that older versions of the wizard wrote into rillagent.toml. They collide
 // with the wizard's "custom" / "anthropic" menu items on re-run, showing up
 // as duplicate broken entries. The new wizard writes host-derived slugs
 // (e.g. "custom-token-sensenova-cn") so a hit on the magic name is
 // unambiguously stale. The returned slice is the dropped set so the caller
-// can warn the user to clean up reasonix.toml by hand.
+// can warn the user to clean up rillagent.toml by hand.
 func filterStaleCustomEntries(providers []config.ProviderEntry) (kept, dropped []config.ProviderEntry) {
 	for _, p := range providers {
 		if p.Name == "custom" && p.Kind == "openai" {
@@ -1517,9 +1510,9 @@ func filterStaleCustomEntries(providers []config.ProviderEntry) (kept, dropped [
 // "custom-token-sensenova-cn" or "anthropic-api-anthropic-com". We can't
 // reuse the wizard's menu-item labels ("custom" / "anthropic") because
 // those would collide with the menu item itself and end up rendered as
-// duplicate provider entries on subsequent re-runs of `reasonix setup`.
+// duplicate provider entries on subsequent re-runs of `rillagent setup`.
 // The host-based slug also gives users a meaningful name to grep for in
-// reasonix.toml. Falls back to a short sha1 of the raw URL when the URL
+// rillagent.toml. Falls back to a short sha1 of the raw URL when the URL
 // doesn't parse, so even malformed input still produces a unique name.
 func providerSlug(kind, baseURL string) string {
 	var host string
@@ -1611,7 +1604,7 @@ func fnv1a32Hex(s string) string {
 }
 
 // providerFamily is a wizard-only grouping of provider SKUs by vendor; it does
-// not exist in config because users editing reasonix.toml deal with SKU names
+// not exist in config because users editing rillagent.toml deal with SKU names
 // directly.
 type providerFamily struct {
 	key  string
@@ -1665,7 +1658,7 @@ func promptCustomProviderManual() (providerPromptResult, error) {
 // Pre-filled values (baseURL, keyEnv, apiKey) are reused as-is when non-empty
 // so the URL-fetch flow can fall through to manual entry without re-asking
 // the user for information they've already typed. An empty apiKey is allowed
-// — the key step happens later in the wizard and Reasonix's global .env is updated then.
+// — the key step happens later in the wizard and Rill's global .env is updated then.
 func promptCustomProviderManualWith(in *bufio.Scanner, baseURL, keyEnv, apiKey string) (providerPromptResult, error) {
 	fmt.Println()
 	if baseURL == "" {
@@ -1938,7 +1931,7 @@ func providersWithMissingKeys(cfg *config.Config) []config.ProviderEntry {
 // setup asks whether to re-enter it; Enter keeps and re-pins the existing value.
 // Otherwise the user is asked once per env var (deduped across providers that
 // share one, e.g. both DeepSeek models). Returns KEY=value lines for the
-// Reasonix global .env. Re-pinning keeps hand-edited or previously saved values
+// Rill global .env. Re-pinning keeps hand-edited or previously saved values
 // aligned with the user's latest setup choice.
 func configureKeys(selected []config.ProviderEntry, r io.Reader, w io.Writer) []string {
 	in := bufio.NewScanner(r)
@@ -2001,7 +1994,7 @@ func isTTY(f *os.File) bool {
 
 // appendEnv merges KEY=value lines into a .env file. Existing assignments of
 // any key that's about to be written are dropped first, then the new values
-// are appended — so re-running `reasonix setup` with a corrected key replaces the
+// are appended — so re-running `rillagent setup` with a corrected key replaces the
 // stale one instead of stacking duplicates. The new values are also
 // pinned into the current process env so a chat session started right after
 // init picks up the fresh keys without a restart.
@@ -2193,7 +2186,7 @@ func configMemoryV5Command(args []string) int {
 
 func configReasoningLanguageCommand(args []string) int {
 	fs := flag.NewFlagSet("config reasoning-language", flag.ContinueOnError)
-	local := fs.Bool("local", false, "write ./reasonix.toml instead of the user config")
+	local := fs.Bool("local", false, "write ./"+brand.ProjectConfig+" instead of the user config")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -2218,7 +2211,7 @@ func configReasoningLanguageCommand(args []string) int {
 	}
 	path := config.UserConfigPath()
 	if *local {
-		path = "reasonix.toml"
+		path = brand.ProjectConfig
 	}
 	if path == "" {
 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, "cannot resolve config path")
@@ -2241,7 +2234,7 @@ func configReasoningLanguageCommand(args []string) int {
 	if !*local {
 		// Non-local writes target the user config; serialize the
 		// load-modify-save against other in-process user-config editors.
-		// --local writes ./reasonix.toml and needs no user-config lock.
+		// --local writes ./rillagent.toml and needs no user-config lock.
 		unlock := config.LockUserConfigEdits()
 		defer unlock()
 	}
@@ -2260,26 +2253,26 @@ func configReasoningLanguageCommand(args []string) int {
 
 func configUsage() {
 	fmt.Print(`Usage:
-  reasonix config auto-plan [off|on]
-  reasonix config memory-v5 [off|observe|compact|on|status]
-  reasonix config reasoning-language [--local] [auto|zh|en]
+  rillagent config auto-plan [off|on]
+  rillagent config memory-v5 [off|observe|compact|on|status]
+  rillagent config reasoning-language [--local] [auto|zh|en]
 `)
 }
 
 func configAutoPlanUsage() {
 	fmt.Print(`Usage:
-  reasonix config auto-plan [off|on]
+  rillagent config auto-plan [off|on]
 `)
 }
 
 func configMemoryV5Usage() {
 	fmt.Print(`Usage:
-  reasonix config memory-v5 [off|observe|compact|on|status]
+  rillagent config memory-v5 [off|observe|compact|on|status]
 `)
 }
 
 func configReasoningLanguageUsage() {
 	fmt.Print(`Usage:
-  reasonix config reasoning-language [--local] [auto|zh|en]
+  rillagent config reasoning-language [--local] [auto|zh|en]
 `)
 }

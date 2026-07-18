@@ -1,4 +1,5 @@
 import type { CommandInfo } from "./types";
+import { brand } from "./brand";
 
 export type InvocationKind = "skill" | "subagent";
 export type InvocationMetadata = { kind: InvocationKind; color?: string };
@@ -54,7 +55,11 @@ export function invocationLabel(name: string): string {
   return unqualified
     .split(/[-_.]+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part, index) => (
+      index === 0 && part.toLowerCase() === brand.executable
+        ? brand.productName
+        : part.charAt(0).toUpperCase() + part.slice(1)
+    ))
     .join(" ");
 }
 

@@ -1,158 +1,59 @@
-# Migrating to Reasonix 1.0 (the Go rewrite)
+# Moving to Rillagent
 
-Reasonix 1.0 is a **ground-up rewrite in Go**. It is a new codebase, not an
-incremental upgrade of the `0.x` TypeScript releases. This guide explains what
-changed and how to move over.
+Rill is an independent product with its own CLI, configuration, and user-data
+namespace. It does not read, migrate, or write Reasonix or LDagent data. Start
+Rillagent with a clean Rill configuration and bring over only the settings or
+project instructions you have reviewed.
 
-## TL;DR
-
-| | Legacy (v1) | Reasonix 1.0+ (v2) |
-|---|---|---|
-| Language | TypeScript / Node | Go |
-| Branch | [`v1`](https://github.com/esengine/DeepSeek-Reasonix/tree/v1) (maintenance only) | `main-v2` (default, active) |
-| Versions | `0.x` (up to v0.54.x) | `1.0.0`+ |
-| Install | `npm i -g reasonix@0.53.2` (pin a `0.x` version) | `npm i -g reasonix` — `latest` points at the current `1.x` stable; or a release archive / `go build` |
-| Code intelligence | embedding semantic search + tree-sitter symbols | LSP-assisted code reading plus grep/read_file/glob; semantic index is not yet ported |
-
-"v1" and "v2" are **codebase generations**, not semver: the v1 line never reached
-1.0, so the Go rewrite takes the `1.x` major.
-
-## Installing 1.0
-
-`npm` stays the primary channel — the package wraps the prebuilt Go binary (the
-same way esbuild/biome ship native binaries via npm). The binary itself is a
-standalone Go executable; npm is only the installer, not a runtime dependency.
-
-**`npm i -g reasonix` installs the current `1.x` stable.** npm's `latest` tag
-moved to the Go line with `1.17.5` — the earlier "`latest` stays pinned to
-`0.x`" migration guard silently downgraded `npm update -g` users once 1.x went
-stable (#5822), so it was retired. Release candidates still ship under the
-`next` tag; `0.x` stays installable by pinning:
+## Build Rillagent
 
 ```sh
-npm i -g reasonix          # current 1.x stable
-npm i -g reasonix@next     # release candidate, when one is ahead of stable
-npm i -g reasonix@0.53.2   # pin the legacy TS build
+git clone https://github.com/Lmq1111/Rill.git
+cd Rill
+make build
+./bin/rillagent version
 ```
 
-Prebuilt archives (`reasonix-<os>-<arch>.tar.gz` / `.zip`) and the desktop
-installer are attached to each GitHub release. These are a **separate channel**
-from npm: the installer drops a standalone desktop/binary build and does not
-touch a CLI you installed with `npm i -g`, so the two coexist — an npm `0.53` in
-your shell alongside a `1.x` desktop app is expected, not a conflict. Or build
-from source:
+## Rill Paths
 
-```sh
-git clone https://github.com/esengine/DeepSeek-Reasonix   # default: main-v2 (Go)
-cd DeepSeek-Reasonix && make build                        # -> bin/reasonix(.exe)
-```
+Rillagent uses only the Rill namespace:
 
-## Configuration
+| Purpose | Path |
+| --- | --- |
+| User home on macOS/Linux | `~/.rillagent/` |
+| User home on Windows | `%APPDATA%\rillagent\` |
+| User configuration | `~/.rillagent/config.toml` |
+| Provider credentials | `~/.rillagent/.env` |
+| Project configuration | `./rillagent.toml` |
+| Project commands | `./.rillagent/commands/` |
 
-| Legacy | Reasonix 1.0 |
-|---|---|
-| TS config files | `reasonix.toml` (project) / `config.toml` in Reasonix home (`~/.reasonix/` on macOS/Linux; `%AppData%\reasonix\` on Windows) from v1.8.1 — see `reasonix.example.toml` and [Configuration paths](./CONFIG_PATHS.md) |
-| env / API keys | Provider config keeps `api_key_env`; saved key values live in Reasonix home `.env` (`DEEPSEEK_API_KEY`, `MIMO_API_KEY`, …) |
-| project memory | `REASONIX.md` (+ auto-memory), Claude-Code-compatible |
-| MCP servers | `[[plugins]]` in `reasonix.toml`, or a Claude-Code `.mcp.json` (read as-is) |
+Use `RILLAGENT_HOME`, `RILLAGENT_STATE_HOME`, or `RILLAGENT_CACHE_HOME` for an
+explicit test, portable, or isolated location. See
+[Configuration paths](./CONFIG_PATHS.md) for the complete path contract.
 
-On first launch, v1.8.1+ runs a one-time, **non-destructive** import: it reads
-legacy config from `~/Library/Application Support/reasonix/config.toml`,
-`~/.config/reasonix/config.toml`, `~/.reasonix/reasonix.toml`, or v0.x
-`~/.reasonix/config.json` (API key, base URL, language, MCP servers), migrates
-legacy credentials into `<Reasonix home>/.env` when a key is missing there, and
-imports past sessions from legacy session directories. Old files are left
-untouched, and Reasonix prints a boot notice when it imports data. Each session lands in the
-workspace it belonged to (read from its v0.x sidecar meta, summary carried over
-as the title), so the desktop sidebar lists it under the right project; sessions
-whose workspace no longer exists land in the global session dir. Imported
-sessions resume with `--resume` or the history panel. The config import only
-runs when no v1.8.1+ config exists yet — if v1.8.1+ wrote its config before your
-legacy data was in place nothing is overwritten, so copy any missing values
-across by hand.
+## Recreate Settings Deliberately
 
-If the automatic pass missed data because you opened a v1.8.1+ CLI/desktop build
-before the old paths were available, run `/migrate` from an interactive session.
-The command is available only in Go-based Reasonix builds that include it; if you
-see `unknown command`, upgrade first. It prints progress while it checks legacy
-config and credentials, scans legacy memory and session directories, imports
-memory files and sessions that were not previously imported, and summarizes the
-result. `/migrate` keeps the same safety rules as startup migration: it does not
-overwrite an existing `config.toml` or memory file, it respects session import
-markers, and it is not available in the legacy 0.x TypeScript line. If the old
-v0.x sessions are in a custom Windows install/data directory, use
-`/migrate --from "D:\OldReasonix"` to import sessions from that explicit source.
-See
-[Configuration paths](./CONFIG_PATHS.md) for the full path list and limitations.
+Use `./bin/rillagent setup` for user-level providers or
+`./bin/rillagent setup --local` for
+the current project's `rillagent.toml`. Do not copy provider secrets into TOML;
+save them through setup or place them in `~/.rillagent/.env`.
 
-## What's the same
+For MCP servers, add reviewed entries to `rillagent.toml`. Rill can also read a
+Claude Code-compatible `.mcp.json` from the project root. Reapprove plugins,
+hooks, and MCP servers in Rill instead of copying another product's trust
+receipts.
 
-The agent core carries over: the loop, tools (read/write/edit/glob/grep/bash/…),
-subagents (`task`, explore/research/review), skills, hooks, plan mode, MCP client,
-and DeepSeek prefix-cache–oriented design.
+Project instructions can be reviewed and copied into `RILL.md`, `AGENTS.md`, or
+`CLAUDE.md`. Do not copy session databases, caches, updater state, plugin
+receipts, or credential stores from another product into `~/.rillagent/`.
 
-## What's different
+## Upstream Heritage
 
-- **Code intelligence**: the Go rewrite uses LSP-assisted code reading plus
-  `grep` / `read_file` / `glob` for local understanding. The legacy v1 semantic
-  search + tree-sitter symbol index is not bundled in v2 yet, and CodeGraph is no
-  longer shipped as an internal MCP server.
-- **Plan mode** + `complete_step` (evidence-backed step sign-off).
-- **MCP identity and schema-cache URLs are credential-aware**: userinfo and
-  credential query values (token, api_key, password, ...) no longer enter the
-  host-local identity or cache fingerprints, so rotating a credential keeps
-  existing trust. Receipts and caches written by earlier builds migrate
-  automatically — at the pre-start identity check for eager and cache-miss
-  servers, or on first evaluation otherwise — when nothing else changed; the read-only
-  legacy fingerprint calculator is scheduled for removal two minor releases
-  after this rollout.
-- **Plan mode and permission policy are now independent**: Plan directs the
-  model to plan first. Ordinary built-in and Bash calls still use the active
-  Ask/Auto/YOLO rules and Sandbox, while installed MCP and proxy-resolved MCP
-  writer/destructive targets plus untrusted readers stay hard-blocked for the
-  whole planning phase. Explicit execution-phase tools such as `complete_step` also
-  remain unavailable until plan approval. `[agent].plan_mode_allowed_tools` and
-  `plan_mode_read_only_commands` are still parsed and round-tripped so old
-  configs do not break, but they no longer control main Plan availability.
-  Concrete MCP names in `plan_mode_allowed_tools` remain legacy local read-only
-  trust aliases; prefer audited raw names in `trusted_read_only_tools` for the
-  dedicated planner/read-only sub-agent registries. Use `read_only_task` /
-  `read_only_skill` when a child must be technically restricted to read-only;
-  ordinary `task` / `run_skill` calls remain writer-capable and permission-gated
-  in Plan. Installed MCP tools use the server's `readOnlyHint` for ordinary
-  permission and dispatch, but third-party hints do not grant dedicated
-  planner/read-only sub-agent trust. Tools without the hint remain
-  writer-classified. New optional MCP-local fields
-  (`default_tools_approval_mode`, `tools.<raw>.approval_mode`, and
-  `approvals_reviewer`) default to the previous behavior when absent. MCP tools
-  declaring `destructiveHint: true` require a fresh human approval on every
-  call — the configured reviewer is never consulted for them — and
-  non-interactive sessions fail closed.
-- **Read-only subagent research**: use `read_only_task` for generic isolated
-  research in plan mode, or `read_only_skill` when the work should follow an
-  existing skill. Both expose only read-only tools and safe foreground bash, do
-  not write resumable transcripts, and keep writer-capable `task` / `run_skill`
-  out of those explicitly read-only child registries. Ordinary writer-capable
-  delegation in Plan uses Permissions/Sandbox.
-- **No web dashboard** — the v2 line is terminal + desktop (Wails), by design.
-- Some granular v1 tools are intentionally consolidated (e.g. file-management ops
-  go through `bash`); a few v1 tools are not yet ported (tracked on Discussions).
+Rill is based on
+[DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) and retains
+the upstream MIT license and attribution. That source relationship does not
+create local data compatibility: Rill keeps its configuration and state
+isolated under the Rill namespace.
 
-## File encoding
-
-Reasonix 1.0 supports reading and editing files in UTF-8, UTF-8 BOM, UTF-16
-LE/BE, and GB18030 (a superset of GBK). This matches v1's behavior.
-
-- `read_file` decodes any supported encoding to UTF-8 for the model.
-- `edit_file` and `multi_edit` preserve the file's original encoding — if you
-  edit a GB18030 file, it stays GB18030 on disk.
-- `write_file` always writes UTF-8 (the model's output encoding).
-- `grep` decodes before matching, so regex patterns work on non-UTF-8 files.
-
-## Reporting issues
-
-Issues and PRs are labelled by line: **`v1`** (legacy TypeScript) and **`v2`**
-(Go). File new reports against the line you're using. The legacy `v1` line is in
-maintenance mode — bug fixes only, no new features.
-
-Questions? Open a [Discussion](https://github.com/esengine/DeepSeek-Reasonix/discussions).
+Questions about Rill belong in the
+[Rill repository](https://github.com/Lmq1111/Rill/discussions).

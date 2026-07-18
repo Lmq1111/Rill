@@ -1,6 +1,6 @@
-# Reasonix Desktop (Wails shell)
+# Rill Desktop (Wails shell)
 
-A native desktop window around the Reasonix Go kernel. The same
+A native desktop window around the Rill Go kernel. The same
 transport-agnostic `control.Controller` that backs the chat TUI and the HTTP/SSE
 server is bound **directly** to a React webview — Go methods in, typed events
 out, no HTTP hop.
@@ -25,7 +25,7 @@ out, no HTTP hop.
 
 ## Why a nested module
 
-`desktop/` is its own Go module (`module reasonix/desktop`, `replace reasonix =>
+`desktop/` is its own Go module (`module reasonix/desktop`, `replace rillagent =>
 ../`). That keeps the CGO + WebKit desktop build entirely separate from the CLI's
 `CGO_ENABLED=0` single-static-binary guarantee: the parent module's `go build /
 vet / test ./...` skip this directory, while the import path stays under
@@ -96,7 +96,7 @@ component code and the CSS positioning contract:
 
 ```sh
 cd desktop
-wails build          # → build/bin/Reasonix(.app/.exe)
+wails build          # → build/bin/rill-desktop(.app/.exe)
 ```
 
 **Linux on WebKitGTK 4.1 only** (Fedora 40+, Ubuntu 24.04+, Arch — no
@@ -115,62 +115,12 @@ checkout). A bare `go build` without a prior `pnpm build` produces a blank windo
 
 ## Releases & auto-update
 
-Desktop releases ride their own tag namespace, `desktop-v<semver>` (plain `v*`
-tags are the CLI release). Pushing one triggers `.github/workflows/release-desktop.yml`,
-which builds on a native runner per platform (Wails can't cross-compile a
-CGO/WebKit binary), packages each artifact, signs it with minisign, generates a
-`latest.json` manifest, publishes a GitHub release, marks the desktop release as
-GitHub's repository-wide `Latest`, mirrors everything to R2, and attaches the
-current desktop manifest to the matching CLI release for old clients that still
-ask GitHub's repository-wide `latest` release for it.
-The Linux artifact links against WebKitGTK 4.1 (`-tags webkit2_41`), so it needs
-`libwebkit2gtk-4.1-0` at runtime — present by default on Ubuntu 22.04+, Fedora 40+.
-
-```sh
-git tag desktop-v1.1.0 && git push origin desktop-v1.1.0
-```
-
-The app checks `latest.json` on startup (R2 first, then the
-`crash.reasonix.io` desktop release gateway) and shows an update banner when a
-newer version is published; **Settings → Software update** has a manual check.
-The gateway resolves only the desktop `desktop-v*` release line and never uses
-GitHub's repository-wide `/releases/latest` shortcut, so updater behavior does
-not depend on homepage badge semantics. Self-update behavior by platform:
-
-- **Linux / Windows** — download, verify the minisign signature, then update in
-  place: Linux replaces the binary and relaunches; Windows runs the per-user NSIS
-  installer (no admin rights needed).
-- **macOS** — *not* self-updating yet. The build is unsigned/un-notarized, so an
-  in-place swap would be blocked by Gatekeeper; the banner links to the download
-  page for a manual update instead.
-
-### Unsigned builds — first launch
-
-There are no Apple/Windows code-signing certificates yet, so a downloaded build
-trips the OS gatekeepers on first run:
-
-- **macOS** — open `Reasonix-darwin-universal.dmg` and drag Reasonix into
-  Applications. Gatekeeper may then report the app "is damaged" or is from an
-  unidentified developer; clear the quarantine attribute and open it:
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/Reasonix.app
-  ```
-- **Windows** — SmartScreen shows "Windows protected your PC". Click *More info →
-  Run anyway*.
-
-When Developer ID / Authenticode certificates are added, the release workflow's
-`HAS_APPLE_CERT` gate flips to the signed path and these steps go away.
-
-### Verifying a download
-
-Artifacts are signed with minisign (public key ID `AF12CA46F4A9EBB0`). The `.minisig`
-signature sits next to each artifact in the release; verify with the
-[minisign](https://jedisct1.github.io/minisign/) CLI:
-
-```sh
-minisign -Vm Reasonix-darwin-arm64.zip \
-  -P RWSw66n0RsoSr6Zhh6qt5YO95YkpCayTOCMFVDNUQSjJYwxoYngNVBSq
-```
+Stage three does not create a tag, release, DMG, or distribution workflow.
+Release packaging belongs to stage eight. The inherited updater implementation
+is still present and still points at the upstream `dl.reasonix.io` and
+`crash.reasonix.io` services; it is explicitly deferred to the stage-seven
+privacy work and must not be described as a Rill service. Do not use the current
+source state as a privacy-hardened Rill release.
 
 ## Editor seam (Monaco / CodeMirror)
 
@@ -215,14 +165,14 @@ handled here, and what to reach for if a target misbehaves:
   - **Wayland + NVIDIA**: On KDE Plasma Wayland with NVIDIA GPUs, WebKitGTK can
     crash at startup (`Error 71: Protocol error`) due to an upstream WebKit
     explicit-sync bug (WebKit #280210, #317089, NVIDIA/egl-wayland #179).
-    Reasonix automatically sets `__NV_DISABLE_EXPLICIT_SYNC=1` when it detects
+    Rill automatically sets `__NV_DISABLE_EXPLICIT_SYNC=1` when it detects
     Wayland + NVIDIA GPU. To opt out, set `__NV_DISABLE_EXPLICIT_SYNC=0`.
     Alternative fallbacks: `WEBKIT_DISABLE_DMABUF_RENDERER=1` (poor performance)
     or `GDK_BACKEND=x11` (forces XWayland).
 - **Windows / WebView2** — `Theme: SystemDefault` follows the OS light/dark
   setting; the installer embeds the WebView2 bootstrapper. Canary builds disable
   WebView2 GPU acceleration by default to smoke-test blank-window reports; set
-  `REASONIX_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
+  `RILLAGENT_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
   off.
 - **macOS / WebKit** — inset/hidden title bar (`TitleBarHiddenInset`); the CSS
   marks the top bar as an OS drag region (`--wails-draggable: drag`) and leaves
@@ -254,30 +204,17 @@ desktop/
         editors/  PlainCode, PlainDiff   ← editor seam impls (swap targets)
 ```
 
-## Telemetry
+## Deferred network and privacy work
 
-The desktop app sends one anonymous ping per launch to `crash.reasonix.io`:
-a random install id (generated locally, tied to nothing), app version, OS,
-arch, and OS version. It exists solely to count active installs. It never
-includes conversations, API keys, file contents, or paths.
+The stage-three source still contains inherited network transports:
 
-Opt out any time: Settings > Updates > "Anonymous usage ping", or set
-`telemetry = false` under `[desktop]` in the global config. Dev builds
-never ping. Crash and performance-pressure reports are separate and only
-ever sent when the user clicks "Send report" on the diagnostic UI.
+- launch telemetry posts to `https://crash.reasonix.io/v1/ping`;
+- aggregate metrics post to `https://crash.reasonix.io/v1/metrics`;
+- crash reports post to `https://crash.reasonix.io/v1/report`;
+- the updater reads from `dl.reasonix.io` and the upstream release gateway.
 
-Aggregate quality metrics are also enabled by default and can be disabled from
-Settings > Updates > "Share aggregate quality metrics", or by setting
-`metrics = false` under `[desktop]`. These metrics are anonymous signal/bucket
-counts and preference buckets; they never include conversations, prompts, keys,
-paths, base URLs, or file contents.
-
-When Memory v5 is enabled, the same aggregate metrics pipeline may include only
-content-free count/size buckets such as injection on/off, compiled-token bucket,
-IR-overhead bucket, memory-reference count, constraint/risk/step counts, and
-memory-graph size buckets. It never uploads memory text, tool outputs, prompts,
-file paths, IDs, keys, base URLs, or file contents. The Memory v5 runtime itself
-is controlled from Settings > General > "Memory v5" and shares the user/global
-`agent.memory_compiler.enabled` setting with the CLI/TUI and `reasonix serve`;
-CLI users can also run `/memory-v5 off|observe|compact|on|status` in a session
-or `reasonix config memory-v5 off|observe|compact|on|status` from a shell.
+Those endpoints are recorded here as known stage-seven work, not as approved
+Rill services. Stage three does not claim that telemetry, crash upload, metrics,
+or automatic updates are disabled. The separately documented, minisign-verified
+read-only MCP catalog is the only upstream runtime dependency intended to remain
+after stage seven.

@@ -88,7 +88,7 @@ func TestSubagentProfileCLIManageRoundTrip(t *testing.T) {
 
 func TestSubagentListIncludesQualifiedPluginAgents(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	project := t.TempDir()
 	t.Chdir(project)
 	root := filepath.Join(home, "plugins", "commercial-legal")
@@ -141,7 +141,7 @@ func TestSubagentProfileCLIRejectsBuiltinCollisionAndRichSkillEdit(t *testing.T)
 		t.Fatalf("builtin collision output = %q", errOut)
 	}
 
-	path := filepath.Join(project, ".reasonix", "skills", "rich", skill.SkillFile)
+	path := filepath.Join(project, ".rillagent", "skills", "rich", skill.SkillFile)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestSubagentProfileCLIRejectsReservedAndCustomCommandNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(original) })
-	commandPath := filepath.Join(project, ".reasonix", "commands", "formatter.md")
+	commandPath := filepath.Join(project, ".rillagent", "commands", "formatter.md")
 	if err := os.MkdirAll(filepath.Dir(commandPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestRootHelpListsSubagentCommand(t *testing.T) {
 			t.Fatalf("help rc = %d", rc)
 		}
 	})
-	if !strings.Contains(out, "reasonix subagent <list|create|edit|delete|try|run>") {
+	if !strings.Contains(out, "rillagent subagent <list|create|edit|delete|try|run>") {
 		t.Fatalf("help output missing subagent command:\n%s", out)
 	}
 }

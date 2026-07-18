@@ -27,8 +27,8 @@ Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
   value: {
     getItem(key: string) {
-      if (key === "reasonix-display-mode") return displayMode;
-      if (key === "reasonix-process-fold") return processFoldPref;
+      if (key === "rillagent-display-mode") return displayMode;
+      if (key === "rillagent-process-fold") return processFoldPref;
       return null;
     },
     setItem() {},

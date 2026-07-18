@@ -442,7 +442,7 @@ func (lt *lazyTool) reconcileLiveSafety(real tool.Tool) error {
 	if lt.readOnly && !real.ReadOnly() {
 		lt.readOnly = false
 		lt.readOnlyTrusted = false
-		return fmt.Errorf("MCP server %q no longer marks tool %q as read-only; retry so Reasonix can apply writer approval before execution", lt.shared.spec.Name, lt.rawName)
+		return fmt.Errorf("MCP server %q no longer marks tool %q as read-only; retry so Rill can apply writer approval before execution", lt.shared.spec.Name, lt.rawName)
 	}
 	if lt.destructive {
 		return nil
@@ -456,7 +456,7 @@ func (lt *lazyTool) reconcileLiveSafety(real tool.Tool) error {
 }
 
 func destructiveHintChangedError(server, rawTool string) error {
-	return fmt.Errorf("MCP server %q now marks tool %q as destructive; retry so Reasonix can request fresh approval before execution", server, rawTool)
+	return fmt.Errorf("MCP server %q now marks tool %q as destructive; retry so Rill can request fresh approval before execution", server, rawTool)
 }
 
 // LazyToolset returns the placeholder tools to register for one background spec.

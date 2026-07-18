@@ -1,6 +1,6 @@
-# Reasonix Engineering Spec
+# Rill Engineering Spec
 
-> Reasonix is a coding agent: a thin harness driving multiple models, with **all
+> Rill is a coding agent: a thin harness driving multiple models, with **all
 > capabilities supplied by configuration and plugins**. This document is the
 > contract — code follows it. Change the contract first, then the code.
 
@@ -26,14 +26,14 @@ README is bilingual (`README.md` English + `README.zh-CN.md`).
 ## 2. Layout
 
 ```
-reasonix/
+rillagent/
 ├── go.mod / go.sum          # module reasonix; require BurntSushi/toml
 ├── Makefile                 # build / cross / vet / fmt / test
 ├── README.md / README.zh-CN.md
-├── reasonix.example.toml         # sample config
+├── rillagent.example.toml        # sample config
 ├── docs/SPEC.md             # this file
-├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
-├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
+├── cmd/rillagent/main.go          # entry; blank-imports built-in providers/tools
+├── cmd/rillagent-plugin-example/ # reference MCP stdio plugin (a runnable example)
 └── internal/
     ├── cli/                 # subcommand routing, flags, assembly, exit codes
     ├── config/              # TOML loading (flag > project > user > defaults)
@@ -42,7 +42,7 @@ reasonix/
     ├── tool/                # Tool interface + Registry
     │   └── builtin/         # read_file/write_file/edit_file/move_file/bash/ls/glob/grep
     ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── command/             # custom slash commands loaded from .reasonix/commands/*.md
+    ├── command/             # custom slash commands loaded from .rillagent/commands/*.md
     ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
     └── agent/               # Session + harness loop
 ```
@@ -151,7 +151,7 @@ interface (`call` / `notify` / `close`) abstracts that, so the MCP-level logic
 - `prompts/list` + `prompts/get` surface as `/mcp__<server>__<prompt>` slash
   commands; `resources/list` + `resources/read` are referenced as
   `@<server>:<uri>` in chat. `/mcp` shows connected servers and their counts.
-- `cmd/reasonix-plugin-example` is a runnable reference stdio server (`echo`,
+- `cmd/rillagent-plugin-example` is a runnable reference stdio server (`echo`,
   `wordcount`), driven by an end-to-end test that builds the real binary.
 
 ### 3.4 Agent (`internal/agent`)
@@ -184,7 +184,7 @@ prefix cache-stable:
 
 ### 3.6 Context management (compaction)
 
-Long tasks eventually fill the model's context window. Reasonix manages this with
+Long tasks eventually fill the model's context window. Rill manages this with
 **low-frequency compaction** that respects the cache-first design:
 
 - Each provider declares its `context_window` (tokens). Context maintenance is
@@ -207,7 +207,7 @@ Long tasks eventually fill the model's context window. Reasonix manages this wit
   result so the recent tail never begins with an orphan tool message whose
   `tool_calls` were summarized away.
 - The dropped originals are archived under the user config dir
-  (`reasonix/archive/<timestamp>.jsonl`; see §5 for its per-OS location), one
+  (`rillagent/archive/<timestamp>.jsonl`; see §5 for its per-OS location), one
   message per line, so the full history stays traceable.
 - The read-only `history` tool gives the agent on-demand BM25 retrieval over
   saved session JSONL files. `scope="project"` searches the current controller's
@@ -298,7 +298,7 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
   grant is path-scoped when a path is available, stored as `Edit(<path>)` so all
   built-in file-mutating tools share it. A
   non-interactive run
-  (`reasonix run`, a sub-agent, anything with no TTY / no approver) cannot prompt, so
+  (`rillagent run`, a sub-agent, anything with no TTY / no approver) cannot prompt, so
   it resolves `Ask` to **allow** — preserving autonomous behaviour. A `Deny` is a
   hard block in *every* mode: the tool never executes and the model receives a
   "blocked" result it can adapt to (the same shape as a plan-mode refusal).
@@ -376,8 +376,8 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
   implementation work automatically add an AutoResearch protocol to the same
   transient active-goal user block. AutoResearch is a Goal strategy, not a
   standalone global skill: it writes project-local state under
-  `.reasonix/autoresearch/YYYYMMDD-HHMMSS-slug/` and keeps dynamic run state out
-  of `REASONIX.md`, `AGENTS.md`, project memory, tool schemas, and the
+  `.rillagent/autoresearch/YYYYMMDD-HHMMSS-slug/` and keeps dynamic run state out
+  of `RILL.md`, `AGENTS.md`, project memory, tool schemas, and the
   cache-stable system prompt. `/goal --research <objective>` forces that
   strategy; `/goal --simple <objective>` forces lightweight Goal. Outside goal
   mode, an ordinary prompt with a very strong AutoResearch signal is upgraded by
@@ -396,8 +396,8 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
 | YOLO approval / `yolo` | Ordinary prompts auto-allowed; deny rules and fresh reviews remain | Waits for user | Waits for user |
 | Approved-plan execution window | Approved plan's writer fallback is auto-allowed; explicit `ask` / `deny`, MCP `prompt` / `writes`, and fresh reviews remain | Future plans still wait | Waits for user |
 
-Out of the box (`mode = "ask"`, no rules) `reasonix run` behaves exactly as before
-(writers resolve `Ask`→allow with no TTY), while `reasonix` now prompts before
+Out of the box (`mode = "ask"`, no rules) `rillagent run` behaves exactly as before
+(writers resolve `Ask`→allow with no TTY), while `rillagent` now prompts before
 each writer/bash call. `deny` rules harden both modes.
 
 ### 3.8 Slash commands (`internal/command`)
@@ -409,8 +409,8 @@ The chat TUI accepts `/command` input. Three kinds share one dispatch:
   saving the previous transcript for resume/history. `/clear` requires
   confirmation, then discards the current context without saving it; it does not
   delete project memory.
-- **Custom commands** are Markdown files under `.reasonix/commands/` (project) and
-  the user config dir, e.g. `~/.reasonix/commands/` on macOS/Linux; the project dir overrides the user dir on a
+- **Custom commands** are Markdown files under `.rillagent/commands/` (project) and
+  the user config dir, e.g. `~/.rillagent/commands/` on macOS/Linux; the project dir overrides the user dir on a
   name clash. A file `review.md` becomes `/review`; a subdirectory namespaces it
   (`git/commit.md` → `/git:commit`). Invoking one renders its body and sends the
   result as the next user turn.
@@ -425,7 +425,7 @@ Review the staged diff. Focus on $ARGUMENTS, list bugs with file:line.
 ```
 
 - Frontmatter is an optional `---`-fenced block of simple `key: value` lines;
-  `description` and `argument-hint` are recognised (no YAML dependency — Reasonix
+  `description` and `argument-hint` are recognised (no YAML dependency — Rill
   stays lean). The remainder is the body template.
 - Substitution in the body: `$ARGUMENTS` (all args, space-joined), `$1`…`$N`
   (positional, empty when absent), `$$` (a literal `$`). Arguments are the
@@ -487,10 +487,10 @@ the profile with the Boot-wired Skill runners. Each run gets an isolated child
 session and returns only its final answer to the caller. The headless contract is
 explicit:
 
-- `reasonix subagent try <name> ... <task>` uses the read-only Skill runner;
-- `reasonix subagent run <name> ... <task>` uses the normal permission and
+- `rillagent subagent try <name> ... <task>` uses the read-only Skill runner;
+- `rillagent subagent run <name> ... <task>` uses the normal permission and
   sandbox path; and
-- ordinary `Controller.Run` / `reasonix run` remains unchanged and does not
+- ordinary `Controller.Run` / `rillagent run` remains unchanged and does not
   reinterpret slash-prefixed input as a subagent command.
 
 Desktop and CLI profile mutations share
@@ -538,32 +538,32 @@ type Chunk struct {
 
 ## 5. Configuration (TOML)
 
-Resolution order: **flag > project `./reasonix.toml` > the user config file
-> built-in defaults**. Starting with **Reasonix v1.8.1**, the user config lives
-at `~/.reasonix/config.toml` on macOS/Linux and
-`%AppData%\reasonix\config.toml` on Windows. See
-[Configuration paths](./CONFIG_PATHS.md) for migration and related data paths.
-Fields marked user/global only are not overridden by project `reasonix.toml`.
+Resolution order: **flag > project `./rillagent.toml` > the user config file
+> built-in defaults**. The user config lives at
+`~/.rillagent/config.toml` on macOS/Linux and
+`%AppData%\rillagent\config.toml` on Windows. See
+[Configuration paths](./CONFIG_PATHS.md) for the complete data-path contract.
+Fields marked user/global only are not overridden by project `rillagent.toml`.
 Provider entries name secrets with `api_key_env`; saved key values live in
-Reasonix's global `<Reasonix home>/.env`, shared by CLI and desktop. Project
-`.env`, home `.env`, inherited shell environment variables, legacy credentials,
-and the OS keyring are not provider-key runtime fallbacks. Project `.env` still
+Rill's global `<Rillagent home>/.env`, shared by CLI and desktop. Project
+`.env`, home `.env`, inherited shell environment variables, other products'
+credential files, and the OS keyring are not provider-key runtime fallbacks. Project `.env` still
 feeds workspace-scoped, non-provider `${VAR}` expansion for MCP/plugin settings
-without importing provider keys or Reasonix control variables. Project
-`reasonix.toml` does not override the user-level Memory v5 compiler switch.
+without importing provider keys or Rill control variables. Project
+`rillagent.toml` does not override the user-level Memory v5 compiler switch.
 
 ```toml
 default_model = "deepseek"   # provider name (→ its default model) or "provider/model"
-# language    = "zh"                # ui language tag; empty = auto-detect from $LANG / $REASONIX_LANG
+# language    = "zh"                # ui language tag; empty = auto-detect from $LANG / $RILLAGENT_LANG
 
 [ui]
 # shortcut_layout = "desktop"       # classic|desktop; compatibility setting
 # cursor_shape = "underline"        # CLI/TUI textarea cursor: underline|block|bar
 
 [agent]
-system_prompt = "You are Reasonix, a coding agent..."  # or system_prompt_file = "..."
+system_prompt = "You are Rill, a coding agent..."  # or system_prompt_file = "..."
 temperature       = 0.0
-memory_compiler = { enabled = true, verbosity = "observe" }   # user/global only; observe|compact; CLI: reasonix config memory-v5 off|observe|compact|on|status
+memory_compiler = { enabled = true, verbosity = "observe" }   # user/global only; observe|compact; CLI: rillagent config memory-v5 off|observe|compact|on|status
 reasoning_language = "auto"       # visible reasoning text: auto|zh|en
 # plan_mode_allowed_tools = ["mcp__legacy__reader"]   # legacy MCP read-only trust alias; does not change Plan availability
 # plan_mode_read_only_commands = ["gh issue view"]   # legacy compatibility only; Plan bash uses Permissions
@@ -623,12 +623,12 @@ ask   = []                                 # force a prompt even if otherwise al
 [serve]
 auth_mode = "none"             # none|token|password; use auth before binding beyond localhost
 # token = ""                   # optional fixed token; empty token mode generates one at startup
-# password_hash = ""           # bcrypt hash generated with reasonix serve --hash-password --password '...'
+# password_hash = ""           # bcrypt hash generated with rillagent serve --hash-password --password '...'
 # behind_proxy = false         # trust X-Forwarded-* only behind a trusted reverse proxy
 
 [[plugins]]
 name    = "example"            # type defaults to "stdio"
-command = "reasonix-plugin-example"
+command = "rillagent-plugin-example"
 args    = []
 # env   = { FOO = "bar" }
 # call_timeout_seconds = 600            # per-server MCP call timeout; 0 = global/default cap
@@ -655,18 +655,18 @@ the only `in_progress` item and its level-0 phase stays `pending`; sub-steps
 complete in order, and the phase becomes `in_progress` — and signs off — only
 after all of its sub-steps have completed. A level-1 item with no phase above
 it is rejected. Retired `[agent].max_steps` and `planner_max_steps` keys remain
-parseable for upgrade compatibility, but are ignored and removed by a one-time
-migration. The CLI `--max-steps` flag and `[bot].max_steps` remain separate,
+parseable for upgrade compatibility, but are ignored and removed when the
+configuration is normalized. The CLI `--max-steps` flag and `[bot].max_steps` remain separate,
 explicit controls for one-off and unattended execution.
 
-`reasonix setup` writes this default config so the CLI is usable out of the box.
+`rillagent setup` writes this default config so the CLI is usable out of the box.
 
 `[ui].cursor_shape` is normalized to `underline`, `block`, or `bar`; empty or
 unknown values fall back to `underline`. It applies to the Bubble Tea CLI/TUI
 textarea only, while desktop and browser inputs keep their platform-native
 cursor behavior.
 
-`[serve]` controls the HTTP browser frontend used by `reasonix serve`. The
+`[serve]` controls the HTTP browser frontend used by `rillagent serve`. The
 default `auth_mode = "none"` is intended for the loopback default
 `127.0.0.1:8787`; deployments reachable from another machine must use `token` or
 `password`. Password mode requires either a startup `--password` or a stored
@@ -677,9 +677,9 @@ headers.
 MCP servers may also be declared in a project-root `.mcp.json` using Claude
 Code's exact `mcpServers` schema (`command`/`args`/`env`, `type`/`url`/`headers`,
 `${VAR}` expansion). It is read after the TOML files and merged into
-`[[plugins]]`; on a name collision `reasonix.toml` wins (it is the more explicit,
-Reasonix-specific source). This lets a server already configured for Claude work in
-Reasonix unchanged.
+`[[plugins]]`; on a name collision `rillagent.toml` wins (it is the more explicit,
+Rill-specific source). This lets a server already configured for Claude work in
+Rill unchanged.
 
 ```json
 { "mcpServers": {
@@ -690,7 +690,7 @@ Reasonix unchanged.
 
 `[sandbox]` is the *enforcement* layer beneath permissions (which are *policy*).
 Phase 0 confines the file-writing built-ins (`write_file`, `edit_file`,
-`multi_edit`, `move_file`) to `workspace_root` (default cwd), the Reasonix user
+`multi_edit`, `move_file`) to `workspace_root` (default cwd), the Rill user
 config dir, plus `allow_write`: a write whose target — resolved to an absolute,
 symlink-free path so a symlinked dir or `..` cannot tunnel out — falls outside
 every root is refused, and the error is fed back to the model. Confinement is on
@@ -704,9 +704,9 @@ Linux): each command is allowed to write only
 the same roots plus platform-specific command temp/cache roots, denied reads
 under `forbid_read`, and allowed to reach the network only when
 `network = true`.
-**Windows status:** Reasonix does not ship an OS-level Bash sandbox on Windows.
+**Windows status:** Rill does not ship an OS-level Bash sandbox on Windows.
 The effective mode is fixed to `off`; an older config containing
-`bash = "enforce"` remains readable but resolves to `off`, `reasonix doctor`
+`bash = "enforce"` remains readable but resolves to `off`, `rillagent doctor`
 reports the ignored value, and the desktop control is read-only. Bash therefore
 runs unconfined on Windows. The in-process file tools continue to enforce
 `workspace_root`, `allow_write`, and `forbid_read`.
@@ -733,7 +733,7 @@ behavior. The escape-prompt and broader OS support are Phase 1's remainder (§9)
 
 ## 8. Distribution
 
-- Build: `CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$(VERSION)" -o reasonix ./cmd/reasonix`
+- Build: `CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$(VERSION)" -o rillagent ./cmd/rillagent`
 - Cross matrix: `darwin|linux|windows` × `amd64|arm64`.
 - Version injected via ldflags (`git describe --tags --always`).
 - Install: prebuilt binary / `go install` / future `brew tap`.
@@ -744,7 +744,7 @@ behavior. The escape-prompt and broader OS support are Phase 1's remainder (§9)
   file-writer built-ins (Phase 0) — are confined to the workspace. **Seatbelt on
   macOS and bubblewrap on Linux ship, on by default when available** (see §5).
   Remaining: the escape-prompt — detect sandbox-unavailable or sandbox-denied failures and
-  offer an explicit, permission-gated unconfined rerun (in `reasonix run`, the
+  offer an explicit, permission-gated unconfined rerun (in `rillagent run`, the
   command just fails and the model adapts), which completes the "allow inside the
   box, prompt at its edge" model. With this in place, "always allow" rule
   persistence becomes optional rather than load-bearing.
@@ -756,4 +756,4 @@ behavior. The escape-prompt and broader OS support are Phase 1's remainder (§9)
 - An Anthropic-native provider `kind` (native prompt-cache control), proving the
   registry generalises beyond one wire format.
 - "Always allow" persistence writing learned rules back to project config; a
-  per-session permission override flag for `reasonix run`.
+  per-session permission override flag for `rillagent run`.

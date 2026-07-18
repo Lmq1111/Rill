@@ -7,7 +7,7 @@ var English = Messages{
 	WelcomeTitleFmt: "Welcome to %s",
 	NoConfigYet:     "No configuration found yet — let's set it up.",
 	StartingChatFmt: "Starting %s…",
-	SetKeyHint:      "Set your API key, then run `reasonix`.",
+	SetKeyHint:      "Set your API key, then run `rillagent`.",
 	ConfigLabel:     "config",
 	ModelsLabel:     "models",
 	ConfigNotFound:  "not found — using built-in defaults",
@@ -15,18 +15,18 @@ var English = Messages{
 	NoKey:           "no key",
 	Ready:           "ready",
 	GetStarted:      "Get started",
-	StepScaffold:    "scaffold reasonix.toml",
+	StepScaffold:    "scaffold rillagent.toml",
 	StepSetKey:      "set API key",
 
-	InitHint:       "Project memory (AGENTS.md) is generated in-session: run `reasonix`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `reasonix setup`.",
-	StepSetKeyHint: "run `reasonix setup`, or export DEEPSEEK_API_KEY=…",
+	InitHint:       "Project memory (RILL.md) is generated in-session: run `rillagent`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `rillagent setup`.",
+	StepSetKeyHint: "run `rillagent setup`, or export DEEPSEEK_API_KEY=…",
 	StepChatDesc:   "interactive session",
 	StepRunDesc:    "one-shot task",
-	HelpFooter:     "reasonix help · all commands",
+	HelpFooter:     "rillagent help · all commands",
 
 	ChatTip:           "Context is kept across turns. Type 'exit' or Ctrl-D to quit.",
 	TurnCancelled:     "cancelled — back to prompt",
-	NoSessionToResume: "no saved session to resume — start a new one with `reasonix`",
+	NoSessionToResume: "no saved session to resume — start a new one with `rillagent`",
 	ResumeRequiresTTY: "--resume needs an interactive terminal; pass --continue for the most recent session",
 	PickSessionLabel:  "Resume which session?",
 
@@ -95,17 +95,17 @@ var English = Messages{
 	MCPReviewerUnavailableReason:           "The configured automatic approval reviewer is unavailable or returned no verdict. This call needs a fresh human decision; Auto/YOLO approval and session grants cannot answer it.",
 	MCPReviewerUnavailableDeclined:         "the user declined this MCP tool call after the automatic reviewer was unavailable - do not retry it; ask how they would like to proceed.",
 	PlanModeBashTrustSubjectFmt:            "Trust %q as a read-only command prefix while planning\nCommand: %s",
-	PlanModeBashTrustReason:                "This bash command is not in Reasonix's built-in read-only set. Confirm only if this exact prefix is read-only for planning and research. Auto/YOLO approval cannot answer this trust prompt.",
+	PlanModeBashTrustReason:                "This bash command is not in Rill's built-in read-only set. Confirm only if this exact prefix is read-only for planning and research. Auto/YOLO approval cannot answer this trust prompt.",
 	PlanModeBashTrustDeclined:              "the user declined to trust this bash command as read-only for plan mode - do not retry it; continue with other trusted read-only tools or ask how to proceed.",
 	SandboxEscapeSubjectFallback:           "run shell command unconfined once",
 	SandboxEscapeSubjectPrefix:             "run unconfined once: ",
 	SandboxEscapeWrapReason:                "Windows does not provide an OS-level Bash sandbox for this command. Run it unconfined one time? This bypasses OS isolation for this command only.",
 	SandboxEscapeRuntimeReason:             "The OS sandbox could not start this command. Run it unconfined one time? This bypasses OS isolation for this command only.",
 	SandboxEscapeDeclined:                  "the user declined to run this command without the OS sandbox - do not retry it unconfined; ask how they would like to proceed.",
-	ApprovalToolLabelConfigWrite:           "Reasonix config write",
-	ConfigWriteSubjectPrefix:               "write Reasonix config: ",
-	ConfigWriteReason:                      "This write targets a Reasonix-managed configuration file outside the workspace. It can change providers, sandbox rules, permissions, and MCP servers for future sessions, so it needs your explicit approval.",
-	ConfigWriteDeclined:                    "the user declined this Reasonix config write - do not retry it; ask how they would like to proceed.",
+	ApprovalToolLabelConfigWrite:           "Rill config write",
+	ConfigWriteSubjectPrefix:               "write Rill config: ",
+	ConfigWriteReason:                      "This write targets a Rill-managed configuration file outside the workspace. It can change providers, sandbox rules, permissions, and MCP servers for future sessions, so it needs your explicit approval.",
+	ConfigWriteDeclined:                    "the user declined this Rill config write - do not retry it; ask how they would like to proceed.",
 	ConfigWriteApprovalChoices:             "1. Allow once\n2. Allow for this session\n3. Deny\nChoose [1/2/3] (y/a/n also work)",
 	PermissionSavedFmt:                     "permission saved to %s: %s",
 	PermissionAlreadyAllowedFmt:            "permission already covered in %s: %s",
@@ -119,7 +119,7 @@ var English = Messages{
 
 	OutputStyleNone:    "no output styles available",
 	OutputStyleHeader:  "output styles:",
-	OutputStyleHint:    "set agent.output_style in reasonix.toml to apply one (takes effect next session)",
+	OutputStyleHint:    "set agent.output_style in rillagent.toml to apply one (takes effect next session)",
 	ThemeHeader:        "themes:",
 	ThemeHint:          "switch with /theme <auto|light|dark|style>",
 	ThemeChangedFmt:    "theme switched to %s / %s",
@@ -145,7 +145,7 @@ var English = Messages{
 	SlashUnavailable:   "command unavailable in this build",
 	SlashUnknown:       "unknown command",
 	SlashTodoCleared:   "task list dismissed",
-	SlashHelp:          "commands: /compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model (switch model) · /effort · /theme · /language · /mcp · /skills · /plugins · /hooks · /paste-image · /memory · /memory-v5 · /migrate · /goal · /remember · /quit · /help · plus skills (/init, /explore, …)",
+	SlashHelp:          "commands: /compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model (switch model) · /effort · /theme · /language · /mcp · /skills · /plugins · /hooks · /paste-image · /memory · /memory-v5 · /goal · /remember · /quit · /help · plus skills (/init, /explore, …)",
 
 	SkillPickerTitle:             "Skills",
 	SkillPickerAvailableFmt:      "%d available",
@@ -192,7 +192,7 @@ var English = Messages{
 	SkillPickerStatusNotDir:      "not-directory",
 	SkillPickerStatusUnreadable:  "unreadable",
 	SlashPromptEmpty:             "the MCP prompt returned no content to send",
-	SlashMCPNone:                 "no MCP servers configured — add a [[plugins]] entry in reasonix.toml",
+	SlashMCPNone:                 "no MCP servers configured — add a [[plugins]] entry in rillagent.toml",
 	CtrlCQuitHint:                "press Ctrl+C again to quit",
 	CompHintSlash:                "↑/↓ move · Tab/Enter select · Esc close",
 	CompHintFile:                 "↑/↓ move · Tab/Enter open folder or pick file · Esc close",
@@ -220,7 +220,6 @@ var English = Messages{
 	CmdStatus:           "show session status",
 	CmdWorkMode:         "switch work mode",
 	CmdMemory:           "show memory files",
-	CmdMigrate:          "retry legacy data migration",
 	CmdGoal:             "set or clear the active goal",
 	CmdRemember:         "save a memory note",
 	CmdForget:           "archive a saved memory",
@@ -269,7 +268,7 @@ var English = Messages{
 	ArgEffortXHigh:      "extra deep reasoning",
 	ArgEffortMax:        "maximum reasoning",
 	ArgThemeCurrent:     "current",
-	ArgLanguageAuto:     "auto-detect from REASONIX_LANG / locale",
+	ArgLanguageAuto:     "auto-detect from RILLAGENT_LANG / locale",
 	ArgLanguageEn:       "English",
 	ArgLanguageZh:       "中文",
 
@@ -278,15 +277,15 @@ var English = Messages{
 	ListMemoryHeader:    "memory files",
 	ListMemorySaved:     "saved memories",
 	ListMemoryArchived:  "archived memories",
-	ListMemoryNone:      "memory: none — add with “/remember <note>” or run /init to generate AGENTS.md",
+	ListMemoryNone:      "memory: none — add with “/remember <note>” or run /init to generate RILL.md",
 	ListSkillsHeaderFmt: "skills (%d)",
 	ListSkillsNone:      "skills: none defined — invoke a built-in like /init, or author one with install_skill",
 	ListHooksHeaderFmt:  "hooks (%d active)",
-	ListHooksNone:       "hooks: none active — configure in .reasonix/settings.json (project, after trust) or <Reasonix home>/settings.json (global)",
+	ListHooksNone:       "hooks: none active — configure in .rillagent/settings.json (project, after trust) or <Rill home>/settings.json (global)",
 	ListMcpHeader:       "mcp servers",
-	ListMcpNone:         "mcp: no servers connected — add one in reasonix.toml ([[plugins]]) or a project .mcp.json",
+	ListMcpNone:         "mcp: no servers connected — add one in rillagent.toml ([[plugins]]) or a project .mcp.json",
 
-	MemoryNone:                "memory: none — add with “/remember <note>” or create REASONIX.md in the project root",
+	MemoryNone:                "memory: none — add with “/remember <note>” or create RILL.md in the project root",
 	MemoryLoaded:              "memory loaded:",
 	MemorySavedHeader:         "  saved memories (archive with “/forget <name>”):",
 	MemoryStoredUnderFmt:      "  stored under %s",
@@ -333,12 +332,12 @@ var English = Messages{
 
 	SelectProvidersLabel:     "Select providers to enable",
 	EnterAPIKeysHeader:       "Enter API keys (Enter to skip and set later):",
-	MissingKeyIntro:          "reasonix.toml is ready — just an API key away.",
+	MissingKeyIntro:          "rillagent.toml is ready — just an API key away.",
 	WroteFileFmt:             "Wrote %s",
 	SetupComplete:            "Setup complete.",
 	SetupCancelled:           "setup cancelled.",
 	TryHintFmt:               "Try: %s",
-	NextHint:                 "Next: set your API key (run `reasonix setup` or export DEEPSEEK_API_KEY=...), then run `reasonix run \"your task\"`.",
+	NextHint:                 "Next: set your API key (run `rillagent setup` or export DEEPSEEK_API_KEY=...), then run `rillagent run \"your task\"`.",
 	ConfirmReconfigureFmt:    "%s already exists. Reconfigure and overwrite?",
 	KeepingExisting:          "Keeping existing config.",
 	NotOverwritingFmt:        "%s already exists; not overwriting",
@@ -386,7 +385,7 @@ var English = Messages{
 	NoModelsAvailableFmt:       "%s: no models available, skipping",
 	CustomFetchEmpty:           "/models returned an empty list — falling back to manual entry",
 	AnthropicFetchEmpty:        "/models returned an empty list — Anthropic-compatible providers usually don't expose one, falling back to manual entry",
-	SkipStaleCustomEntryFmt:    "skipping stale %q entry from reasonix.toml (pointing at %s) — please remove it from [[providers]]",
+	SkipStaleCustomEntryFmt:    "skipping stale %q entry from rillagent.toml (pointing at %s) — please remove it from [[providers]]",
 	APIKeyAlreadySetFmt:        "reusing existing value for %s",
 	APIKeyResetPromptFmt:       "Re-enter %s?",
 	InvalidAPIKeyEnvFmt:        "%q is not a valid API Key variable name. Use letters, numbers, and underscores (for example, MY_PROVIDER_API_KEY); do not enter a model name.",
@@ -421,15 +420,15 @@ var English = Messages{
 	AnthropicSelectModelsLabel:     "Select models to enable for %s",
 
 	UnknownCommandFmt:         "unknown command %q",
-	UsageRunHint:              "usage: reasonix -p [--model NAME] <task>",
+	UsageRunHint:              "usage: rillagent -p [--model NAME] <task>",
 	ErrorPrefix:               "error:",
 	ReconfigureOnUnknownModel: "Configured model is no longer available — re-running setup.",
 	WriteConfigErr:            "write config:",
 	WriteEnvErr:               "write .env:",
 
 	ProviderErrBadRequest:          "Malformed request (HTTP 400): the request body was rejected. This is likely a bug — please report it if it persists.",
-	ProviderErrAuth:                "Authentication failed (HTTP 401): your API key is missing or unset. Add it to .env or run `reasonix setup`.",
-	ProviderErrAuthRejected:        "Authentication failed (HTTP 401): the server rejected your API key. It may be wrong or expired, or the provider hit a transient auth/quota issue — retried with backoff and still failed. Try again shortly, or check the key in .env / run `reasonix setup`.",
+	ProviderErrAuth:                "Authentication failed (HTTP 401): your API key is missing or unset. Add it to .env or run `rillagent setup`.",
+	ProviderErrAuthRejected:        "Authentication failed (HTTP 401): the server rejected your API key. It may be wrong or expired, or the provider hit a transient auth/quota issue — retried with backoff and still failed. Try again shortly, or check the key in .env / run `rillagent setup`.",
 	ProviderErrInsufficientBalance: "Insufficient balance (HTTP 402): your account is out of credit. Top up your account, then retry.",
 	ProviderErrUnprocessable:       "Invalid parameters (HTTP 422): a request parameter was rejected. This is likely a bug — please report it if it persists.",
 	ProviderErrRateLimited:         "Rate limit reached (HTTP 429): too many requests (TPM/RPM). Retried with backoff — slow down or try again shortly.",
@@ -470,42 +469,42 @@ var English = Messages{
 	UpgradeApplyFailed:         "failed to apply update: %v",
 	UpgradeSuccessFmt:          "Updated %s → %s",
 
-	UsageBody: `reasonix — a config- and plugin-driven coding agent (multi-model)
+	UsageBody: `Rillagent — a config- and plugin-driven coding agent (multi-model)
 
 Usage:
-  reasonix [--model NAME] [-c|--continue] [-r|--resume [QUERY]] [--permission-mode MODE] [--effort LEVEL] [--add-dir PATH]   interactive session
-  reasonix -p|--print [--model NAME] [--output-format text|json|stream-json] [--allowed-tools RULES] [--add-dir PATH] <task>
-  reasonix run [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] [--copy] [--output-format FORMAT] <task>
-  reasonix review [--base BRANCH] [--commit SHA] [--model NAME]  AI-powered code review on local diffs
-  reasonix serve [--model NAME] [--addr HOST:PORT] [--auth none|token|password] [--token STR] [--password STR] [--hash-password]  serve over HTTP+SSE (with optional auth)
-  reasonix acp [--model NAME]                           serve Agent Client Protocol over stdio (also: reasonix --acp)
-  reasonix setup [path]                                 interactive config wizard; writes reasonix.toml (+ .env)
-  reasonix config auto-plan [off|on]                    configure automatic plan mode
-  reasonix config memory-v5 [off|observe|compact|on|status]  configure Memory v5
-  reasonix config reasoning-language [auto|zh|en]        configure visible reasoning language
-  reasonix mcp <add|remove|list|import>                 manage MCP servers in reasonix.toml
-  reasonix subagent <list|create|edit|delete|try|run>   manage and run isolated subagent profiles
-  reasonix init                                         show how to generate project memory (AGENTS.md)
-  reasonix doctor [--json]                              print redacted local diagnostics
-  reasonix doctor session <branch-id> [--zip] [--out PATH]  export a session conflict diagnostic zip
-  reasonix bot start|doctor|weixin-login                multi-channel IM bot gateway
-  reasonix upgrade [--check] [--force]                   self-update to the latest release (also: reasonix update)
-  reasonix version
-  reasonix help
+  rillagent [--model NAME] [-c|--continue] [-r|--resume [QUERY]] [--permission-mode MODE] [--effort LEVEL] [--add-dir PATH]   interactive session
+  rillagent -p|--print [--model NAME] [--output-format text|json|stream-json] [--allowed-tools RULES] [--add-dir PATH] <task>
+  rillagent run [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] [--copy] [--output-format FORMAT] <task>
+  rillagent review [--base BRANCH] [--commit SHA] [--model NAME]  AI-powered code review on local diffs
+  rillagent serve [--model NAME] [--addr HOST:PORT] [--auth none|token|password] [--token STR] [--password STR] [--hash-password]  serve over HTTP+SSE (with optional auth)
+  rillagent acp [--model NAME]                           serve Agent Client Protocol over stdio (also: rillagent --acp)
+  rillagent setup [path]                                 interactive config wizard; writes rillagent.toml (+ .env)
+  rillagent config auto-plan [off|on]                    configure automatic plan mode
+  rillagent config memory-v5 [off|observe|compact|on|status]  configure Memory v5
+  rillagent config reasoning-language [auto|zh|en]        configure visible reasoning language
+  rillagent mcp <add|remove|list|import>                 manage MCP servers in rillagent.toml
+  rillagent subagent <list|create|edit|delete|try|run>   manage and run isolated subagent profiles
+  rillagent init                                         show how to generate project memory (RILL.md)
+  rillagent doctor [--json]                              print redacted local diagnostics
+  rillagent doctor session <branch-id> [--zip] [--out PATH]  export a session conflict diagnostic zip
+  rillagent bot start|doctor|weixin-login                multi-channel IM bot gateway
+  rillagent upgrade [--check] [--force]                   self-update to the latest release (also: rillagent update)
+  rillagent version
+  rillagent help
 
 Examples:
-  reasonix
-  reasonix --continue
-  reasonix --resume provider-config
-  reasonix run "implement the TODOs in main.go"
-  reasonix run --model mimo-pro "add unit tests for this function"
-  reasonix -p "summarize this repository" --output-format json
-  reasonix subagent run review "review the current changes"
-  echo "explain this code" | reasonix run
+  rillagent
+  rillagent --continue
+  rillagent --resume provider-config
+  rillagent run "implement the TODOs in main.go"
+  rillagent run --model mimo-pro "add unit tests for this function"
+  rillagent -p "summarize this repository" --output-format json
+  rillagent subagent run review "review the current changes"
+  echo "explain this code" | rillagent run
 
 Configuration:
-  Resolution: flag > ./reasonix.toml > <Reasonix home>/config.toml > built-in defaults
+  Resolution: flag > ./rillagent.toml > <Rill home>/config.toml > built-in defaults
   Secrets come from the environment via api_key_env (e.g. DEEPSEEK_API_KEY).
-  Run 'reasonix setup' to scaffold a config; see docs/SPEC.md.
+  Run 'rillagent setup' to scaffold a config; see docs/SPEC.md.
 `,
 }

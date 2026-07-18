@@ -1,5 +1,5 @@
-// Package config loads Reasonix's runtime configuration from TOML. Resolution order:
-// flag > project ./reasonix.toml > user config.toml (in the OS user-config dir) > built-in defaults.
+// Package config loads Rill's runtime configuration from TOML. Resolution order:
+// flag > project ./rillagent.toml > user config.toml (in the OS user-config dir) > built-in defaults.
 // Secrets come from the environment via api_key_env and are never stored in
 // config files.
 package config
@@ -37,11 +37,11 @@ func SkillNameKey(name string) string {
 	return name
 }
 
-// Config is Reasonix's runtime configuration.
+// Config is Rill's runtime configuration.
 type Config struct {
 	ConfigVersion    int                 `toml:"config_version"`
 	DefaultModel     string              `toml:"default_model"`
-	Language         string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+	Language         string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $RILLAGENT_LANG
 	CredentialsStore string              `toml:"credentials_store"`
 	UI               UIConfig            `toml:"ui"`
 	Desktop          DesktopConfig       `toml:"desktop"`
@@ -86,7 +86,7 @@ func (c *Config) IgnoredLegacyAgentStepLimits() bool {
 	return c != nil && c.ignoredLegacyStepLimits
 }
 
-// IgnoredProjectDefaultModel returns the project reasonix.toml default_model
+// IgnoredProjectDefaultModel returns the project rillagent.toml default_model
 // that LoadForRoot ignored because no configured provider serves it (see
 // restoreUnresolvableProjectDefaultModel), or "" when none was ignored.
 func (c *Config) IgnoredProjectDefaultModel() string {
@@ -97,7 +97,7 @@ func (c *Config) IgnoredProjectDefaultModel() string {
 }
 
 // SecretsConfig controls the credential protection layers. It is a user-global
-// setting: project reasonix.toml values are ignored (see LoadForRoot), so a
+// setting: project rillagent.toml values are ignored (see LoadForRoot), so a
 // cloned repository cannot silently opt the user into workflow-breaking
 // protections.
 type SecretsConfig struct {
@@ -723,7 +723,7 @@ type ServeConfig struct {
 	// cryptographically random token is generated at startup and printed.
 	Token string `toml:"token"`
 	// PasswordHash is a bcrypt hash of the password for auth_mode = "password".
-	// Generate one with: reasonix serve --hash-password --password '...'
+	// Generate one with: rillagent serve --hash-password --password '...'
 	PasswordHash string `toml:"password_hash"`
 	// BehindProxy indicates the server sits behind a trusted reverse proxy
 	// (nginx, Caddy, Cloudflare, etc.) that sets X-Forwarded-For and
@@ -814,7 +814,7 @@ func (c *Config) NetworkProxyMode() string {
 
 // SkillsConfig configures skill discovery. Paths adds extra "custom"-scope skill
 // roots — each a directory of SKILL.md / <name>.md playbooks — scanned between
-// the project roots (.reasonix/.agents/.agent/.claude under the workspace) and
+// the project roots (.rillagent/.agents/.agent/.claude under the workspace) and
 // the global roots. ExcludedPaths hides matching discovery roots without deleting
 // folders. ~, relative paths, and ${VAR} expansion are supported. DisabledSkills
 // hides named skills from the agent prompt, slash invocation, and skill tools
@@ -1051,7 +1051,7 @@ type AgentConfig struct {
 	MaxSubagentDepth    int               `toml:"max_subagent_depth"`
 	// OutputStyle selects a persona/tone block folded into the system prompt at
 	// startup (a built-in like "explanatory"/"learning"/"concise", or a custom
-	// .reasonix/output-styles/<name>.md). Empty = the unmodified prompt.
+	// .rillagent/output-styles/<name>.md). Empty = the unmodified prompt.
 	OutputStyle string `toml:"output_style"`
 	// AutoPlan controls whether interactive turns that look multi-step start in
 	// plan mode automatically: "off" keeps plan mode manual, "on" enables the
@@ -1478,7 +1478,7 @@ type MCPToolPolicy struct {
 // static Headers. String fields support ${VAR} / ${VAR:-default} expansion so
 // secrets (bearer tokens, keys) come from the environment, not the file. The
 // fields mirror Claude Code's mcpServers spec, so entries can come from either
-// reasonix.toml's [[plugins]] or a project-root .mcp.json (see loadMCPJSON).
+// rillagent.toml's [[plugins]] or a project-root .mcp.json (see loadMCPJSON).
 type PluginEntry struct {
 	Name    string            `toml:"name"`
 	Type    string            `toml:"type"` // "stdio" (default) | "http" | "sse"
@@ -1556,7 +1556,7 @@ func (c *Config) AutoStartPlugins() []PluginEntry {
 }
 
 // DefaultSystemPrompt is used when config provides none.
-const DefaultSystemPrompt = `You are Reasonix, a coding agent.
+const DefaultSystemPrompt = `You are Rill, a coding agent.
 Use the available tools when they help you complete the user's request.
 Keep changes focused and responses concise.`
 
@@ -1599,8 +1599,8 @@ func Default() *Config {
 			CompactForceRatio:   0.9,
 			MaxSubagentDepth:    2,
 		},
-		// Mode "ask" with no rules keeps `reasonix run` autonomous (no TTY → ask
-		// resolves to allow) while `reasonix` prompts before writers. Users add
+		// Mode "ask" with no rules keeps `rillagent run` autonomous (no TTY → ask
+		// resolves to allow) while `rillagent` prompts before writers. Users add
 		// deny/allow rules to harden or quiet specific tools.
 		Permissions: PermissionsConfig{Mode: "ask"},
 		// Sandbox uses platform defaults: macOS/Linux jail bash by default;
@@ -1620,7 +1620,7 @@ func Default() *Config {
 			QueueCap:           20,
 			QueueDrop:          "summarize",
 			IgnoreSelfMessages: true,
-			Control:            BotControlConfig{Addr: "127.0.0.1:37913", TokenEnv: "REASONIX_BOT_CONTROL_TOKEN"},
+			Control:            BotControlConfig{Addr: "127.0.0.1:37913", TokenEnv: "RILLAGENT_BOT_CONTROL_TOKEN"},
 			Pairing:            BotPairingConfig{Enabled: true, RequestTTLMinutes: 60, MaxPendingPerPlatform: 3},
 			Allowlist:          BotAllowlist{Enabled: true},
 			QQ:                 QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET"},
@@ -1753,7 +1753,7 @@ func (e *ProviderEntry) APIKey() string {
 
 // ResolveAPIKeyFromProcessEnvForProbe pins a setup-time, user-entered key onto
 // this entry for an immediate connectivity probe. Normal runtime resolution does
-// not call this; loaded provider entries still resolve only from Reasonix's
+// not call this; loaded provider entries still resolve only from Rill's
 // global .env.
 func (e *ProviderEntry) ResolveAPIKeyFromProcessEnvForProbe() {
 	if e == nil {

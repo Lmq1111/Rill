@@ -1,4 +1,4 @@
-# Reasonix CLI Reference
+# Rill CLI Reference
 
 <a href="../README.md">README</a>
 &nbsp;·&nbsp;
@@ -13,14 +13,14 @@ configuration, plugins, and sandbox policy, see the [Guide](./GUIDE.md).
 ## Start a session
 
 ```sh
-reasonix
-reasonix --model deepseek-pro
-reasonix --profile delivery --effort high
-reasonix --dir /path/to/project
+rillagent
+rillagent --model deepseek-pro
+rillagent --profile delivery --effort high
+rillagent --dir /path/to/project
 ```
 
-Running `reasonix` without a subcommand starts the interactive terminal UI. Use
-`reasonix setup` first when no provider is configured.
+Running `rillagent` without a subcommand starts the interactive terminal UI. Use
+`rillagent setup` first when no provider is configured.
 
 | Flag | Purpose |
 | --- | --- |
@@ -42,12 +42,12 @@ Flags may appear before or after the prompt where applicable.
 ## Configure providers
 
 ```sh
-reasonix setup                    # manage the user-global config
-reasonix setup --local            # manage ./reasonix.toml
-reasonix setup /path/to/config.toml
+rillagent setup                    # manage the user-global config
+rillagent setup --local            # manage ./rillagent.toml
+rillagent setup /path/to/config.toml
 ```
 
-In an interactive terminal, `reasonix setup` is a staged provider manager. It
+In an interactive terminal, `rillagent setup` is a staged provider manager. It
 lists configured providers and lets you:
 
 - add OpenAI-compatible or Anthropic-compatible providers;
@@ -62,7 +62,7 @@ or CLI changes are retained, while an overlapping change is reported as a
 conflict instead of being overwritten.
 
 Provider definitions contain only the `api_key_env` variable name. Key values
-are stored in the shared Reasonix home `.env`, even with `--local`. When a
+are stored in the shared Rillagent home `.env`, even with `--local`. When a
 variable name is already used by another provider, setup asks whether to share
 that credential; choose a different variable name when the providers use
 different keys. Providers added or removed through setup are also added to or
@@ -74,13 +74,13 @@ desktop app.
 Use `-p` / `--print` when a script needs only the final answer:
 
 ```sh
-reasonix -p "summarize this repository"
-reasonix -p "summarize this repository" --output-format json
-reasonix run "implement the TODOs in main.go"
-echo "explain this code" | reasonix run
+rillagent -p "summarize this repository"
+rillagent -p "summarize this repository" --output-format json
+rillagent run "implement the TODOs in main.go"
+echo "explain this code" | rillagent run
 ```
 
-`reasonix run` keeps the normal streamed terminal presentation unless `-p` or a
+`rillagent run` keeps the normal streamed terminal presentation unless `-p` or a
 structured output format is selected. It also accepts `--model`, `--profile`,
 `--max-steps`, `--effort`, `--dir`, `--add-dir`, `--continue`, `--resume PATH`,
 `--copy`, `--allowed-tools`, and `--permission-mode`.
@@ -94,9 +94,9 @@ structured output format is selected. It also accepts `--model`, `--profile`,
 | `stream-json` | Emits one shared `eventwire` JSON object per line, followed by the final result object. |
 
 ```sh
-reasonix -p "list the risky changes" --output-format text
-reasonix -p "summarize the diff" --output-format json
-reasonix run "run the tests" --output-format stream-json
+rillagent -p "list the risky changes" --output-format text
+rillagent -p "summarize the diff" --output-format json
+rillagent run "run the tests" --output-format stream-json
 ```
 
 The final structured object has this shape:
@@ -127,11 +127,11 @@ printing a duplicate human-readable error.
 ## Resume sessions
 
 ```sh
-reasonix --continue
-reasonix --resume
-reasonix --resume provider-config
-reasonix --resume <session-id>
-reasonix --resume provider-config --copy
+rillagent --continue
+rillagent --resume
+rillagent --resume provider-config
+rillagent --resume <session-id>
+rillagent --resume provider-config --copy
 ```
 
 - `--continue` resumes the newest saved session immediately.
@@ -141,20 +141,20 @@ reasonix --resume provider-config --copy
   error.
 - `--resume=true` and `--resume=false` remain accepted for compatibility.
 - `--copy` leaves the original transcript untouched and continues in a new
-  writable session. Use it when another Reasonix process owns the original.
+  writable session. Use it when another Rill process owns the original.
 
-For one-shot runs, `reasonix run --resume PATH "task"` accepts a session file
+For one-shot runs, `rillagent run --resume PATH "task"` accepts a session file
 path. Session leases prevent the desktop app and CLI from writing the same
 transcript concurrently.
 
 ## Permissions
 
 ```sh
-reasonix --permission-mode plan
-reasonix --permission-mode acceptEdits
-reasonix -p "run the focused tests" --allowed-tools "Bash(go test ./...)"
-reasonix --allowed-tools "Bash(git *) Edit"
-reasonix --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
+rillagent --permission-mode plan
+rillagent --permission-mode acceptEdits
+rillagent -p "run the focused tests" --allowed-tools "Bash(go test ./...)"
+rillagent --allowed-tools "Bash(git *) Edit"
+rillagent --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
 ```
 
 | Mode | Behavior |
@@ -170,7 +170,7 @@ reasonix --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
 filter. Rules may be comma- or space-separated, and the flag is repeatable.
 Configured deny rules always win over command-line allow rules.
 
-In non-interactive runs (`reasonix run` / `-p`) there is no prompt to answer, so
+In non-interactive runs (`rillagent run` / `-p`) there is no prompt to answer, so
 each mode resolves without blocking: `ask`, `manual`, and `acceptEdits` keep run
 autonomy and let ordinary approval decisions proceed; `auto` still auto-approves
 the normal fallback but denies a command that matches an explicit ask rule rather
@@ -181,14 +181,14 @@ sandbox escape, managed config write).
 ## Additional directories
 
 ```sh
-reasonix --add-dir ../shared
-reasonix -p "update both projects" \
+rillagent --add-dir ../shared
+rillagent -p "update both projects" \
   --add-dir ../frontend \
   --add-dir ../backend
 ```
 
 Relative paths resolve from the workspace root and must already exist as
-directories. Reasonix resolves symlinks, removes duplicates, and extends the
+directories. Rill resolves symlinks, removes duplicates, and extends the
 file-writer and sandboxed Bash write boundaries for the session. These additions
 are runtime-only and are not written to configuration.
 

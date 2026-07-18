@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import logoSymbol from "../assets/logo-symbol.svg";
-import { useT } from "../lib/i18n";
+import { brand } from "../lib/brand";
 
-const SPLASH_FLAG = "reasonix.splash.shown";
+const SPLASH_FLAG = "rillagent.splash.shown";
 const MIN_VISIBLE_MS = 1400;
 const FADE_OUT_MS = 420;
 const MAX_HOLD_MS = 6000;
@@ -24,7 +24,6 @@ function markSplashShown(): void {
 }
 
 export function StartupSplash({ hold, onDone }: { hold: boolean; onDone: () => void }) {
-  const t = useT();
   const [minElapsed, setMinElapsed] = useState(false);
   const [forceRelease, setForceRelease] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -71,8 +70,8 @@ export function StartupSplash({ hold, onDone }: { hold: boolean; onDone: () => v
         <div className="startup-splash__mark" aria-hidden="true">
           <img src={logoSymbol} alt="" draggable={false} />
         </div>
-        <div className="startup-splash__name">Reasonix</div>
-        <div className="startup-splash__sub">{t("app.splashSubtitle")}</div>
+        <div className="startup-splash__name">{brand.productName}</div>
+        <div className="startup-splash__sub">{brand.slogan}</div>
         <div className="startup-splash__dots" aria-hidden="true">
           <span />
           <span />

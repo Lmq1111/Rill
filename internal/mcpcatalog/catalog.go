@@ -1,4 +1,4 @@
-// Package mcpcatalog verifies and caches the signed Reasonix MCP plugin catalog.
+// Package mcpcatalog verifies and caches the signed Rill MCP plugin catalog.
 // Catalog data is host-local policy and never enters provider-visible prompts or
 // tool definitions.
 package mcpcatalog

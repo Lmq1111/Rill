@@ -1,4 +1,4 @@
-# Reasonix CLI 命令参考
+# Rill CLI 命令参考
 
 <a href="../README.zh-CN.md">README</a>
 &nbsp;·&nbsp;
@@ -12,14 +12,14 @@
 ## 启动会话
 
 ```sh
-reasonix
-reasonix --model deepseek-pro
-reasonix --profile delivery --effort high
-reasonix --dir /path/to/project
+rillagent
+rillagent --model deepseek-pro
+rillagent --profile delivery --effort high
+rillagent --dir /path/to/project
 ```
 
-不带子命令运行 `reasonix` 会进入交互式终端界面。尚未配置 provider 时，先运行
-`reasonix setup`。
+不带子命令运行 `rillagent` 会进入交互式终端界面。尚未配置 provider 时，先运行
+`rillagent setup`。
 
 | 参数 | 用途 |
 | --- | --- |
@@ -41,12 +41,12 @@ reasonix --dir /path/to/project
 ## 配置供应商
 
 ```sh
-reasonix setup                    # 管理用户全局配置
-reasonix setup --local            # 管理 ./reasonix.toml
-reasonix setup /path/to/config.toml
+rillagent setup                    # 管理用户全局配置
+rillagent setup --local            # 管理 ./rillagent.toml
+rillagent setup /path/to/config.toml
 ```
 
-在交互式终端中，`reasonix setup` 是一个暂存式供应商管理器。它会列出已配置的
+在交互式终端中，`rillagent setup` 是一个暂存式供应商管理器。它会列出已配置的
 provider，并支持：
 
 - 添加 OpenAI-compatible 或 Anthropic-compatible provider；
@@ -60,7 +60,7 @@ provider，并支持：
 不会直接覆盖。
 
 Provider 定义只保存 `api_key_env` 变量名。即使使用 `--local`，Key 的真实值也始终保存
-在 CLI 与桌面端共用的 Reasonix 全局 `.env` 中。如果变量名已被其他 provider 使用，
+在 CLI 与桌面端共用的 Rill 全局 `.env` 中。如果变量名已被其他 provider 使用，
 setup 会询问是否共享该凭据；两个 provider 使用不同 Key 时，应改用不同变量名。通过
 setup 添加或删除 provider 时，也会同步维护桌面端 provider access，因此相同模型可以
 直接在桌面端使用。
@@ -70,13 +70,13 @@ setup 添加或删除 provider 时，也会同步维护桌面端 provider access
 脚本只需要最终回答时，使用 `-p` / `--print`：
 
 ```sh
-reasonix -p "总结这个仓库"
-reasonix -p "总结这个仓库" --output-format json
-reasonix run "实现 main.go 里的 TODO"
-echo "解释这段代码" | reasonix run
+rillagent -p "总结这个仓库"
+rillagent -p "总结这个仓库" --output-format json
+rillagent run "实现 main.go 里的 TODO"
+echo "解释这段代码" | rillagent run
 ```
 
-未使用 `-p` 或结构化输出格式时，`reasonix run` 保持正常的终端流式展示。它也接受
+未使用 `-p` 或结构化输出格式时，`rillagent run` 保持正常的终端流式展示。它也接受
 `--model`、`--profile`、`--max-steps`、`--effort`、`--dir`、`--add-dir`、
 `--continue`、`--resume PATH`、`--copy`、`--allowed-tools` 和
 `--permission-mode`。
@@ -90,9 +90,9 @@ echo "解释这段代码" | reasonix run
 | `stream-json` | 每行输出一个共用 `eventwire` JSON 对象，最后再输出最终结果对象。 |
 
 ```sh
-reasonix -p "列出有风险的改动" --output-format text
-reasonix -p "总结 diff" --output-format json
-reasonix run "运行测试" --output-format stream-json
+rillagent -p "列出有风险的改动" --output-format text
+rillagent -p "总结 diff" --output-format json
+rillagent run "运行测试" --output-format stream-json
 ```
 
 最终结构化对象的格式如下：
@@ -122,11 +122,11 @@ reasonix run "运行测试" --output-format stream-json
 ## 恢复会话
 
 ```sh
-reasonix --continue
-reasonix --resume
-reasonix --resume provider-config
-reasonix --resume <session-id>
-reasonix --resume provider-config --copy
+rillagent --continue
+rillagent --resume
+rillagent --resume provider-config
+rillagent --resume <session-id>
+rillagent --resume provider-config --copy
 ```
 
 - `--continue` 立即恢复最新保存的会话。
@@ -135,19 +135,19 @@ reasonix --resume provider-config --copy
   子串。没有匹配或匹配不唯一时会返回明确错误。
 - 为保持兼容，仍接受 `--resume=true` 和 `--resume=false`。
 - `--copy` 不修改原 transcript，而是在新的可写会话中继续。原会话已被另一个
-  Reasonix 进程占用时可以使用它。
+  Rill 进程占用时可以使用它。
 
-一次性运行可用 `reasonix run --resume PATH "任务"` 指定 session 文件路径。Session
+一次性运行可用 `rillagent run --resume PATH "任务"` 指定 session 文件路径。Session
 lease 会阻止桌面端和 CLI 同时写入同一个 transcript。
 
 ## 权限
 
 ```sh
-reasonix --permission-mode plan
-reasonix --permission-mode acceptEdits
-reasonix -p "运行指定测试" --allowed-tools "Bash(go test ./...)"
-reasonix --allowed-tools "Bash(git *) Edit"
-reasonix --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
+rillagent --permission-mode plan
+rillagent --permission-mode acceptEdits
+rillagent -p "运行指定测试" --allowed-tools "Bash(go test ./...)"
+rillagent --allowed-tools "Bash(git *) Edit"
+rillagent --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
 ```
 
 | 模式 | 行为 |
@@ -162,7 +162,7 @@ reasonix --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
 `--allowed-tools` 是会话权限覆盖，不是 provider tool schema 过滤器。规则可以用逗号
 或空格分隔，也可重复传入参数。配置中的 deny 规则始终优先于命令行 allow 规则。
 
-在非交互运行（`reasonix run` / `-p`）下没有可应答的审批，各模式都以非阻塞方式解析：
+在非交互运行（`rillagent run` / `-p`）下没有可应答的审批，各模式都以非阻塞方式解析：
 `ask`、`manual`、`acceptEdits` 保留 run 自主性，放行普通审批决策；`auto` 仍自动批准
 普通 fallback，但对命中显式 ask 规则的命令改为拒绝，而不是无人值守地执行；`dontAsk`
 拒绝；`bypassPermissions` 执行一切，仅始终需要人工新鲜批准的工具（记忆、plan、沙箱
@@ -171,13 +171,13 @@ reasonix --allowed-tools "Bash(go test ./...)" --allowed-tools read_file
 ## 附加目录
 
 ```sh
-reasonix --add-dir ../shared
-reasonix -p "同时更新两个项目" \
+rillagent --add-dir ../shared
+rillagent -p "同时更新两个项目" \
   --add-dir ../frontend \
   --add-dir ../backend
 ```
 
-相对路径从 workspace 根目录解析，并且必须是已存在的目录。Reasonix 会解析符号链接、
+相对路径从 workspace 根目录解析，并且必须是已存在的目录。Rill 会解析符号链接、
 去重，并在当前会话中扩展文件写入工具和沙盒 Bash 的写入边界。这些目录只在运行时生效，
 不会写入配置。
 

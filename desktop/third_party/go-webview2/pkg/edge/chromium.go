@@ -25,7 +25,7 @@ type Rect = w32.Rect
 
 // WebView2 must remain the sole owner of its rasterization scale. Disabling
 // monitor-scale detection leaves frameless windows with stale bounds after a
-// minimise/restore cycle on mixed-DPI displays (Reasonix #5862, Wails #5544).
+// minimise/restore cycle on mixed-DPI displays (Rill #5862, Wails #5544).
 const shouldDetectMonitorScaleChanges = true
 
 func globalErrorHandler(err error) {

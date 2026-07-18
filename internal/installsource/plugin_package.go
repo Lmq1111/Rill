@@ -341,13 +341,13 @@ func (t *installSourceTool) pluginPackageAction(req request, pkg pluginpkg.Packa
 		name = pkg.Manifest.Name
 	}
 	root := ""
-	if t.reasonixHome != "" {
-		root = pluginpkg.InstallRoot(t.reasonixHome, name)
+	if t.rillHome != "" {
+		root = pluginpkg.InstallRoot(t.rillHome, name)
 	}
 	skills, commands, hooks, mcp := pkg.CapabilityCounts()
 	agents := pkg.Inventory().Agents
-	if pkg.ManifestKind != "reasonix" && skills+commands+hooks+mcp+len(agents) == 0 {
-		return action{}, newErr(ErrNoCompatibleCapabilities, "plugin %q has no Reasonix-compatible capabilities; skipped: %v", name, pkg.Compatibility.Skipped)
+	if pkg.ManifestKind != "rillagent" && skills+commands+hooks+mcp+len(agents) == 0 {
+		return action{}, newErr(ErrNoCompatibleCapabilities, "plugin %q has no Rill-compatible capabilities; skipped: %v", name, pkg.Compatibility.Skipped)
 	}
 	agentNames := make([]string, 0, len(agents))
 	for _, agent := range agents {
@@ -361,7 +361,7 @@ func (t *installSourceTool) pluginPackageAction(req request, pkg pluginpkg.Packa
 		Target:              root,
 		Scope:               "global",
 		Mode:                modeForPlugin(req.Mode),
-		ConfigPath:          pluginpkg.StatePath(t.reasonixHome),
+		ConfigPath:          pluginpkg.StatePath(t.rillHome),
 		Skills:              pkg.Manifest.Skills,
 		SkillCount:          skills,
 		Agents:              agentNames,
@@ -383,7 +383,7 @@ func (t *installSourceTool) pluginPackageAction(req request, pkg pluginpkg.Packa
 	}
 	if hooks > 0 {
 		a.RiskLevel = RiskHigh
-		a.RiskReasons = append(a.RiskReasons, "registers shell hooks that execute during Reasonix sessions")
+		a.RiskReasons = append(a.RiskReasons, "registers shell hooks that execute during Rill sessions")
 	}
 	if mcp > 0 {
 		a.RiskLevel = RiskHigh
@@ -402,13 +402,13 @@ func modeForPlugin(mode string) string {
 }
 
 func (t *installSourceTool) applyInstallPluginPackage(ctx context.Context, req request, act *action) error {
-	if t.reasonixHome == "" {
-		return newErr(ErrSourceUnreadable, "plugin install requires a Reasonix home directory")
+	if t.rillHome == "" {
+		return newErr(ErrSourceUnreadable, "plugin install requires a Rill home directory")
 	}
 	if !pluginpkg.IsValidName(act.Name) {
 		return newErr(ErrInvalidManifest, "invalid plugin name %q", act.Name)
 	}
-	target := pluginpkg.InstallRoot(t.reasonixHome, act.Name)
+	target := pluginpkg.InstallRoot(t.rillHome, act.Name)
 	sourceRoot, commit, cleanup := act.preparedRoot, act.Commit, func() {}
 	if sourceRoot == "" {
 		var err error
@@ -430,10 +430,10 @@ func (t *installSourceTool) applyInstallPluginPackage(ctx context.Context, req r
 	if err != nil {
 		return newErr(ErrInvalidManifest, "%v", err)
 	}
-	if pkg.ManifestKind != "reasonix" {
+	if pkg.ManifestKind != "rillagent" {
 		skills, commands, hooks, mcp := pkg.CapabilityCounts()
 		if skills+commands+hooks+mcp+pkg.AgentCount() == 0 {
-			return newErr(ErrInvalidManifest, "plugin %q no longer has any Reasonix-compatible capabilities", act.Name)
+			return newErr(ErrInvalidManifest, "plugin %q no longer has any Rill-compatible capabilities", act.Name)
 		}
 	}
 	act.Warnings = append(act.Warnings, warnings...)
@@ -455,7 +455,7 @@ func (t *installSourceTool) applyInstallPluginPackage(ctx context.Context, req r
 	installed := pluginpkg.InstalledPlugin{
 		Name:         act.Name,
 		Source:       act.Source,
-		Root:         pluginpkg.RelativeRoot(t.reasonixHome, target),
+		Root:         pluginpkg.RelativeRoot(t.rillHome, target),
 		Version:      pkg.Manifest.Version,
 		Description:  pkg.Manifest.Description,
 		ManifestKind: pkg.ManifestKind,
@@ -467,7 +467,7 @@ func (t *installSourceTool) applyInstallPluginPackage(ctx context.Context, req r
 	} else if verification, ok := verifyInstalledPluginCatalog(ctx, installed, target, pkg.ManifestKind); ok {
 		installed.Verification = verification
 	}
-	if err := pluginpkg.Upsert(t.reasonixHome, installed); err != nil {
+	if err := pluginpkg.Upsert(t.rillHome, installed); err != nil {
 		return err
 	}
 	act.Target = target
@@ -522,7 +522,7 @@ func (t *installSourceTool) preparePluginSource(ctx context.Context, source, mod
 		if !ok {
 			return "", "", func() {}, newErr(ErrUnsupportedKind, "plugin URL %q is not a GitHub repository", source)
 		}
-		tmp, err := os.MkdirTemp("", "reasonix-plugin-*")
+		tmp, err := os.MkdirTemp("", "rillagent-plugin-*")
 		if err != nil {
 			return "", "", func() {}, err
 		}
@@ -676,11 +676,11 @@ func replaceSymlink(target, sourceRoot string, replace bool) error {
 }
 
 func (t *installSourceTool) applyRemovePluginPackage(_ request, act *action) error {
-	installed, ok, err := pluginpkg.Remove(t.reasonixHome, act.Name)
+	installed, ok, err := pluginpkg.Remove(t.rillHome, act.Name)
 	if err != nil || !ok {
 		return err
 	}
-	root := pluginpkg.ResolveRoot(t.reasonixHome, installed.Root)
+	root := pluginpkg.ResolveRoot(t.rillHome, installed.Root)
 	if t.onDisconnect != nil {
 		if pkg, _, err := pluginpkg.ParseDir(root); err == nil {
 			names := make([]string, 0, len(pkg.Manifest.MCPServers))
@@ -693,7 +693,7 @@ func (t *installSourceTool) applyRemovePluginPackage(_ request, act *action) err
 			}
 		}
 	}
-	pluginsDir := pluginpkg.PluginsDir(t.reasonixHome)
+	pluginsDir := pluginpkg.PluginsDir(t.rillHome)
 	if rel, err := filepath.Rel(pluginsDir, root); err == nil && rel != "." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." {
 		if err := os.RemoveAll(root); err != nil {
 			return err

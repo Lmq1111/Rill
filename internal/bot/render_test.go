@@ -105,7 +105,7 @@ func TestRenderSinkDoesNotFlushMidSentenceOnTimer(t *testing.T) {
 	sink.lastFlush = time.Now().Add(-2 * time.Second)
 
 	sink.Emit(event.Event{Kind: event.Text, Text: "我是 **"})
-	sink.Emit(event.Event{Kind: event.Text, Text: "Reasonix**，一个专注于执行代码任务的 AI 编程助手"})
+	sink.Emit(event.Event{Kind: event.Text, Text: "Rill**，一个专注于执行代码任务的 AI 编程助手"})
 
 	if sent := adapter.sentMessages(); len(sent) != 0 {
 		t.Fatalf("sent = %+v, want no mid-sentence flush", sent)
@@ -116,7 +116,7 @@ func TestRenderSinkDoesNotFlushMidSentenceOnTimer(t *testing.T) {
 	if len(sent) != 1 {
 		t.Fatalf("sent count = %d, want final flush only", len(sent))
 	}
-	if sent[0].Text != "我是 **Reasonix**，一个专注于执行代码任务的 AI 编程助手" {
+	if sent[0].Text != "我是 **Rill**，一个专注于执行代码任务的 AI 编程助手" {
 		t.Fatalf("sent text = %q, want combined sentence", sent[0].Text)
 	}
 }

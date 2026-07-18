@@ -34,25 +34,25 @@ Settings -> Models -> Usage -> Agent runtime -> Thinking language
 ```
 
 The desktop setting writes the user-level default. A project can still override
-it with `./reasonix.toml`.
+it with `./rillagent.toml`.
 
 ## CLI And TUI
 
 For shell scripts or one-off configuration:
 
 ```bash
-reasonix config reasoning-language auto
-reasonix config reasoning-language zh
-reasonix config reasoning-language en
+rillagent config reasoning-language auto
+rillagent config reasoning-language zh
+rillagent config reasoning-language en
 ```
 
 By default this writes the user config. To write a project-local override:
 
 ```bash
-reasonix config reasoning-language --local zh
+rillagent config reasoning-language --local zh
 ```
 
-Inside `reasonix`, use the slash command:
+Inside `rillagent`, use the slash command:
 
 ```text
 /reasoning-language auto
@@ -62,12 +62,12 @@ Inside `reasonix`, use the slash command:
 
 The slash command writes the user-level setting and updates the current chat
 controller for subsequent turns. It does not rewrite the current project's
-`reasonix.toml`; use the shell command with `--local` for that.
+`rillagent.toml`; use the shell command with `--local` for that.
 
 Headless runs also use the same setting:
 
 ```bash
-reasonix run "explain this module"
+rillagent run "explain this module"
 ```
 
 ## Config File
@@ -82,7 +82,7 @@ reasoning_language = "auto" # auto|zh|en
 Resolution order for this setting:
 
 ```text
-./reasonix.toml > user config.toml > built-in defaults
+./rillagent.toml > user config.toml > built-in defaults
 ```
 
 There is currently no command-line flag for this setting. Prefer config because
@@ -92,12 +92,12 @@ argument.
 ## Cache Behavior
 
 `auto` is still cache-friendly. When the raw user prompt clearly looks Chinese,
-Reasonix adds the same small transient `<reasoning-language>` block for that
+Rill adds the same small transient `<reasoning-language>` block for that
 turn; English and ambiguous turns inject nothing and rely on the existing stable
 language policy. Injected reference context such as `@file` contents is ignored
 for this auto decision.
 
-When set to `zh` or `en`, Reasonix always adds a small transient
+When set to `zh` or `en`, Rill always adds a small transient
 `<reasoning-language>` block to the user turn. In all modes, this does not
 change:
 

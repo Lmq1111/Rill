@@ -7,12 +7,12 @@ import (
 	"reasonix/internal/skill/builtincontent"
 )
 
-func TestLoadReasonixGuide(t *testing.T) {
-	sk, err := builtincontent.LoadReasonixGuide()
+func TestLoadRillagentGuide(t *testing.T) {
+	sk, err := builtincontent.LoadRillagentGuide()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sk.Name != "reasonix-guide" {
+	if sk.Name != "rillagent-guide" {
 		t.Fatalf("name = %q", sk.Name)
 	}
 	if sk.Description == "" {
@@ -21,7 +21,7 @@ func TestLoadReasonixGuide(t *testing.T) {
 	if sk.RunAs != "inline" {
 		t.Fatalf("runAs = %q, want inline", sk.RunAs)
 	}
-	if !strings.Contains(sk.Body, "reasonix doctor capabilities") {
+	if !strings.Contains(sk.Body, "rillagent doctor capabilities") {
 		t.Fatal("body should recommend doctor capabilities")
 	}
 	if strings.Contains(strings.ToLower(sk.Frontmatter["auto-use"]), "require") {

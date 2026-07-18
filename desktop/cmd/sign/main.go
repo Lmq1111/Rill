@@ -33,7 +33,7 @@ import (
 )
 
 // platforms are the manifest keys we publish. A built artifact is matched to a key
-// by substring (file names embed the key, e.g. Reasonix-darwin-arm64.zip), so the
+// by substring (file names embed the key, e.g. Rill-darwin-arm64.zip), so the
 // generator and the updater agree on update.PlatformKey output.
 var platforms = []string{"darwin-arm64", "darwin-amd64", "windows-amd64", "windows-arm64", "linux-amd64"}
 
@@ -94,7 +94,7 @@ func verifyFile(path string) error {
 }
 
 // genKey generates a fresh minisign key pair, writing the encrypted private key
-// (reasonix.key) and the public key (reasonix.pub) into dir. The password comes
+// (rillagent.key) and the public key (rillagent.pub) into dir. The password comes
 // from $MINISIGN_PASSWORD. The public key is printed — it's safe to publish; embed
 // it in internal/update/verify.go. The private key never leaves dir.
 func genKey(dir string) error {
@@ -113,8 +113,8 @@ func genKey(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	keyPath := filepath.Join(dir, "reasonix.key")
-	pubPath := filepath.Join(dir, "reasonix.pub")
+	keyPath := filepath.Join(dir, "rillagent.key")
+	pubPath := filepath.Join(dir, "rillagent.pub")
 	if err := os.WriteFile(keyPath, enc, 0o600); err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func signFiles(files []string) error {
 			return err
 		}
 		sig := minisign.SignWithComments(priv, data,
-			"file:"+filepath.Base(f), "Reasonix desktop release")
+			"file:"+filepath.Base(f), "Rill desktop release")
 		out := f + ".minisig"
 		if err := os.WriteFile(out, sig, 0o644); err != nil {
 			return err
@@ -165,13 +165,14 @@ func signFiles(files []string) error {
 // version is the semver compared by the updater (e.g. "v1.1.0"); tag is the GitHub
 // release tag used in download URLs (e.g. "desktop-v1.1.0").
 func genManifest(dir, version, tag string) error {
-	repo := os.Getenv("GITHUB_REPOSITORY")
-	if repo == "" || repo == "esengine/reasonix" {
-		repo = "esengine/DeepSeek-Reasonix"
+	repo := strings.TrimSpace(os.Getenv("GITHUB_REPOSITORY"))
+	switch strings.ToLower(repo) {
+	case "", "esengine/deepseek-reasonix":
+		repo = "Lmq1111/Rill"
 	}
 	m := update.Manifest{
 		Version:      version,
-		DownloadPage: "https://reasonix.io/?download=desktop#start",
+		DownloadPage: "https://github.com/Lmq1111/Rill/releases",
 		Platforms:    map[string]update.Asset{},
 	}
 	entries, err := os.ReadDir(dir)

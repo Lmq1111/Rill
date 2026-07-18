@@ -99,7 +99,7 @@ func sign(args []string) {
 }
 
 func manifestDigest(root string) (string, error) {
-	for _, rel := range []string{"reasonix-plugin.json", ".codex-plugin/plugin.json", ".claude-plugin/plugin.json"} {
+	for _, rel := range []string{"rillagent-plugin.json", ".codex-plugin/plugin.json", ".claude-plugin/plugin.json"} {
 		body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err == nil {
 			sum := sha256.Sum256(body)

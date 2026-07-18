@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from 'node:fs/promises';
 
-const repo = 'esengine/DeepSeek-Reasonix';
+const repo = 'Lmq1111/Rill';
 const api = `https://api.github.com/repos/${repo}/contributors?per_page=20&anon=1`;
-const startMarker = '<!-- reasonix-top-contributors:start -->';
-const endMarker = '<!-- reasonix-top-contributors:end -->';
+const startMarker = '<!-- rillagent-top-contributors:start -->';
+const endMarker = '<!-- rillagent-top-contributors:end -->';
 
 const headers = {
   Accept: 'application/vnd.github+json',
-  'User-Agent': 'reasonix-acknowledgments-updater',
+  'User-Agent': 'rillagent-acknowledgments-updater',
 };
 if (process.env.GITHUB_TOKEN) {
   headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;

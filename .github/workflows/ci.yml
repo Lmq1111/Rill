@@ -36,7 +36,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 10
+          version: 10.34.5
           run_install: false
 
       - name: Set up Node.js
@@ -56,16 +56,19 @@ jobs:
             exit 1
           fi
 
+      - name: Check Rill brand boundary
+        run: ./scripts/check-rill-brand.sh
+
       - name: Vet root module
         run: go vet ./...
 
       - name: Test root module
         env:
-          REASONIX_RELEASE_CACHE_GUARD: "1"
+          RILLAGENT_RELEASE_CACHE_GUARD: "1"
         run: go test ./...
 
       - name: Build current CLI entry
-        run: go build -o "$RUNNER_TEMP/reasonix" ./cmd/reasonix
+        run: go build -o "$RUNNER_TEMP/rillagent" ./cmd/rillagent
 
       - name: Install Wails CLI
         shell: bash

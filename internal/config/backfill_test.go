@@ -510,7 +510,7 @@ func TestApplyDeepSeekOfficialDefaultPricingKeepsCustomPrice(t *testing.T) {
 }
 
 func TestResetOfficialProviderPricingOnUpgradeRunsOnce(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "reasonix.toml")
+	path := filepath.Join(t.TempDir(), "rillagent.toml")
 	c := &Config{
 		ConfigVersion: 2,
 		Providers: []ProviderEntry{

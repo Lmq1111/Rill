@@ -25,8 +25,8 @@ eq(
 );
 
 eq(
-  replaySubmitText("hidden session context\nvisible prompt @.reasonix/attachments/a.png", "visible prompt @[a.png](.reasonix/attachments/a.png)", "updated prompt @[a.png](.reasonix/attachments/a.png)", "updated prompt @.reasonix/attachments/a.png"),
-  "hidden session context\nupdated prompt @.reasonix/attachments/a.png",
+  replaySubmitText("hidden session context\nvisible prompt @.rillagent/attachments/a.png", "visible prompt @[a.png](.rillagent/attachments/a.png)", "updated prompt @[a.png](.rillagent/attachments/a.png)", "updated prompt @.rillagent/attachments/a.png"),
+  "hidden session context\nupdated prompt @.rillagent/attachments/a.png",
   "edited visible text preserves submit-only prefix and raw attachment refs",
 );
 
@@ -37,8 +37,8 @@ eq(
 );
 
 eq(
-  replaySubmitText("/reasonix-develop review this change", "review this change", "review the updated change", "review the updated change"),
-  "/reasonix-develop review the updated change",
+  replaySubmitText("/rillagent-develop review this change", "review this change", "review the updated change", "review the updated change"),
+  "/rillagent-develop review the updated change",
   "editing a structured skill message preserves its slash invocation",
 );
 
@@ -98,12 +98,12 @@ eq(
 const sessionPrefix = "以下是用户引用的历史会话上下文：\n\n[会话：Earlier]\n...\n\n---\n\n当前用户问题：\n";
 eq(
   replaySubmitText(
-    `${sessionPrefix}/reasonix-develop review this change`,
+    `${sessionPrefix}/rillagent-develop review this change`,
     "review this change",
     "review the updated change",
     "review the updated change",
   ),
-  `${sessionPrefix}/reasonix-develop review the updated change`,
+  `${sessionPrefix}/rillagent-develop review the updated change`,
   "editing a structured message keeps the hidden referenced-session prefix",
 );
 

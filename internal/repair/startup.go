@@ -175,7 +175,7 @@ func (t *StartupTracker) transition(phase, message string) error {
 		return err
 	}
 	// Ownership: never rewrite a record owned by another live process (a
-	// duplicate REASONIX_DEV instance, or a raced cold start about to exit).
+	// duplicate RILLAGENT_DEV instance, or a raced cold start about to exit).
 	// Records left by dead owners may transition freely — Guard's post-rollback
 	// MarkClean legitimately clears a crashed desktop's state.
 	if state.PID > 0 && state.PID != os.Getpid() && t.processAlive(state.PID) {

@@ -6,6 +6,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"reasonix/internal/brand"
 )
 
 // createAppMenu builds the native application menu bar. macOS only: it's the
@@ -32,10 +34,10 @@ func (a *App) createAppMenu() *menu.Menu {
 			runtime.WindowExecJS(a.ctx, `window.webkit.messageHandlers.external.postMessage("wails:openInspector");`)
 		}
 	})
-	fileMenu.AddText("Show Reasonix", nil, func(_ *menu.CallbackData) {
+	fileMenu.AddText("Show "+brand.ProductName, nil, func(_ *menu.CallbackData) {
 		a.showMainWindow()
 	})
-	fileMenu.AddText("Quit Reasonix", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+	fileMenu.AddText("Quit "+brand.ProductName, keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		a.quitApp()
 	})
 	m.Append(menu.EditMenu())

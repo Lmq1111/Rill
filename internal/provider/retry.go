@@ -70,7 +70,7 @@ type APIError struct {
 	Provider    string
 	Status      int
 	Body        string
-	ToolContext string // resolved Reasonix/MCP identity for provider-indexed tool schema errors
+	ToolContext string // resolved Rill/MCP identity for provider-indexed tool schema errors
 }
 
 func (e *APIError) Error() string {

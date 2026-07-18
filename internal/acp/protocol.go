@@ -1,6 +1,6 @@
 // Package acp implements the Agent Client Protocol (https://agentclientprotocol.com)
 // transport: a stdio JSON-RPC 2.0 agent that editors and other host clients speak
-// to drive Reasonix. Many tools integrated with the v1 (main-branch) agent over
+// to drive Rill. Many tools integrated with the v1 (main-branch) agent over
 // ACP, so v2 keeps the wire contract identical — the wire types in this file are a
 // faithful port of main's src/acp/protocol.ts (ACP protocol version 1).
 //
@@ -147,11 +147,11 @@ type MCPServerSpec struct {
 }
 
 // MCPEnv accepts ACP's official EnvVariable[] shape while still accepting the
-// older map shape that Reasonix v1 clients used.
+// older map shape that Rill v1 clients used.
 type MCPEnv map[string]string
 
 // MCPHeaders accepts ACP's official HTTPHeader[] shape while still accepting
-// the older map shape that Reasonix v1 clients used. The official spec
+// the older map shape that Rill v1 clients used. The official spec
 // (https://agentclientprotocol.com) ships HTTP/SSE MCP headers as an array of
 // {name,value} objects, even when empty.
 type MCPHeaders map[string]string
@@ -342,7 +342,7 @@ type SessionListParams struct {
 	Cursor string `json:"cursor,omitempty"`
 }
 
-// SessionListResult is the first and only page of sessions Reasonix currently
+// SessionListResult is the first and only page of sessions Rill currently
 // returns. NextCursor is omitted because the in-process list is unpaged.
 type SessionListResult struct {
 	Sessions   []SessionInfo `json:"sessions"`
@@ -556,7 +556,7 @@ type currentModeUpdate struct {
 // --- fs/* (agent → client requests) ---
 
 // FSReadTextFileParams asks the client for a file's current text, including
-// unsaved editor state. Line (1-based) and Limit page the content; Reasonix
+// unsaved editor state. Line (1-based) and Limit page the content; Rill
 // always reads whole files and pages locally, so it sends neither.
 type FSReadTextFileParams struct {
 	SessionID string `json:"sessionId"`

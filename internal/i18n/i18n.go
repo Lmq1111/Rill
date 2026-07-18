@@ -37,15 +37,15 @@ type Messages struct {
 	NoKey           string // status dot — no API key set
 	Ready           string // status dot — provider ready
 	GetStarted      string // section title above numbered steps
-	StepScaffold    string // step 1 desc — reasonix setup
+	StepScaffold    string // step 1 desc — rillagent setup
 	StepSetKey      string // step 2 command label
 
-	// `reasonix init` — points to the in-session /init skill + setup
+	// `rillagent init` — points to the in-session /init skill + setup
 	InitHint       string
 	StepSetKeyHint string // step 2 desc — env var hint
 	StepChatDesc   string // interactive session step desc
-	StepRunDesc    string // reasonix run step desc
-	HelpFooter     string // dim footer linking to reasonix help
+	StepRunDesc    string // rillagent run step desc
+	HelpFooter     string // dim footer linking to rillagent help
 
 	// chat REPL
 	ChatTip           string // tip line under the chat banner
@@ -120,7 +120,7 @@ type Messages struct {
 	SandboxEscapeWrapReason                string // reason when no OS sandbox can wrap the command
 	SandboxEscapeRuntimeReason             string // fallback reason when an OS sandbox cannot start the command
 	SandboxEscapeDeclined                  string // model-facing denial when the user declines a one-shot unconfined retry
-	ApprovalToolLabelConfigWrite           string // user-facing label for Reasonix-managed config write approvals
+	ApprovalToolLabelConfigWrite           string // user-facing label for Rill-managed config write approvals
 	ConfigWriteSubjectPrefix               string // subject prefix before the config file path for managed config write approval
 	ConfigWriteReason                      string // reason shown for managed config write approval
 	ConfigWriteDeclined                    string // model-facing denial when the user declines a managed config write
@@ -209,7 +209,6 @@ type Messages struct {
 	CmdStatus           string // /status
 	CmdWorkMode         string // /work-mode
 	CmdMemory           string // /memory
-	CmdMigrate          string // /migrate
 	CmdGoal             string // /goal
 	CmdRemember         string // /remember
 	CmdForget           string // /forget
@@ -372,7 +371,7 @@ type Messages struct {
 	SelectProvidersLabel     string // multi-select label
 	EnterAPIKeysHeader       string // header before the per-env-var prompts
 	MissingKeyIntro          string // shown when re-running the key step on a configured setup
-	WroteFileFmt             string // "Wrote %s" — used for reasonix.toml and .env both
+	WroteFileFmt             string // "Wrote %s" — used for rillagent.toml and .env both
 	SetupComplete            string // success line at end of init
 	SetupCancelled           string // shown when the user aborts the wizard
 	TryHintFmt               string // "Try: %s" — %s = command to try (styled)
@@ -424,7 +423,7 @@ type Messages struct {
 	NoModelsAvailableFmt       string // "%s: no models available, skipping"
 	CustomFetchEmpty           string // "/models returned an empty list — falling back to manual entry"
 	AnthropicFetchEmpty        string // "/models returned an empty list — Anthropic-compatible providers usually don't expose one, falling back to manual entry"
-	SkipStaleCustomEntryFmt    string // "skipping stale %q entry from reasonix.toml (pointing at %s) — please remove it"
+	SkipStaleCustomEntryFmt    string // "skipping stale %q entry from rillagent.toml (pointing at %s) — please remove it"
 	APIKeyAlreadySetFmt        string // "reusing existing value for %s"
 	APIKeyResetPromptFmt       string // "Re-enter %s?"
 	InvalidAPIKeyEnvFmt        string // "%q is not a valid API Key variable name..."
@@ -460,7 +459,7 @@ type Messages struct {
 
 	// top-level / runAgent
 	UnknownCommandFmt         string // "unknown command %q"
-	UsageRunHint              string // "usage: reasonix run [--model NAME] <task>"
+	UsageRunHint              string // "usage: rillagent run [--model NAME] <task>"
 	ErrorPrefix               string // "error:" — prefix for fatal-error output
 	ReconfigureOnUnknownModel string // shown when the configured model no longer resolves and setup is re-run
 	WriteConfigErr            string // "write config:" — prefix for write failure
@@ -491,7 +490,7 @@ type Messages struct {
 	ProviderPickLabel    string // label for provider model picker
 	ProviderNoModelsFmt  string // provider has no models
 
-	// `reasonix upgrade` / `reasonix update` — self-update
+	// `rillagent upgrade` / `rillagent update` — self-update
 	UpgradeChecking            string // "Checking for updates…"
 	UpgradeDevBuild            string // dev builds cannot self-update
 	UpgradeFetchFailed         string // "failed to check for updates: %v"
@@ -545,7 +544,7 @@ var M = English
 // environment and installs it as M. Returns the resolved tag ("en", "zh") so
 // callers can log or expose it.
 //
-// Priority: override > REASONIX_LANG > LC_ALL > LC_MESSAGES > LANG > "en".
+// Priority: override > RILLAGENT_LANG > LC_ALL > LC_MESSAGES > LANG > "en".
 func DetectLanguage(override string) string {
 	for _, c := range append([]string{override}, envCandidates()...) {
 		if tag := normalize(c); tag != "" {
@@ -556,7 +555,7 @@ func DetectLanguage(override string) string {
 }
 
 func envCandidates() []string {
-	keys := []string{"REASONIX_LANG", "LC_ALL", "LC_MESSAGES", "LANG"}
+	keys := []string{"RILLAGENT_LANG", "LC_ALL", "LC_MESSAGES", "LANG"}
 	out := make([]string, len(keys))
 	for i, k := range keys {
 		out[i] = os.Getenv(k)

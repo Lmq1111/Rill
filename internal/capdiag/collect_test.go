@@ -18,32 +18,32 @@ func TestCollectStaticNoNetworkSideEffects(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("REASONIX_HOME", filepath.Join(home, ".reasonix"))
+	t.Setenv("RILLAGENT_HOME", filepath.Join(home, ".rillagent"))
 	// Shadowed skill + missing description + command override.
-	write(t, filepath.Join(root, ".reasonix", "skills", "demo", "SKILL.md"),
+	write(t, filepath.Join(root, ".rillagent", "skills", "demo", "SKILL.md"),
 		"---\nname: demo\ndescription: project demo\n---\nbody\n")
-	write(t, filepath.Join(home, ".reasonix", "skills", "demo", "SKILL.md"),
+	write(t, filepath.Join(home, ".rillagent", "skills", "demo", "SKILL.md"),
 		"---\nname: demo\ndescription: global demo\n---\nbody\n")
-	write(t, filepath.Join(root, ".reasonix", "skills", "nodesc", "SKILL.md"),
+	write(t, filepath.Join(root, ".rillagent", "skills", "nodesc", "SKILL.md"),
 		"---\nname: nodesc\n---\nbody\n")
-	write(t, filepath.Join(root, ".reasonix", "commands", "hi.md"),
+	write(t, filepath.Join(root, ".rillagent", "commands", "hi.md"),
 		"---\ndescription: project hi\n---\nP $ARGUMENTS\n")
-	write(t, filepath.Join(home, ".reasonix", "commands", "hi.md"),
+	write(t, filepath.Join(home, ".rillagent", "commands", "hi.md"),
 		"---\ndescription: home hi\n---\nH $ARGUMENTS\n")
 
 	// Untrusted project hooks.
-	write(t, filepath.Join(root, ".reasonix", "settings.json"), `{
+	write(t, filepath.Join(root, ".rillagent", "settings.json"), `{
   "hooks": {
     "PreToolUse": [{"match": "(", "command": "echo bad"}, {"match": ".*", "command": "echo ok"}]
   }
 }`)
 
 	// MCP with missing command.
-	write(t, filepath.Join(root, "reasonix.toml"), `
+	write(t, filepath.Join(root, "rillagent.toml"), `
 [[plugins]]
 name = "broken"
 type = "stdio"
-command = "definitely-not-a-real-binary-xyzzy-reasonix"
+command = "definitely-not-a-real-binary-xyzzy-rillagent"
 auto_start = false
 `)
 
@@ -51,10 +51,10 @@ auto_start = false
 	write(t, filepath.Join(root, "AGENTS.md"), "# Agents\nUse go test.\n")
 
 	r := capdiag.Collect(capdiag.Options{
-		Root:            root,
-		HomeDir:         home,
-		ReasonixHomeDir: filepath.Join(home, ".reasonix"),
-		Live:            false,
+		Root:        root,
+		HomeDir:     home,
+		RillHomeDir: filepath.Join(home, ".rillagent"),
+		Live:        false,
 	})
 
 	if r.SchemaVersion != 1 {
@@ -103,7 +103,7 @@ auto_start = false
 	// Deterministic JSON round.
 	j1, _ := capdiag.RenderJSON(r)
 	r2 := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	j2, _ := capdiag.RenderJSON(r2)
 	if j1 != j2 {
@@ -120,9 +120,9 @@ func TestMissingConventionDirsNoWarning(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_HOME", filepath.Join(home, ".reasonix"))
+	t.Setenv("RILLAGENT_HOME", filepath.Join(home, ".rillagent"))
 	r := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	if r.Issues == nil {
 		t.Fatal("empty issues must be a non-nil slice for JSON consumers")
@@ -147,15 +147,15 @@ func TestTrustedProjectHooks(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_HOME", filepath.Join(home, ".reasonix"))
-	write(t, filepath.Join(root, ".reasonix", "settings.json"), `{
+	t.Setenv("RILLAGENT_HOME", filepath.Join(home, ".rillagent"))
+	write(t, filepath.Join(root, ".rillagent", "settings.json"), `{
   "hooks": {"Stop": [{"command": "echo done"}]}
 }`)
 	if err := hook.Trust(root, home); err != nil {
 		t.Fatal(err)
 	}
 	r := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	for _, is := range r.Issues {
 		if is.Code == "hook.untrusted_project" {
@@ -183,8 +183,8 @@ func TestLoadForRootReadOnlyDoesNotRewriteTier(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_HOME", filepath.Join(home, ".reasonix"))
-	userCfg := filepath.Join(home, ".reasonix", "config.toml")
+	t.Setenv("RILLAGENT_HOME", filepath.Join(home, ".rillagent"))
+	userCfg := filepath.Join(home, ".rillagent", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(userCfg), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestLoadForRootReadOnlyDoesNotRewriteTier(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	raw, err := os.ReadFile(userCfg)
 	if err != nil {
@@ -208,8 +208,8 @@ func TestUnknownHookEventIsReported(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_HOME", filepath.Join(home, ".reasonix"))
-	write(t, filepath.Join(root, ".reasonix", "settings.json"), `{
+	t.Setenv("RILLAGENT_HOME", filepath.Join(home, ".rillagent"))
+	write(t, filepath.Join(root, ".rillagent", "settings.json"), `{
   "hooks": {
     "NotARealEvent": [{"command": "echo hi"}]
   }
@@ -219,7 +219,7 @@ func TestUnknownHookEventIsReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	found := false
 	for _, is := range r.Issues {
@@ -236,21 +236,21 @@ func TestUnknownHookEventIsReported(t *testing.T) {
 func TestPluginPackageCommandsAreReported(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
-	reasonixHome := filepath.Join(home, ".reasonix")
+	rillHome := filepath.Join(home, ".rillagent")
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_HOME", reasonixHome)
+	t.Setenv("RILLAGENT_HOME", rillHome)
 
-	pluginRoot := filepath.Join(reasonixHome, "plugins", "demo")
+	pluginRoot := filepath.Join(rillHome, "plugins", "demo")
 	write(t, filepath.Join(pluginRoot, pluginpkg.NativeManifest), `{"name":"demo","commands":["commands"]}`)
 	write(t, filepath.Join(pluginRoot, "commands", "ship.md"), "---\ndescription: ship it\n---\nShip $ARGUMENTS\n")
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
-		Name: "demo", Root: "plugins/demo", ManifestKind: "reasonix", Enabled: true,
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
+		Name: "demo", Root: "plugins/demo", ManifestKind: "rillagent", Enabled: true,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	r := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: reasonixHome,
+		Root: root, HomeDir: home, RillHomeDir: rillHome,
 	})
 	if len(r.Plugins.Packages) != 1 {
 		t.Fatalf("plugin packages = %+v, want demo", r.Plugins.Packages)
@@ -272,7 +272,7 @@ func TestDisplayPathExternal(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	ext := filepath.Join(t.TempDir(), "secret-user-bin", "tool")
-	write(t, filepath.Join(root, "reasonix.toml"), `
+	write(t, filepath.Join(root, "rillagent.toml"), `
 [[plugins]]
 name = "ext"
 type = "stdio"
@@ -284,7 +284,7 @@ command = "`+filepath.ToSlash(ext)+`"
 		_ = os.Chmod(ext, 0o755)
 	}
 	r := capdiag.Collect(capdiag.Options{
-		Root: root, HomeDir: home, ReasonixHomeDir: filepath.Join(home, ".reasonix"),
+		Root: root, HomeDir: home, RillHomeDir: filepath.Join(home, ".rillagent"),
 	})
 	raw, _ := json.Marshal(r)
 	if strings.Contains(string(raw), "secret-user-bin") {

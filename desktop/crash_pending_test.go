@@ -191,7 +191,7 @@ func TestFlushPendingCrashDevGuard(t *testing.T) {
 }
 
 func TestFlushPendingCrashRetainsInSafeMode(t *testing.T) {
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("RILLAGENT_SAFE_MODE", "1")
 	oldVersion := version
 	t.Cleanup(func() {
 		version = oldVersion

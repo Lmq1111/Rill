@@ -12,7 +12,7 @@ import (
 	fileencoding "reasonix/internal/fileutil/encoding"
 )
 
-func TestHeartbeatConfigPathUsesReasonixUserStateDir(t *testing.T) {
+func TestHeartbeatConfigPathUsesRillUserStateDir(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	engine := &HeartbeatEngine{}
 	want := filepath.Join(config.MemoryUserDir(), "heartbeat-tasks.json")
