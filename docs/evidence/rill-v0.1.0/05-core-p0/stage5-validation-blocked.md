@@ -1,5 +1,7 @@
 # 阶段五核心工作台验收记录（真实模型待验收）
 
+> 历史检查点：该阻塞已于 2026-07-21 在用户配置可用凭证后解除。当前结论见 `stage5-final-validation.md` 与 `real-model-acceptance-redacted.md`。
+
 日期：2026-07-21（Asia/Shanghai）
 
 ## 当前结论
