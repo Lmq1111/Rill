@@ -11,6 +11,7 @@ export interface RillLiveControllerSnapshot {
   readonly ask?: WireAsk;
   readonly context: ContextInfo;
   readonly meta?: Meta;
+  readonly modelsAvailable?: boolean;
 }
 
 export function adaptLiveProjects(tree: readonly ProjectNode[], tabs: readonly TabMeta[]): Project[] {
@@ -34,6 +35,7 @@ export function adaptLiveProjects(tree: readonly ProjectNode[], tabs: readonly T
 
 function adaptRunState(tab: TabMeta, snapshot?: RillLiveControllerSnapshot): RunState {
   if (tab.readOnly) return "readonly";
+  if (snapshot?.modelsAvailable === false) return "modelUnavailable";
   if (tab.startupErr || snapshot?.meta?.startupErr) return "startFailed";
   if (!tab.ready || snapshot?.hydrating) return "loading";
   if (snapshot?.approval) return "awaitingConfirm";
@@ -45,7 +47,7 @@ function adaptRunState(tab: TabMeta, snapshot?: RillLiveControllerSnapshot): Run
 function adaptMessage(item: Item): Message | null {
   switch (item.kind) {
     case "user":
-      return { id: item.id, type: "user", text: item.text };
+      return { id: item.id, type: "user", text: item.text, submitText: item.submitText, checkpointTurn: item.checkpointTurn };
     case "assistant":
       return { id: item.id, type: "ai", text: item.text, thought: item.reasoning || undefined };
     case "notice":

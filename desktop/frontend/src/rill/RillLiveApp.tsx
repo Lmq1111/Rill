@@ -48,6 +48,7 @@ export function RillLiveApp() {
   const [tree, setTree] = useState<ProjectNode[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [modelAvailability, setModelAvailability] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(async () => {
     try {
@@ -77,6 +78,14 @@ export function RillLiveApp() {
   }, [refresh]);
 
   const activeTabId = controller.activeTabId ?? tabs.find((tab) => tab.active)?.id;
+  useEffect(() => {
+    if (!activeTabId) return;
+    let live = true;
+    void app.ModelsForTab(activeTabId).then((models) => {
+      if (live) setModelAvailability((current) => ({ ...current, [activeTabId]: Array.isArray(models) && models.length > 0 }));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [activeTabId]);
   const projects = useMemo(() => adaptLiveProjects(tree, tabs), [tabs, tree]);
   const sessions = useMemo(() => tabs
     .filter((tab) => tab.tabType !== "file")
@@ -88,6 +97,7 @@ export function RillLiveApp() {
       ask: controller.state.ask,
       context: controller.state.context,
       meta: controller.state.meta,
+      modelsAvailable: modelAvailability[tab.id],
     } : undefined)), [controller.activeTabId, controller.state, tabs]);
 
   const seed = useMemo<VisualStoreSeed>(() => ({
@@ -160,6 +170,18 @@ export function RillLiveApp() {
       await refresh();
     },
     commands: async () => app.Commands(),
+    edit: async (session, message, next) => {
+      if (message.checkpointTurn == null) throw new Error("该消息没有可回滚检查点");
+      const original = (message.submitText ?? message.text ?? "").trim();
+      const rewound = await controller.rewindForTab(session.id, message.checkpointTurn, "conversation");
+      if (!rewound) throw new Error("无法回滚到该消息节点");
+      await controller.sendToTab(session.id, next, next, original);
+    },
+    rewind: async (session, message) => {
+      if (message.checkpointTurn == null) throw new Error("该消息没有可回滚检查点");
+      const rewound = await controller.rewindForTab(session.id, message.checkpointTurn, "conversation");
+      if (!rewound) throw new Error("无法回滚到该消息节点");
+    },
     cancel: async (session) => {
       await app.CancelTab(session.id);
       await refresh();

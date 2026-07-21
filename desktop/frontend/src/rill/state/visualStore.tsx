@@ -67,6 +67,8 @@ export interface Message {
   id: string;
   type: MsgType;
   text?: string;
+  submitText?: string;
+  checkpointTurn?: number;
   refs?: string[];
   // tool / code
   tool?: string; cmd?: string; ok?: boolean; out?: string;
@@ -381,6 +383,8 @@ export interface Store {
   answerQuestion: (id: string, answer: string) => void;
   retry: (id: string, switchModel?: boolean) => void;
   clearContext: (id: string) => void;
+  editAndRerun: (id: string, messageId: string, next: string) => Promise<boolean>;
+  rewindTo: (id: string, messageId: string) => Promise<boolean>;
 
   // 回收站
   restoreFromRecycle: (id: string) => void;
@@ -430,6 +434,8 @@ export interface RillSessionRuntime {
   rename?: (session: Session, title: string) => Promise<void>;
   close?: (session: Session) => Promise<void>;
   commands?: () => Promise<CommandInfo[]>;
+  edit?: (session: Session, message: Message, next: string) => Promise<void>;
+  rewind?: (session: Session, message: Message) => Promise<void>;
   cancel?: (session: Session) => Promise<void>;
   approve?: (session: Session, allow: boolean) => Promise<void>;
   answer?: (session: Session, answer: string) => Promise<void>;
@@ -767,6 +773,32 @@ export function StoreProvider({
         }
         patch(id, { context: { ...s.context, used: 0, rounds: 0, roundTokens: 0 }, modelContextClearedAt: "刚刚" });
         toast.success("已清空当前上下文", { description: "历史记录中的原始会话仍然保留" });
+      },
+      editAndRerun: async (id, messageId, next) => {
+        const session = sessions.find((candidate) => candidate.id === id);
+        const message = session?.messages.find((candidate) => candidate.id === messageId);
+        const trimmed = next.trim();
+        if (!session || !message || message.type !== "user" || message.checkpointTurn == null || !trimmed || !runtime?.edit) return false;
+        try {
+          await runtime.edit(session, message, trimmed);
+          return true;
+        } catch (error) {
+          toast.error("编辑后重新执行失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      rewindTo: async (id, messageId) => {
+        const session = sessions.find((candidate) => candidate.id === id);
+        const message = session?.messages.find((candidate) => candidate.id === messageId);
+        if (!session || !message || message.type !== "user" || message.checkpointTurn == null || !runtime?.rewind) return false;
+        try {
+          await runtime.rewind(session, message);
+          toast.success("已回滚到指定消息节点");
+          return true;
+        } catch (error) {
+          toast.error("消息回滚失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
 
       restoreFromRecycle: (id) => {

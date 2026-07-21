@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Sparkles, User, Brain, ChevronDown, Terminal, FileCode2, CheckCircle2, Circle,
   Loader2, AlertTriangle, RotateCcw, ShieldAlert, HelpCircle, Info, Archive, Lock,
-  Check, X, Square,
+  Check, X, Square, Pencil,
 } from "lucide-react";
 import { useStore, type Session, type Message, projectName } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
@@ -19,9 +19,25 @@ function AiHeader({ model, reasoning }: { model: string; reasoning: string }) {
   );
 }
 
-function UserMessage({ m }: { m: Message }) {
+function UserMessage({ m, s }: { m: Message; s: Session }) {
+  const { editAndRerun, rewindTo } = useStore();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(m.text ?? "");
+  const actionable = m.checkpointTurn != null && s.runState === "idle";
+  if (editing) {
+    return (
+      <div className="ml-auto max-w-[76%] rounded-2xl border border-teal-200 bg-white p-2 shadow-sm">
+        <textarea aria-label="编辑历史问题" value={draft} onChange={(event) => setDraft(event.target.value)} rows={3} className="w-full resize-none px-2 py-1 text-[13px] outline-none" />
+        <div className="mt-1 flex justify-end gap-2">
+          <button onClick={() => setEditing(false)} className="rounded px-2 py-1 text-[11px] text-slate-500">取消</button>
+          <button onClick={() => void editAndRerun(s.id, m.id, draft).then((ok) => ok && setEditing(false))} className="rounded bg-teal-600 px-2 py-1 text-[11px] text-white">从此处重新执行</button>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex justify-end gap-3">
+    <div className="group/message flex justify-end gap-3">
+      {actionable && <div className="hidden items-center gap-1 self-center group-hover/message:flex"><button title="编辑并重新执行" onClick={() => setEditing(true)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><Pencil className="size-3.5" /></button><button title="回滚到此消息" onClick={() => void rewindTo(s.id, m.id)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><RotateCcw className="size-3.5" /></button></div>}
       <div className="max-w-[76%] rounded-2xl rounded-tr-sm bg-teal-600 px-4 py-2.5 text-[13.5px] leading-relaxed text-white whitespace-pre-wrap">
         {m.text}
         {m.refs && m.refs.length > 0 && (
@@ -136,7 +152,7 @@ function ErrorBubble({ m }: { m: Message }) {
 
 function renderMessage(m: Message, s: Session) {
   switch (m.type) {
-    case "user": return <UserMessage m={m} />;
+    case "user": return <UserMessage m={m} s={s} />;
     case "answered": return <AnsweredChip m={m} />;
     case "notice": case "compress": return <Notice m={m} />;
     case "reasoning": return <div className="pl-11"><Reasoning thought={m.thought ?? ""} /></div>;
@@ -235,6 +251,11 @@ function RunningIndicator({ s }: { s: Session }) {
 export function Conversation() {
   const { active, projects } = useStore();
   const s = active;
+
+  if (s.runState === "startFailed" || s.runState === "modelUnavailable") {
+    const modelMissing = s.runState === "modelUnavailable";
+    return <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-3 px-5 py-20 text-center"><AlertTriangle className="size-8 text-rose-500" /><div className="text-[15px] text-rose-800">{modelMissing ? "模型不可用" : "会话启动失败"}</div><p className="max-w-md text-[13px] text-slate-500">{modelMissing ? "当前没有可用模型。请先在设置中配置并启用模型，然后返回此会话。" : (s.error ?? "工作区无法启动，请检查错误后重试。")}</p></div>;
+  }
 
   if (s.runState === "empty" || s.messages.length === 0) {
     return (
