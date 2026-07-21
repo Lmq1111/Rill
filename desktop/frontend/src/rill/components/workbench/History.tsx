@@ -65,7 +65,7 @@ export function History() {
             {list.length === 0 ? (
               <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{sessions.length === 0 ? "还没有历史会话" : "没有匹配的搜索结果"}</div>
             ) : list.map((s) => (
-              <HistoryRow key={s.id} s={s} active={s.id === selectedId} isCurrent={s.id === activeSessionId} checked={checked.has(s.id)} disabled={aiBusy} onCheck={() => toggleCheck(s.id)} onSelect={() => setSelectedId(s.id)} />
+              <HistoryRow key={s.id} s={s} active={s.id === selectedId} isCurrent={s.id === activeSessionId} checked={checked.has(s.id)} disabled={aiBusy} onCheck={() => toggleCheck(s.id)} onSelect={() => guard(() => setSelectedId(s.id))} />
             ))}
           </div>
         </div>
@@ -124,8 +124,23 @@ function HistoryRow({ s, active, isCurrent, checked, disabled, onCheck, onSelect
   s: Session; active: boolean; isCurrent: boolean; checked: boolean; disabled: boolean; onCheck: () => void; onSelect: () => void;
 }) {
   const Icon = srcIcon[s.source];
+  const select = () => {
+    if (!disabled) onSelect();
+  };
   return (
-    <div onClick={onSelect} className={["mb-1 flex cursor-pointer items-start gap-2.5 rounded-lg p-2.5", active ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50"].join(" ")}>
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      onClick={select}
+      onKeyDown={(event) => {
+        if (!disabled && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className={["mb-1 flex cursor-pointer items-start gap-2.5 rounded-lg p-2.5", active ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50"].join(" ")}
+    >
       <input type="checkbox" checked={checked} disabled={disabled} onChange={onCheck} onClick={(e) => e.stopPropagation()} className="mt-1 accent-teal-600" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">

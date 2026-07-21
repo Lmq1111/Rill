@@ -64,7 +64,7 @@ function AddProjectDialog({ mode, onClose }: { mode: "existing" | "blank"; onClo
 }
 
 export function Sidebar() {
-  const { navigate, params, sessions, projects, toggleProject, createSession, recycled, tasks } = useStore();
+  const { navigate, params, sessions, active, projects, toggleProject, createSession, recycled, tasks } = useStore();
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<null | "existing" | "blank">(
     params.rillVisualState === "add-project-dialog" ? "existing" : null,
@@ -96,7 +96,7 @@ export function Sidebar() {
       </div>
 
       <div className="flex items-center gap-2 px-3 pb-2">
-        <button onClick={() => createSession(projects[0].id)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-[13px] text-white hover:bg-teal-700"><Plus className="size-4" />新建会话</button>
+        <button onClick={() => createSession(active.projectId)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-[13px] text-white hover:bg-teal-700"><Plus className="size-4" />新建会话</button>
         <button onClick={() => setDialog("existing")} className="grid size-[38px] place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:text-teal-600 hover:ring-teal-300" title="添加已有项目"><FolderGit2 className="size-4" /></button>
         <button onClick={() => setDialog("blank")} className="grid size-[38px] place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:text-teal-600 hover:ring-teal-300" title="创建空白项目"><FolderPlus className="size-4" /></button>
       </div>

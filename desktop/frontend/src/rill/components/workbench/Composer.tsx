@@ -104,7 +104,13 @@ export function Composer() {
 
             <div className="ml-auto flex items-center gap-2">
               {running && <button onClick={() => stopRun(s.id)} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-[13px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100"><Square className="size-3.5 fill-current" /> 停止</button>}
-              <button onClick={() => sendMessage(s.id)} disabled={!s.draft.trim() || running || blocked} className="grid size-9 place-items-center rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-40"><Send className="size-4" /></button>
+              <button
+                onClick={() => void sendMessage(s.id)}
+                disabled={!s.draft.trim() || blocked}
+                title={running ? "发送补充指令" : "发送"}
+                aria-label={running ? "发送补充指令" : "发送"}
+                className="grid size-9 place-items-center rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-40"
+              ><Send className="size-4" /></button>
             </div>
           </div>
         </div>

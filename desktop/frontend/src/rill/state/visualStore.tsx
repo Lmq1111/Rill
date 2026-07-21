@@ -326,7 +326,7 @@ const initialTasks: AutomationTask[] = [
 
 /* ============================================================ */
 
-interface Store {
+export interface Store {
   route: Route;
   params: Record<string, string>;
   navigate: (route: Route, params?: Record<string, string>) => void;
@@ -346,7 +346,7 @@ interface Store {
   setActiveSession: (id: string) => void;
 
   // 会话
-  createSession: (projectId: string) => string;
+  createSession: (projectId: string) => string | null;
   renameSession: (id: string, title: string) => void;
   closeSession: (id: string) => void;
   deleteSession: (id: string) => void; // 移入回收站
@@ -360,7 +360,7 @@ interface Store {
   addRef: (id: string, ref: Ref) => void;
   removeRef: (id: string, rid: string) => void;
   setSetting: (id: string, key: keyof SessionSettings, value: string) => void;
-  sendMessage: (id: string) => void;
+  sendMessage: (id: string) => Promise<boolean>;
   stopRun: (id: string) => void;
   resolveConfirm: (id: string, allow: boolean) => void;
   answerQuestion: (id: string, answer: string) => void;
@@ -399,7 +399,20 @@ export interface VisualStoreSeed {
   readonly activeSessionPatch?: Partial<Session>;
 }
 
-export function StoreProvider({ children, seed = {} }: { children: ReactNode; seed?: VisualStoreSeed }) {
+export interface RillSessionRuntime {
+  submit: (session: Session, input: string) => Promise<void>;
+  steer: (session: Session, input: string) => Promise<void>;
+}
+
+export function StoreProvider({
+  children,
+  seed = {},
+  runtime,
+}: {
+  children: ReactNode;
+  seed?: VisualStoreSeed;
+  runtime?: RillSessionRuntime;
+}) {
   const [nav, setNav] = useState<{ route: Route; params: Record<string, string> }>({
     route: seed.route ?? "workbench",
     params: seed.params ?? {},
@@ -439,6 +452,13 @@ export function StoreProvider({ children, seed = {} }: { children: ReactNode; se
       setActiveSession: (id) => setActiveSessionId(id),
 
       createSession: (projectId) => {
+        const project = projectList.find((candidate) => candidate.id === projectId);
+        if (!project || project.status !== "ok") {
+          toast.error("无法新建会话", {
+            description: project ? `项目「${project.name}」当前不可用` : "当前项目已不存在",
+          });
+          return null;
+        }
         const id = `s${Date.now()}`;
         const ns: Session = {
           id, title: "新会话", summary: "空会话，尚未开始对话。", projectId, source: "local",
@@ -481,10 +501,46 @@ export function StoreProvider({ children, seed = {} }: { children: ReactNode; se
       removeRef: (id, rid) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, refs: s.refs.filter((x) => x.id !== rid) } : s)),
       setSetting: (id, key, val) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, settings: { ...s.settings, [key]: val } } : s)),
 
-      sendMessage: (id) => {
+      sendMessage: async (id) => {
         const s = sessions.find((x) => x.id === id);
-        if (!s || !s.draft.trim()) return;
-        const um: Message = { id: `u${Date.now()}`, type: "user", text: s.draft, refs: s.refs.map((r) => r.label) };
+        const input = s?.draft.trim() ?? "";
+        if (!s || !input) return false;
+        const supplement = s.runState === "aiRunning";
+
+        if (runtime) {
+          try {
+            if (supplement) await runtime.steer(s, input);
+            else await runtime.submit(s, input);
+          } catch (error) {
+            toast.error(supplement ? "补充指令发送失败" : "消息发送失败", {
+              description: error instanceof Error ? error.message : "请稍后重试",
+            });
+            return false;
+          }
+          setSessions((ss) => ss.map((x) => x.id === id && x.draft.trim() === input ? {
+            ...x,
+            draft: "",
+            refs: [],
+            attachments: [],
+            updatedAt: "刚刚",
+          } : x));
+          return true;
+        }
+
+        const um: Message = { id: `u${Date.now()}`, type: "user", text: input, refs: s.refs.map((r) => r.label) };
+        if (supplement) {
+          setSessions((ss) => ss.map((x) => x.id === id ? {
+            ...x,
+            draft: "",
+            refs: [],
+            attachments: [],
+            updatedAt: "刚刚",
+            messages: [...x.messages, um],
+          } : x));
+          toast.success("已发送补充指令");
+          return true;
+        }
+
         const am: Message = { id: `a${Date.now() + 1}`, type: "ai", text: "收到，我开始处理。（演示：稍后返回结果）" };
         setSessions((ss) => ss.map((x) => x.id === id ? {
           ...x, draft: "", refs: [], attachments: [], runState: "aiRunning", updatedAt: "刚刚",
@@ -493,6 +549,7 @@ export function StoreProvider({ children, seed = {} }: { children: ReactNode; se
         } : x));
         // 演示：短暂后进入成功
         setTimeout(() => patch(id, { runState: "idle" }), 1200);
+        return true;
       },
       stopRun: (id) => { patch(id, { runState: "idle" }); toast("已停止运行"); },
       resolveConfirm: (id, allow) => {
@@ -571,7 +628,7 @@ export function StoreProvider({ children, seed = {} }: { children: ReactNode; se
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, recycled, channels, tasks, activeSessionId]);
+  }, [nav, projectList, sessions, recycled, channels, tasks, activeSessionId, runtime]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
