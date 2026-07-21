@@ -201,6 +201,7 @@ export interface AppBindings {
   SummarizeUpTo(turn: number): Promise<void>;
   SummarizeUpToForTab(tabID: string, turn: number): Promise<void>;
   ListSessions(): Promise<SessionMeta[]>;
+  ListAllSessions(): Promise<SessionMeta[]>;
   ListTrashedSessions(): Promise<SessionMeta[]>;
   ResumeSession(path: string): Promise<HistoryMessage[]>;
   ResumeSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
@@ -209,9 +210,11 @@ export interface AppBindings {
   OpenChannelSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
   OpenChannelSessionPageForTab(tabID: string, path: string, limit: number): Promise<HistoryPage>;
   PreviewSession(path: string): Promise<HistoryMessage[]>;
+  PreviewTrashedSession(path: string): Promise<HistoryMessage[]>;
   DeleteSession(path: string): Promise<void>;
   DeleteRecoveryCopy(path: string): Promise<void>;
   RestoreSession(path: string): Promise<void>;
+  RestoreSessionToProject(path: string, workspaceRoot: string): Promise<void>;
   PurgeTrashedSession(path: string): Promise<void>;
   PurgeRecoveryCopy(path: string): Promise<void>;
   RenameSession(path: string, title: string): Promise<void>;
@@ -1089,10 +1092,10 @@ function makeMockApp(): AppBindings {
   };
   // Mutable so delete/rename are observable in browser dev.
   const sessions: SessionMeta[] = [
-    { path: "/mock/sessions/a.jsonl", preview: "fix the login bug in auth.go", turns: 12, createdAt: t0 - 2 * day, lastActivityAt: t0 - 3_600_000, modTime: t0 - 3_600_000, current: true, open: true },
-    { path: "/mock/sessions/b-recovery-0123456789abcdef.jsonl", preview: "refactor the payment module", turns: 5, createdAt: t0 - 3 * day, lastActivityAt: t0 - 6 * 3_600_000, modTime: t0 - 6 * 3_600_000, current: false, open: true, recovered: true, recoveryCopy: true },
-    { path: "/mock/sessions/c.jsonl", preview: "write the README and badges", turns: 8, createdAt: t0 - 4 * day, lastActivityAt: t0 - day - 3_600_000, modTime: t0 - day - 3_600_000, current: false, open: false },
-    { path: "/mock/sessions/d.jsonl", preview: "explain the plugin host design", turns: 3, createdAt: t0 - 5 * day, lastActivityAt: t0 - 4 * day, modTime: t0 - 4 * day, current: false, open: false },
+    { path: "/mock/sessions/a.jsonl", preview: "fix the login bug in auth.go", turns: 12, createdAt: t0 - 2 * day, lastActivityAt: t0 - 3_600_000, modTime: t0 - 3_600_000, current: true, open: true, scope: "project", workspaceRoot: "~/projects/joyquant-db", sessionSource: "local" },
+    { path: "/mock/sessions/b-recovery-0123456789abcdef.jsonl", preview: "refactor the payment module", turns: 5, createdAt: t0 - 3 * day, lastActivityAt: t0 - 6 * 3_600_000, modTime: t0 - 6 * 3_600_000, current: false, open: true, recovered: true, recoveryCopy: true, scope: "project", workspaceRoot: "~/projects/joyquant-db", sessionSource: "local" },
+    { path: "/mock/sessions/c.jsonl", preview: "write the README and badges", turns: 8, createdAt: t0 - 4 * day, lastActivityAt: t0 - day - 3_600_000, modTime: t0 - day - 3_600_000, current: false, open: false, scope: "project", workspaceRoot: "~/projects/joyquant-sys", sessionSource: "local" },
+    { path: "/mock/sessions/d.jsonl", preview: "explain the plugin host design", turns: 3, createdAt: t0 - 5 * day, lastActivityAt: t0 - 4 * day, modTime: t0 - 4 * day, current: false, open: false, scope: "global", sessionSource: "local" },
   ];
   const trashedSessions: SessionMeta[] = [
     {
@@ -2461,6 +2464,9 @@ function makeMockApp(): AppBindings {
     async ListSessions() {
       return sessions.map((s) => ({ ...s }));
     },
+    async ListAllSessions() {
+      return sessions.map((s) => ({ ...s }));
+    },
     async ListTrashedSessions() {
       return trashedSessions.map((s) => ({ ...s }));
     },
@@ -2504,6 +2510,9 @@ function makeMockApp(): AppBindings {
         { role: "compaction", content: "", trigger: "manual", messages: 3, summary: "Mock preview preserved the latest task, tool result, and answer summary." },
       ];
     },
+    async PreviewTrashedSession(path: string) {
+      return this.PreviewSession(path);
+    },
     async DeleteSession(path: string) {
       const i = sessions.findIndex((s) => s.path === path);
       if (i >= 0) {
@@ -2529,6 +2538,14 @@ function makeMockApp(): AppBindings {
           path: s.path.replace("/mock/sessions/.trash/", "/mock/sessions/"),
           deletedAt: undefined,
         });
+      }
+    },
+    async RestoreSessionToProject(path: string, workspaceRoot: string) {
+      await this.RestoreSession(path);
+      const restored = sessions.find((session) => session.path.split(/[\\/]/).pop() === path.split(/[\\/]/).pop());
+      if (restored) {
+        restored.scope = "project";
+        restored.workspaceRoot = workspaceRoot;
       }
     },
     async PurgeTrashedSession(path: string) {

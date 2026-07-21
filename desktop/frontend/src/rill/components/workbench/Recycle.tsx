@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Trash2, Search, RotateCcw, AlertTriangle, ShieldAlert, Bot, Clock3, Circle,
   History as HistoryIcon, X,
@@ -13,27 +13,69 @@ type Confirm =
   | { kind: "empty" }
   | null;
 
+type DeleteTime = "all" | "day" | "week" | "month";
+
+export function filterRecycledSessions(entries: readonly Recycled[], query: string, deletionTime: DeleteTime, now = Date.now()) {
+  const needle = query.trim().toLocaleLowerCase();
+  const maxAge = deletionTime === "day" ? 86_400_000 : deletionTime === "week" ? 7 * 86_400_000 : deletionTime === "month" ? 30 * 86_400_000 : Number.POSITIVE_INFINITY;
+  return entries.filter((entry) => {
+    if (needle && !`${entry.title}\n${entry.summary}`.toLocaleLowerCase().includes(needle)) return false;
+    if (Number.isFinite(maxAge) && (!entry.deletedAtMs || now - entry.deletedAtMs > maxAge)) return false;
+    return true;
+  });
+}
+
 export function Recycle() {
-  const { recycled, projects, params, restoreFromRecycle, permanentDelete, emptyRecycle, navigate } = useStore();
+  const { recycled, projects, params, restoreFromRecycle, permanentDelete, permanentDeleteMany, emptyRecycle, cleanRestoreCopies, navigate, recycleLoading, recycleError, refreshRecycle } = useStore();
   const [query, setQuery] = useState("");
+  const [deletionTime, setDeletionTime] = useState<DeleteTime>("all");
   const [selectedId, setSelectedId] = useState<string | null>(recycled[0]?.id ?? null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [restoreId, setRestoreId] = useState<string | null>(null);
+  const [restoreProjectId, setRestoreProjectId] = useState("");
+  const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(() =>
     params.rillVisualState === "recycle-permanent-delete-confirmation" && recycled[0]
       ? { kind: "one", id: recycled[0].id, title: recycled[0].title }
       : null,
   );
 
-  const list = recycled.filter((s) => !query || s.title.includes(query) || s.summary.includes(query));
+  const list = filterRecycledSessions(recycled, query, deletionTime);
   const selected = recycled.find((s) => s.id === selectedId) ?? null;
+  const restoring = recycled.find((entry) => entry.id === restoreId) ?? null;
+  const restoringProjectAvailable = Boolean(restoring && (restoring.projectId === "global" || projects.some((project) => project.id === restoring.projectId && project.status === "ok")));
   const toggleCheck = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const doConfirm = () => {
+  useEffect(() => {
+    if (!recycled.some((entry) => entry.id === selectedId)) setSelectedId(recycled[0]?.id ?? null);
+    setChecked((current) => new Set([...current].filter((id) => recycled.some((entry) => entry.id === id))));
+  }, [recycled, selectedId]);
+
+  const doConfirm = async () => {
     if (!confirm) return;
-    if (confirm.kind === "one") permanentDelete(confirm.id);
-    else if (confirm.kind === "batch") { confirm.ids.forEach((id) => permanentDelete(id)); setChecked(new Set()); }
-    else emptyRecycle();
-    setConfirm(null);
+    setBusy(true);
+    try {
+      if (confirm.kind === "one") {
+        if (await permanentDelete(confirm.id)) setConfirm(null);
+      } else if (confirm.kind === "batch") {
+        const { failed } = await permanentDeleteMany(confirm.ids);
+        setChecked(new Set(failed));
+        if (failed.length === 0) setConfirm(null);
+        else setConfirm({ kind: "batch", ids: failed });
+      } else if (await emptyRecycle()) setConfirm(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRestore = async (action: "stay" | "history" | "open") => {
+    if (!restoring) return;
+    setBusy(true);
+    try {
+      if (await restoreFromRecycle(restoring.id, action, restoreProjectId || undefined)) setRestoreId(null);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const confirmCount = confirm?.kind === "empty" ? recycled.length : confirm?.kind === "batch" ? confirm.ids.length : 1;
@@ -45,6 +87,11 @@ export function Recycle() {
           {checked.size > 0 && (
             <button onClick={() => setConfirm({ kind: "batch", ids: [...checked] })} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-[12px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100">
               <Trash2 className="size-3.5" /> 批量永久删除 ({checked.size})
+            </button>
+          )}
+          {recycled.some((entry) => entry.restoreCopy) && (
+            <button onClick={() => { void cleanRestoreCopies(); }} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50">
+              <RotateCcw className="size-3.5" /> 清理恢复副本
             </button>
           )}
           <button onClick={() => recycled.length ? setConfirm({ kind: "empty" }) : toast("回收站已空")} disabled={recycled.length === 0} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-[12px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100 disabled:opacity-50">
@@ -60,9 +107,10 @@ export function Recycle() {
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索已删除会话" className="w-full bg-transparent text-[13px] outline-none placeholder:text-slate-400" />
               {query && <button onClick={() => setQuery("")} className="text-slate-400 hover:text-slate-600"><X className="size-3.5" /></button>}
             </div>
+            <select value={deletionTime} onChange={(event) => setDeletionTime(event.target.value as DeleteTime)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600"><option value="all">全部删除时间</option><option value="day">最近 24 小时</option><option value="week">最近 7 天</option><option value="month">最近 30 天</option></select>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {list.length === 0 ? (
+            {recycleLoading ? <div className="grid h-full place-items-center p-8 text-[13px] text-slate-400">正在加载回收站…</div> : recycleError ? <div className="grid h-full place-items-center p-8 text-center text-[13px] text-rose-600"><div>{recycleError}<button onClick={() => void refreshRecycle()} className="mt-3 block rounded-lg bg-white px-3 py-1.5 ring-1 ring-rose-200">重新加载</button></div></div> : list.length === 0 ? (
               <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{recycled.length === 0 ? "回收站为空" : "没有匹配的搜索结果"}</div>
             ) : list.map((s) => <RecycleRow key={s.id} s={s} projectLabel={projectName(projects, s.projectId)} active={s.id === selectedId} checked={checked.has(s.id)} onCheck={() => toggleCheck(s.id)} onSelect={() => setSelectedId(s.id)} />)}
           </div>
@@ -77,7 +125,7 @@ export function Recycle() {
                   <div className="mt-0.5 text-[12px] text-slate-400">原属 {projectName(projects, selected.projectId)} · {selected.snapshot.context.rounds} 轮 · 删除于 {selected.deletedAt}</div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button onClick={() => restoreFromRecycle(selected.id)} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700"><RotateCcw className="size-4" /> 恢复</button>
+                  <button onClick={() => { setRestoreId(selected.id); setRestoreProjectId(""); }} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700"><RotateCcw className="size-4" /> 恢复</button>
                   <button onClick={() => setConfirm({ kind: "one", id: selected.id, title: selected.title })} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[13px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="size-4" /> 永久删除</button>
                 </div>
               </div>
@@ -108,7 +156,31 @@ export function Recycle() {
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setConfirm(null)} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">取消</button>
-              <button onClick={doConfirm} className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-[13px] text-white hover:bg-rose-700">确认永久删除</button>
+              <button onClick={() => { void doConfirm(); }} disabled={busy} className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-[13px] text-white hover:bg-rose-700 disabled:opacity-50">{busy ? "处理中…" : "确认永久删除"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {restoring && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-center gap-2 text-teal-700"><RotateCcw className="size-5" /><h3 className="text-[15px] text-slate-900">恢复会话</h3></div>
+            <p className="mt-2 text-[13px] leading-relaxed text-slate-600">恢复「{restoring.title}」后请选择下一步。</p>
+            {!restoringProjectAvailable && (
+              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-700 ring-1 ring-amber-200">
+                原项目已不可用，请选择一个有效项目后再恢复。
+                <select value={restoreProjectId} onChange={(event) => setRestoreProjectId(event.target.value)} className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-slate-700">
+                  <option value="">选择项目</option>
+                  {projects.filter((project) => project.status === "ok" && project.id !== "global").map((project) => <option key={project.id} value={project.id}>{project.name} · {project.path}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button onClick={() => setRestoreId(null)} disabled={busy} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200">取消</button>
+              <button onClick={() => { void doRestore("stay"); }} disabled={busy || (!restoringProjectAvailable && !restoreProjectId)} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 disabled:opacity-50">恢复并留在此页</button>
+              <button onClick={() => { void doRestore("history"); }} disabled={busy || (!restoringProjectAvailable && !restoreProjectId)} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-teal-700 ring-1 ring-teal-200 disabled:opacity-50">进入历史</button>
+              <button onClick={() => { void doRestore("open"); }} disabled={busy || (!restoringProjectAvailable && !restoreProjectId)} className="rounded-lg bg-teal-600 px-3.5 py-1.5 text-[13px] text-white disabled:opacity-50">打开会话</button>
             </div>
           </div>
         </div>

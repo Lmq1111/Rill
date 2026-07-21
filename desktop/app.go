@@ -2405,6 +2405,35 @@ func (a *App) activeSessionDir() string {
 // user-chosen titles.
 func (a *App) ListSessions() []SessionMeta {
 	dir := a.activeSessionDir()
+	return a.listSessionsInDir(dir)
+}
+
+// ListAllSessions returns saved sessions from every currently known global and
+// project session directory. Rill's full-page history uses this aggregate view
+// instead of inheriting the active tab's narrower scope.
+func (a *App) ListAllSessions() []SessionMeta {
+	out := []SessionMeta{}
+	seen := map[string]struct{}{}
+	for _, dir := range a.knownSessionDirs() {
+		for _, item := range a.listSessionsInDir(dir) {
+			key := filepath.Clean(item.Path)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, item)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].LastActivityAt == out[j].LastActivityAt {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].LastActivityAt > out[j].LastActivityAt
+	})
+	return out
+}
+
+func (a *App) listSessionsInDir(dir string) []SessionMeta {
 	infos, err := agent.ListSessions(dir)
 	if err != nil {
 		return []SessionMeta{}
@@ -3117,6 +3146,87 @@ func (a *App) RestoreSession(path string) error {
 	return friendlySessionFileError(a.restoreSession(path))
 }
 
+// RestoreSessionToProject restores a trashed session into an explicitly
+// selected, registered project. It is used when the session's original project
+// is no longer available in Rill, so the UI never silently picks a project.
+func (a *App) RestoreSessionToProject(path, workspaceRoot string) error {
+	return friendlySessionFileError(a.restoreSessionToProject(path, workspaceRoot))
+}
+
+func (a *App) restoreSessionToProject(path, workspaceRoot string) error {
+	workspaceRoot = normalizeProjectRoot(workspaceRoot)
+	if workspaceRoot == "" {
+		return fmt.Errorf("empty restore project")
+	}
+	registered := false
+	for _, project := range loadProjectsFile().Projects {
+		if sameProjectRoot(project.Root, workspaceRoot) {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		return fmt.Errorf("restore project is not registered")
+	}
+	if info, err := os.Stat(workspaceRoot); err != nil || !info.IsDir() {
+		return fmt.Errorf("restore project is unavailable")
+	}
+
+	sourceDir, err := a.trashedSessionDir(path)
+	if err != nil {
+		return err
+	}
+	_, key, _, err := validateTrashedSessionPath(sourceDir, path)
+	if err != nil {
+		return err
+	}
+	targetDir := desktopSessionDir(workspaceRoot)
+	if sameDesktopPath(sourceDir, targetDir) {
+		return a.restoreSession(path)
+	}
+
+	a.sessionRemovalMu.Lock()
+	defer a.sessionRemovalMu.Unlock()
+	target := filepath.Join(targetDir, key)
+	if a.sessionDestroying(targetDir, target) {
+		return fmt.Errorf("session cleanup is still in progress: %s", key)
+	}
+	if a.sessionOpen(targetDir, target) {
+		return fmt.Errorf("session is open: %s", key)
+	}
+	title := strings.TrimSpace(loadSessionTitles(sourceDir)[key])
+	restoredPath, err := restoreTrashedSessionFileToDir(sourceDir, targetDir, path)
+	if err != nil {
+		return err
+	}
+	meta, err := agent.EnsureBranchMeta(restoredPath)
+	if err != nil {
+		return err
+	}
+	meta.Scope = "project"
+	meta.WorkspaceRoot = workspaceRoot
+	if err := agent.SaveBranchMetaPreserveUpdated(restoredPath, meta); err != nil {
+		return err
+	}
+	if title != "" {
+		if err := setSessionTitle(targetDir, restoredPath, title); err != nil {
+			return err
+		}
+	}
+	if sourceTitles, loadErr := loadSessionTitlesForUpdate(sourceDir); loadErr == nil {
+		if _, ok := sourceTitles[key]; ok {
+			delete(sourceTitles, key)
+			_ = saveSessionTitles(sourceDir, sourceTitles)
+		}
+	}
+	if err := restoreSessionTopicIndex(targetDir, restoredPath); err != nil {
+		return err
+	}
+	a.emitProjectTreeChanged()
+	a.invalidatePromptHistoryCache()
+	return nil
+}
+
 func (a *App) restoreSession(path string) error {
 	dir, err := a.trashedSessionDir(path)
 	if err != nil {
@@ -3510,6 +3620,20 @@ func (a *App) PreviewSession(path string) ([]HistoryMessage, error) {
 		return nil, err
 	}
 	return previewSessionMessages(sessionDir, sessionPath)
+}
+
+// PreviewTrashedSession returns a read-only transcript preview after validating
+// the path against one of the application's known trash directories.
+func (a *App) PreviewTrashedSession(path string) ([]HistoryMessage, error) {
+	dir, err := a.trashedSessionDir(path)
+	if err != nil {
+		return nil, err
+	}
+	trashPath, _, _, err := validateTrashedSessionPath(dir, path)
+	if err != nil {
+		return nil, err
+	}
+	return previewSessionMessages(filepath.Dir(trashPath), trashPath)
 }
 
 // invalidatePromptHistoryCache resets the lazy prompt-history tape so the next

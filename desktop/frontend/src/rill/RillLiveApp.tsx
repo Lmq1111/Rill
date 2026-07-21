@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import { app, onProjectTreeChanged, onReady, onRuntimeRebuilt } from "../lib/bridge";
 import type { ProjectNode, TabMeta } from "../lib/types";
 import { useController } from "../lib/useController";
-import { adaptLiveProjects, adaptLiveSession } from "./adapters/live";
+import { adaptHistorySession, adaptLiveProjects, adaptLiveSession, adaptTrashedSession } from "./adapters/live";
 import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "./adapters/workspace";
 import { CorePages } from "./pages/core";
 import {
@@ -181,6 +181,10 @@ export function RillLiveApp() {
       };
     },
     rename: async (session, title) => {
+      if (session.sessionPath && session.id === session.sessionPath) {
+        await app.RenameSession(session.sessionPath, title);
+        return;
+      }
       if (!session.topicId) throw new Error("会话主题标识不可用");
       await app.RenameTopic(session.topicId, title);
       await refresh();
@@ -189,6 +193,64 @@ export function RillLiveApp() {
       await app.CloseTab(session.id);
       await controller.syncActiveTab(false);
       await refresh();
+    },
+    listHistory: async () => {
+      const entries = await app.ListAllSessions();
+      return Promise.all((entries ?? []).map(async (entry) => {
+        const history = await app.PreviewSession(entry.path).catch(() => []);
+        return adaptHistorySession(entry, history);
+      }));
+    },
+    listRecycle: async () => {
+      const entries = await app.ListTrashedSessions();
+      return Promise.all((entries ?? []).map(async (entry) => {
+        const history = await app.PreviewTrashedSession(entry.path).catch(() => []);
+        return adaptTrashedSession(entry, history);
+      }));
+    },
+    resume: async (session) => {
+      if (!session.sessionPath) throw new Error("历史会话路径不可用");
+      const alreadyOpen = tabs.find((tab) => tab.sessionPath === session.sessionPath);
+      if (alreadyOpen) {
+        const nextTabs = await controller.switchTab(alreadyOpen.id, alreadyOpen);
+        if (nextTabs) setTabs(nextTabs);
+        return adaptLiveSession(alreadyOpen);
+      }
+      const scope = session.projectId === "global" ? "global" : "project";
+      const project = projects.find((candidate) => candidate.id === session.projectId && candidate.status === "ok");
+      if (scope === "project" && !project) throw new Error("历史会话所属项目不可用");
+      const tab = await controller.ensureBlankTab(scope, scope === "project" ? project!.path : "");
+      await controller.resumeSession(session.sessionPath, tab.id);
+      const nextTabs = await app.ListTabs();
+      const resumed = nextTabs.find((candidate) => candidate.id === tab.id);
+      if (!resumed || resumed.sessionPath !== session.sessionPath) throw new Error("后端未能恢复该历史会话");
+      setTabs(nextTabs);
+      return adaptLiveSession(resumed);
+    },
+    delete: async (session) => {
+      if (!session.sessionPath) throw new Error("会话路径不可用");
+      await app.DeleteSession(session.sessionPath);
+      await refresh();
+    },
+    restore: async (entry, targetProject) => {
+      if (!entry.snapshot.sessionPath) throw new Error("回收站会话路径不可用");
+      if (targetProject && entry.projectId !== "global" && targetProject.id !== entry.projectId) await app.RestoreSessionToProject(entry.snapshot.sessionPath, targetProject.path);
+      else await app.RestoreSession(entry.snapshot.sessionPath);
+      const entries = await app.ListAllSessions();
+      const basename = entry.snapshot.sessionPath.split(/[\\/]/).pop();
+      const restored = entries.find((candidate) =>
+        (entry.snapshot.topicId && candidate.topicId === entry.snapshot.topicId) || candidate.path.split(/[\\/]/).pop() === basename,
+      );
+      if (!restored) throw new Error("会话已恢复，但无法读取恢复结果");
+      return adaptHistorySession(restored, await app.PreviewSession(restored.path));
+    },
+    purge: async (entry) => {
+      if (!entry.snapshot.sessionPath) throw new Error("回收站会话路径不可用");
+      await app.PurgeTrashedSession(entry.snapshot.sessionPath);
+    },
+    purgeRecovery: async (entry) => {
+      if (!entry.snapshot.sessionPath) throw new Error("恢复副本路径不可用");
+      await app.PurgeRecoveryCopy(entry.snapshot.sessionPath);
     },
     commands: async () => app.Commands(),
     edit: async (session, message, next) => {

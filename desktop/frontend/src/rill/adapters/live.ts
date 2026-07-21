@@ -1,6 +1,6 @@
-import type { Item } from "../../lib/useController";
-import type { ContextInfo, Meta, ProjectNode, TabMeta, WireApproval, WireAsk } from "../../lib/types";
-import type { Message, Project, RunState, Session } from "../state/visualStore";
+import { historyMessagesToItems, type Item } from "../../lib/useController";
+import type { ContextInfo, HistoryMessage, Meta, ProjectNode, SessionMeta, TabMeta, WireApproval, WireAsk } from "../../lib/types";
+import type { Message, Project, Recycled, RunState, Session, SessionSource } from "../state/visualStore";
 import type { RillDisplayAdapter } from "./types";
 
 export interface RillLiveControllerSnapshot {
@@ -66,6 +66,76 @@ function adaptMessage(item: Item): Message | null {
         out: item.output ?? item.error,
       };
   }
+}
+
+function displayTime(value?: number) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function historySource(meta: SessionMeta): SessionSource {
+  if (meta.kind === "channel" || meta.channel || meta.remoteId) return "bot";
+  const source = (meta.sessionSource ?? "").toLowerCase();
+  if (source.includes("schedule") || source.includes("heartbeat") || source.includes("automation")) return "schedule";
+  return "local";
+}
+
+export function adaptHistorySession(meta: SessionMeta, history: readonly HistoryMessage[] = []): Session {
+  const messages = historyMessagesToItems([...history], `rill-history-${meta.path}-`).items
+    .map(adaptMessage)
+    .filter((message): message is Message => Boolean(message));
+  const source = historySource(meta);
+  const title = meta.title?.trim() || meta.topicTitle?.trim() || meta.preview?.trim() || "空会话";
+  return {
+    id: meta.path,
+    topicId: meta.topicId,
+    sessionPath: meta.path,
+    title,
+    summary: meta.preview?.trim() || "空会话，尚未开始对话。",
+    projectId: meta.scope === "project" && meta.workspaceRoot ? meta.workspaceRoot : "global",
+    source,
+    sourceDetail: source === "bot" ? [meta.channelLabel || meta.channel, meta.remoteId].filter(Boolean).join(" · ") : meta.sessionSource,
+    channelId: source === "bot" ? meta.channel : undefined,
+    runState: meta.current ? "idle" : "readonly",
+    updatedAt: displayTime(meta.lastActivityAt || meta.modTime),
+    createdAt: displayTime(meta.createdAt),
+    activityAt: meta.lastActivityAt || meta.modTime,
+    open: meta.open,
+    current: meta.current,
+    draft: "",
+    attachments: [],
+    refs: [],
+    messages,
+    settings: { model: "—", reasoning: "默认", exec: "自动", collab: "结对", permission: "需确认" },
+    context: {
+      used: 0,
+      limit: 0,
+      rounds: meta.turns,
+      roundTokens: 0,
+      cacheHit: null,
+      cacheMiss: null,
+      roundCost: null,
+      totalCost: null,
+      currency: "USD",
+      balance: null,
+      refreshedAt: displayTime(meta.lastActivityAt || meta.modTime),
+    },
+  };
+}
+
+export function adaptTrashedSession(meta: SessionMeta, history: readonly HistoryMessage[] = []): Recycled {
+  const snapshot = adaptHistorySession(meta, history);
+  return {
+    id: meta.path,
+    title: snapshot.title,
+    summary: snapshot.summary,
+    projectId: snapshot.projectId,
+    source: snapshot.source,
+    deletedAt: displayTime(meta.deletedAt),
+    deletedAtMs: meta.deletedAt,
+    restoreCopy: meta.recoveryCopy,
+    snapshot,
+  };
 }
 
 export function adaptLiveSession(tab: TabMeta, snapshot?: RillLiveControllerSnapshot): Session {

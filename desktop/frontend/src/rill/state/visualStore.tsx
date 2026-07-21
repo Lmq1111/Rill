@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -121,11 +122,14 @@ export interface Session {
   pendingQuestion?: PendingQuestion;
   error?: string;
   modelContextClearedAt?: string;
+  activityAt?: number;
+  open?: boolean;
+  current?: boolean;
 }
 
 export interface Recycled {
   id: string; title: string; summary: string; projectId: string;
-  source: SessionSource; deletedAt: string; restoreCopy?: boolean;
+  source: SessionSource; deletedAt: string; deletedAtMs?: number; restoreCopy?: boolean;
   snapshot: Session;
 }
 
@@ -352,7 +356,12 @@ export interface Store {
   toggleProject: (id: string) => void;
 
   sessions: Session[];
+  historySessions: Session[];
   recycled: Recycled[];
+  historyLoading: boolean;
+  recycleLoading: boolean;
+  historyError: string;
+  recycleError: string;
   channels: Channel[];
   tasks: AutomationTask[];
   slashCommands: CommandInfo[];
@@ -366,8 +375,9 @@ export interface Store {
   createSession: (projectId: string) => Promise<string | null>;
   renameSession: (id: string, title: string) => Promise<boolean>;
   closeSession: (id: string) => Promise<boolean>;
-  deleteSession: (id: string) => void; // 移入回收站
-  openSession: (id: string) => void;
+  deleteSession: (id: string) => Promise<boolean>; // 移入回收站
+  deleteSessions: (ids: string[]) => Promise<{ succeeded: string[]; failed: string[] }>;
+  openSession: (id: string) => Promise<boolean>;
 
   // 会话内编辑（按会话）
   updateSession: (id: string, patch: Partial<Session>) => void;
@@ -387,10 +397,13 @@ export interface Store {
   rewindTo: (id: string, messageId: string) => Promise<boolean>;
 
   // 回收站
-  restoreFromRecycle: (id: string) => void;
-  permanentDelete: (id: string) => void;
-  emptyRecycle: () => void;
-  cleanRestoreCopies: () => void;
+  refreshHistory: () => Promise<boolean>;
+  refreshRecycle: () => Promise<boolean>;
+  restoreFromRecycle: (id: string, action?: "stay" | "history" | "open", targetProjectId?: string) => Promise<boolean>;
+  permanentDelete: (id: string) => Promise<boolean>;
+  permanentDeleteMany: (ids: string[]) => Promise<{ succeeded: string[]; failed: string[] }>;
+  emptyRecycle: () => Promise<boolean>;
+  cleanRestoreCopies: () => Promise<boolean>;
 
   // 渠道
   updateChannel: (id: string, patch: Partial<Channel>) => void;
@@ -421,6 +434,8 @@ export interface VisualStoreSeed {
   readonly params?: Record<string, string>;
   readonly projects?: readonly Project[];
   readonly sessions?: readonly Session[];
+  readonly historySessions?: readonly Session[];
+  readonly recycled?: readonly Recycled[];
   readonly activeSessionId?: string;
   readonly activeSessionPatch?: Partial<Session>;
 }
@@ -434,6 +449,13 @@ export interface RillSessionRuntime {
   createIsolated?: (project: Project) => Promise<{ project: Project; session: Session }>;
   rename?: (session: Session, title: string) => Promise<void>;
   close?: (session: Session) => Promise<void>;
+  listHistory?: () => Promise<Session[]>;
+  listRecycle?: () => Promise<Recycled[]>;
+  resume?: (session: Session) => Promise<Session>;
+  delete?: (session: Session) => Promise<void>;
+  restore?: (entry: Recycled, targetProject?: Project) => Promise<Session>;
+  purge?: (entry: Recycled) => Promise<void>;
+  purgeRecovery?: (entry: Recycled) => Promise<void>;
   commands?: () => Promise<CommandInfo[]>;
   edit?: (session: Session, message: Message, next: string) => Promise<void>;
   rewind?: (session: Session, message: Message) => Promise<void>;
@@ -483,7 +505,12 @@ export function StoreProvider({
   });
   const [projectList, setProjectList] = useState<Project[]>(() => seed.projects ? [...seed.projects] : initialProjects);
   const [sessions, setSessions] = useState<Session[]>(() => sessionsFromSeed(seed));
-  const [recycled, setRecycled] = useState<Recycled[]>(R);
+  const [historySessions, setHistorySessions] = useState<Session[]>(() => seed.historySessions ? [...seed.historySessions] : sessionsFromSeed(seed));
+  const [recycled, setRecycled] = useState<Recycled[]>(() => seed.recycled ? [...seed.recycled] : R);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [recycleLoading, setRecycleLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [recycleError, setRecycleError] = useState("");
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
   const [slashCommands, setSlashCommands] = useState<CommandInfo[]>([]);
@@ -491,7 +518,9 @@ export function StoreProvider({
   const [workspaceDiffs, setWorkspaceDiffs] = useState<Record<string, DiffFile[]>>(diffsByProject);
   const [activeSessionId, setActiveSessionId] = useState(seed.activeSessionId ?? "s1");
   const sessionsRef = useRef(sessions);
+  const runtimeRef = useRef(runtime);
   sessionsRef.current = sessions;
+  runtimeRef.current = runtime;
 
   useEffect(() => {
     if (!seed.projects) return;
@@ -514,6 +543,50 @@ export function StoreProvider({
   }, [seed.activeSessionId]);
 
   const patch = (id: string, p: Partial<Session>) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, ...p } : s));
+
+  const refreshHistory = useCallback(async () => {
+    const currentRuntime = runtimeRef.current;
+    if (!currentRuntime?.listHistory) return true;
+    setHistoryLoading(true);
+    try {
+      setHistorySessions(await currentRuntime.listHistory());
+      setHistoryError("");
+      return true;
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : "历史记录加载失败");
+      return false;
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const refreshRecycle = useCallback(async () => {
+    const currentRuntime = runtimeRef.current;
+    if (!currentRuntime?.listRecycle) return true;
+    setRecycleLoading(true);
+    try {
+      setRecycled(await currentRuntime.listRecycle());
+      setRecycleError("");
+      return true;
+    } catch (error) {
+      setRecycleError(error instanceof Error ? error.message : "回收站加载失败");
+      return false;
+    } finally {
+      setRecycleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!runtimeRef.current) return;
+    void refreshHistory();
+    void refreshRecycle();
+  }, [refreshHistory, refreshRecycle]);
+
+  useEffect(() => {
+    if (!runtimeRef.current) return;
+    if (nav.route === "history") void refreshHistory();
+    if (nav.route === "recycle") void refreshRecycle();
+  }, [nav.route, refreshHistory, refreshRecycle]);
 
   const value = useMemo<Store>(() => {
     const active = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
@@ -573,7 +646,8 @@ export function StoreProvider({
       },
       toggleProject: (id) => setProjectList((ps) => ps.map((p) => p.id === id ? { ...p, expanded: !p.expanded } : p)),
 
-      sessions, recycled, channels, tasks,
+      sessions, historySessions, recycled, channels, tasks,
+      historyLoading, recycleLoading, historyError, recycleError,
       slashCommands,
       refreshSlashCommands: async () => {
         if (!runtime?.commands) return;
@@ -630,12 +704,13 @@ export function StoreProvider({
         return id;
       },
       renameSession: async (id, title) => {
-        const session = sessions.find((candidate) => candidate.id === id);
+        const session = sessions.find((candidate) => candidate.id === id) ?? historySessions.find((candidate) => candidate.id === id);
         const trimmed = title.trim();
         if (!session || !trimmed) return false;
         try {
           if (runtime?.rename) await runtime.rename(session, trimmed);
           patch(id, { title: trimmed });
+          setHistorySessions((current) => current.map((candidate) => candidate.id === id ? { ...candidate, title: trimmed } : candidate));
           toast.success("已重命名会话");
           return true;
         } catch (error) {
@@ -658,19 +733,76 @@ export function StoreProvider({
           return false;
         }
       },
-      deleteSession: (id) => {
-        const s = sessions.find((x) => x.id === id);
-        if (!s) return;
-        setSessions((prev) => prev.filter((x) => x.id !== id));
-        setRecycled((r) => [{ id: s.id, title: s.title, summary: s.summary, projectId: s.projectId, source: s.source, deletedAt: "刚刚", snapshot: s }, ...r]);
-        if (activeSessionId === id) { const rest = sessions.filter((x) => x.id !== id); if (rest[0]) setActiveSessionId(rest[0].id); }
-        toast("已移入回收站", { description: `「${s.title}」可在回收站恢复` });
+      deleteSession: async (id) => {
+        const target = historySessions.find((candidate) => candidate.id === id) ?? sessions.find((candidate) => candidate.id === id);
+        if (!target) return false;
+        try {
+          if (runtime?.delete) {
+            await runtime.delete(target);
+            await Promise.all([refreshHistory(), refreshRecycle()]);
+          } else {
+            setSessions((current) => current.filter((candidate) => candidate.id !== id));
+            setHistorySessions((current) => current.filter((candidate) => candidate.id !== id));
+            setRecycled((current) => [{ id: target.id, title: target.title, summary: target.summary, projectId: target.projectId, source: target.source, deletedAt: "刚刚", deletedAtMs: Date.now(), snapshot: target }, ...current]);
+          }
+          if (activeSessionId === id) {
+            const remaining = sessions.filter((candidate) => candidate.id !== id);
+            if (remaining[0]) setActiveSessionId(remaining[0].id);
+          }
+          toast("已移入回收站", { description: `「${target.title}」可在回收站恢复` });
+          return true;
+        } catch (error) {
+          toast.error("移入回收站失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
-      openSession: (id) => {
-        setActiveSessionId(id);
-        setNav({ route: "workbench", params: {} });
-        const s = sessions.find((x) => x.id === id);
-        toast.success(`已在主工作台打开「${s?.title ?? id}」`);
+      deleteSessions: async (ids) => {
+        const succeeded: string[] = [];
+        const failed: string[] = [];
+        for (const id of [...new Set(ids)]) {
+          const target = historySessions.find((candidate) => candidate.id === id) ?? sessions.find((candidate) => candidate.id === id);
+          if (!target) {
+            failed.push(id);
+            continue;
+          }
+          try {
+            if (runtime?.delete) await runtime.delete(target);
+            else {
+              setSessions((current) => current.filter((candidate) => candidate.id !== id));
+              setHistorySessions((current) => current.filter((candidate) => candidate.id !== id));
+              setRecycled((current) => [{ id: target.id, title: target.title, summary: target.summary, projectId: target.projectId, source: target.source, deletedAt: "刚刚", deletedAtMs: Date.now(), snapshot: target }, ...current]);
+            }
+            succeeded.push(id);
+          } catch {
+            failed.push(id);
+          }
+        }
+        if (runtime?.delete) await Promise.all([refreshHistory(), refreshRecycle()]);
+        if (failed.length > 0) toast.error(`有 ${failed.length} 个会话未能移入回收站`, { description: "失败项仍保持选中，可重试" });
+        else if (succeeded.length > 0) toast.success(`已将 ${succeeded.length} 个会话移入回收站`);
+        return { succeeded, failed };
+      },
+      openSession: async (id) => {
+        const opened = sessions.find((candidate) => candidate.id === id || candidate.sessionPath === id);
+        if (opened) {
+          setActiveSessionId(opened.id);
+          if (runtime?.activate) await runtime.activate(opened);
+          setNav({ route: "workbench", params: {} });
+          return true;
+        }
+        const historical = historySessions.find((candidate) => candidate.id === id);
+        if (!historical || !runtime?.resume) return false;
+        try {
+          const resumed = await runtime.resume(historical);
+          setSessions((current) => [resumed, ...current.filter((candidate) => candidate.id !== resumed.id)]);
+          setActiveSessionId(resumed.id);
+          setNav({ route: "workbench", params: {} });
+          toast.success(`已在主工作台打开「${historical.title}」`);
+          return true;
+        } catch (error) {
+          toast.error("打开历史会话失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
 
       updateSession: patch,
@@ -821,15 +953,112 @@ export function StoreProvider({
         }
       },
 
-      restoreFromRecycle: (id) => {
-        const rec = recycled.find((x) => x.id === id);
-        if (!rec) return;
-        setRecycled((r) => r.filter((x) => x.id !== id));
-        setSessions((prev) => [{ ...rec.snapshot, runState: "idle", updatedAt: "刚刚" }, ...prev]);
+      refreshHistory,
+      refreshRecycle,
+      restoreFromRecycle: async (id, action = "stay", targetProjectId) => {
+        const entry = recycled.find((candidate) => candidate.id === id);
+        if (!entry) return false;
+        const originalProject = projectList.find((project) => project.id === entry.projectId && project.status === "ok");
+        const targetProject = originalProject ?? projectList.find((project) => project.id === targetProjectId && project.status === "ok");
+        if (!targetProject && entry.projectId !== "global") {
+          toast.error("请选择有效的恢复项目", { description: "原项目已不可用，未执行恢复" });
+          return false;
+        }
+        try {
+          let restored: Session = { ...entry.snapshot, runState: "idle", updatedAt: "刚刚" };
+          if (runtime?.restore) {
+            restored = await runtime.restore(entry, targetProject);
+            await Promise.all([refreshHistory(), refreshRecycle()]);
+          } else {
+            setRecycled((current) => current.filter((candidate) => candidate.id !== id));
+            setHistorySessions((current) => [restored, ...current.filter((candidate) => candidate.id !== restored.id)]);
+          }
+          toast.success(`已恢复「${entry.title}」`);
+          if (action === "history") setNav({ route: "history", params: {} });
+          if (action === "open") {
+            if (runtime?.resume) restored = await runtime.resume(restored);
+            setSessions((current) => [restored, ...current.filter((candidate) => candidate.id !== restored.id)]);
+            setActiveSessionId(restored.id);
+            setNav({ route: "workbench", params: {} });
+          }
+          return true;
+        } catch (error) {
+          toast.error("恢复会话失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
-      permanentDelete: (id) => { const s = recycled.find((x) => x.id === id); setRecycled((r) => r.filter((x) => x.id !== id)); toast.success(`已永久删除「${s?.title}」`); },
-      emptyRecycle: () => { const n = recycled.length; setRecycled([]); toast.success(`已清空回收站，永久删除 ${n} 个会话`); },
-      cleanRestoreCopies: () => { const n = recycled.filter((r) => r.restoreCopy).length; setRecycled((r) => r.filter((x) => !x.restoreCopy)); toast.success(`已清理 ${n} 个恢复副本`, { description: "不影响已恢复的主会话" }); },
+      permanentDelete: async (id) => {
+        const entry = recycled.find((candidate) => candidate.id === id);
+        if (!entry) return false;
+        try {
+          if (runtime?.purge) {
+            await runtime.purge(entry);
+            await refreshRecycle();
+          } else setRecycled((current) => current.filter((candidate) => candidate.id !== id));
+          toast.success(`已永久删除「${entry.title}」`);
+          return true;
+        } catch (error) {
+          toast.error("永久删除失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      permanentDeleteMany: async (ids) => {
+        const succeeded: string[] = [];
+        const failed: string[] = [];
+        for (const id of [...new Set(ids)]) {
+          const entry = recycled.find((candidate) => candidate.id === id);
+          if (!entry) {
+            failed.push(id);
+            continue;
+          }
+          try {
+            if (runtime?.purge) await runtime.purge(entry);
+            else setRecycled((current) => current.filter((candidate) => candidate.id !== id));
+            succeeded.push(id);
+          } catch {
+            failed.push(id);
+          }
+        }
+        if (runtime?.purge) await refreshRecycle();
+        if (failed.length > 0) toast.error(`有 ${failed.length} 个会话未能永久删除`, { description: "失败项仍保持选中，可重试" });
+        else if (succeeded.length > 0) toast.success(`已永久删除 ${succeeded.length} 个会话`);
+        return { succeeded, failed };
+      },
+      emptyRecycle: async () => {
+        const ids = recycled.map((entry) => entry.id);
+        const succeeded: string[] = [];
+        try {
+          for (const id of ids) {
+            const entry = recycled.find((candidate) => candidate.id === id)!;
+            if (runtime?.purge) await runtime.purge(entry);
+            succeeded.push(id);
+          }
+          if (runtime?.purge) await refreshRecycle();
+          else setRecycled([]);
+          toast.success(`已清空回收站，永久删除 ${succeeded.length} 个会话`);
+          return true;
+        } catch (error) {
+          if (runtime?.purge) await refreshRecycle();
+          toast.error("清空回收站未完成", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      cleanRestoreCopies: async () => {
+        const copies = recycled.filter((entry) => entry.restoreCopy);
+        try {
+          for (const entry of copies) {
+            if (runtime?.purgeRecovery) await runtime.purgeRecovery(entry);
+          }
+          if (runtime?.purgeRecovery) await refreshRecycle();
+          else setRecycled((current) => current.filter((entry) => !entry.restoreCopy));
+          toast.success(`已清理 ${copies.length} 个恢复副本`, { description: "不影响已恢复的主会话" });
+          return true;
+        } catch (error) {
+          if (runtime?.purgeRecovery) await refreshRecycle();
+          toast.error("恢复副本清理失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
 
       updateChannel: (id, p) => setChannels((cs) => cs.map((c) => c.id === id ? { ...c, ...p } : c)),
 
@@ -970,7 +1199,7 @@ export function StoreProvider({
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, recycled, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime]);
+  }, [nav, projectList, sessions, historySessions, recycled, historyLoading, recycleLoading, historyError, recycleError, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime, refreshHistory, refreshRecycle]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

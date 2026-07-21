@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   History as HistoryIcon, Search, RotateCcw, Pencil, Trash2, Bot, Clock3, Circle,
   Lock, AlertTriangle, Check, X,
@@ -9,30 +9,66 @@ import { useStore, projectName, runMeta, type Session } from "../../state/visual
 
 const statuses = ["全部状态", "运行中", "只读", "普通历史"];
 
+export interface HistoryFilter {
+  query: string;
+  projectId: "all" | string;
+  source: "all" | Session["source"];
+  activity: "all" | "day" | "week" | "month";
+  now?: number;
+}
+
+export function filterHistorySessions(sessions: readonly Session[], projects: readonly import("../../state/visualStore").Project[], filter: HistoryFilter) {
+  const query = filter.query.trim().toLocaleLowerCase();
+  const maxAge = filter.activity === "day" ? 86_400_000 : filter.activity === "week" ? 7 * 86_400_000 : filter.activity === "month" ? 30 * 86_400_000 : Number.POSITIVE_INFINITY;
+  const now = filter.now ?? Date.now();
+  return sessions.filter((session) => {
+    const project = projects.find((candidate) => candidate.id === session.projectId);
+    const searchable = [
+      session.title,
+      session.summary,
+      project?.name,
+      project?.path,
+      session.source,
+      session.sourceDetail,
+      ...session.messages.map((message) => message.text ?? message.out ?? message.cmd ?? ""),
+    ].join("\n").toLocaleLowerCase();
+    if (query && !searchable.includes(query)) return false;
+    if (filter.projectId !== "all" && session.projectId !== filter.projectId) return false;
+    if (filter.source !== "all" && session.source !== filter.source) return false;
+    if (Number.isFinite(maxAge) && (!session.activityAt || now - session.activityAt > maxAge)) return false;
+    return true;
+  });
+}
+
 export function History() {
-  const { sessions, projects, active, activeSessionId, openSession, deleteSession, renameSession } = useStore();
-  const scopes = ["全部范围", ...projects.map((project) => project.name), "全局"];
+  const { historySessions, projects, active, activeSessionId, openSession, deleteSession, deleteSessions, renameSession, historyLoading, historyError, refreshHistory } = useStore();
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState(scopes[0]);
+  const [scope, setScope] = useState("all");
+  const [source, setSource] = useState<HistoryFilter["source"]>("all");
+  const [activity, setActivity] = useState<HistoryFilter["activity"]>("all");
   const [status, setStatus] = useState(statuses[0]);
-  const [selectedId, setSelectedId] = useState<string | null>(sessions[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(historySessions[0]?.id ?? null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [renaming, setRenaming] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const extendedHistoryFilters = historySessions.some((session) => session.activityAt != null);
+
+  useEffect(() => {
+    if (!historySessions.some((session) => session.id === selectedId)) setSelectedId(historySessions[0]?.id ?? null);
+    setChecked((current) => new Set([...current].filter((id) => historySessions.some((session) => session.id === id))));
+  }, [historySessions, selectedId]);
 
   // AI 正在输出时（当前会话）历史记录只读
   const aiBusy = active.runState === "aiRunning";
 
-  const list = sessions.filter((s) => {
-    if (query && !(s.title.includes(query) || s.summary.includes(query))) return false;
-    if (scope !== "全部范围" && projectName(projects, s.projectId) !== scope) return false;
+  const list = filterHistorySessions(historySessions, projects, { query, projectId: scope, source, activity }).filter((s) => {
     if (status === "运行中" && s.runState !== "aiRunning") return false;
     if (status === "只读" && s.runState !== "readonly") return false;
     if (status === "普通历史" && (s.runState === "aiRunning" || s.runState === "readonly")) return false;
     return true;
   });
 
-  const selected = sessions.find((s) => s.id === selectedId) ?? null;
+  const selected = historySessions.find((s) => s.id === selectedId) ?? null;
   const guard = (fn: () => void) => { if (aiBusy) return toast.error("AI 正在输出，历史记录当前只能查看"); fn(); };
   const toggleCheck = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -42,7 +78,7 @@ export function History() {
         <>
           {aiBusy && <span className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-[12px] text-amber-700 ring-1 ring-amber-200"><Lock className="size-3.5" />AI 输出中 · 只读</span>}
           {checked.size > 0 && !aiBusy && (
-            <button onClick={() => guard(() => { checked.forEach((id) => deleteSession(id)); setChecked(new Set()); })} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-[12px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100">
+            <button onClick={() => guard(() => { void deleteSessions([...checked]).then(({ failed }) => setChecked(new Set(failed))); })} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-[12px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100">
               <Trash2 className="size-3.5" /> 批量删除 ({checked.size})
             </button>
           )}
@@ -57,13 +93,17 @@ export function History() {
               {query && <button onClick={() => setQuery("")} className="text-slate-400 hover:text-slate-600"><X className="size-3.5" /></button>}
             </div>
             <div className="flex gap-2">
-              <select value={scope} onChange={(e) => setScope(e.target.value)} className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600">{scopes.map((s) => <option key={s}>{s}</option>)}</select>
+              <select value={scope} onChange={(e) => setScope(e.target.value)} className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600"><option value="all">全部范围</option>{projects.filter((project) => project.id !== "global").map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}<option value="global">全局</option></select>
               <select value={status} onChange={(e) => setStatus(e.target.value)} className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600">{statuses.map((s) => <option key={s}>{s}</option>)}</select>
             </div>
+            {extendedHistoryFilters && <div className="flex gap-2">
+              <select value={source} onChange={(event) => setSource(event.target.value as HistoryFilter["source"])} className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600"><option value="all">全部来源</option><option value="local">本地</option><option value="bot">消息渠道</option><option value="schedule">自动化</option></select>
+              <select value={activity} onChange={(event) => setActivity(event.target.value as HistoryFilter["activity"])} className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-600"><option value="all">全部时间</option><option value="day">最近 24 小时</option><option value="week">最近 7 天</option><option value="month">最近 30 天</option></select>
+            </div>}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {list.length === 0 ? (
-              <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{sessions.length === 0 ? "还没有历史会话" : "没有匹配的搜索结果"}</div>
+            {historyLoading ? <div className="grid h-full place-items-center p-8 text-[13px] text-slate-400">正在加载历史记录…</div> : historyError ? <div className="grid h-full place-items-center p-8 text-center text-[13px] text-rose-600"><div>{historyError}<button onClick={() => void refreshHistory()} className="mt-3 block rounded-lg bg-white px-3 py-1.5 ring-1 ring-rose-200">重新加载</button></div></div> : list.length === 0 ? (
+              <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{historySessions.length === 0 ? "还没有历史会话" : "没有匹配的搜索结果"}</div>
             ) : list.map((s) => (
               <HistoryRow key={s.id} s={s} projectLabel={projectName(projects, s.projectId)} active={s.id === selectedId} isCurrent={s.id === activeSessionId} checked={checked.has(s.id)} disabled={aiBusy} onCheck={() => toggleCheck(s.id)} onSelect={() => guard(() => setSelectedId(s.id))} />
             ))}
@@ -92,8 +132,8 @@ export function History() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button onClick={() => guard(() => { setRenaming(selected.id); setNameDraft(selected.title); })} className="grid size-8 place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled={aiBusy} title="重命名"><Pencil className="size-4" /></button>
-                  <button onClick={() => guard(() => deleteSession(selected.id))} className="grid size-8 place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled={aiBusy} title="删除（移入回收站）"><Trash2 className="size-4" /></button>
-                  <button onClick={() => guard(() => openSession(selected.id))} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700 disabled:opacity-40" disabled={aiBusy}><RotateCcw className="size-4" /> 恢复到主工作台</button>
+                  <button onClick={() => guard(() => { void deleteSession(selected.id); })} className="grid size-8 place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled={aiBusy} title="删除（移入回收站）"><Trash2 className="size-4" /></button>
+                  <button onClick={() => guard(() => { void openSession(selected.id); })} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700 disabled:opacity-40" disabled={aiBusy}><RotateCcw className="size-4" /> 恢复到主工作台</button>
                 </div>
               </div>
 
