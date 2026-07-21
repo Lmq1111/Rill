@@ -69,9 +69,9 @@ func TestGenManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A stale upstream workflow value must not send Rill assets to an upstream
-	// repository. The manifest generator falls back to the Rill product repo.
-	t.Setenv("GITHUB_REPOSITORY", "esengine/DeepSeek-Reasonix")
+	// No inherited workflow repository may redirect Rill release assets. The
+	// manifest generator always targets the audited public Rill repository.
+	t.Setenv("GITHUB_REPOSITORY", "example/untrusted-fork")
 
 	if err := genManifest(dir, "v1.2.0", "desktop-v1.2.0"); err != nil {
 		t.Fatalf("genManifest: %v", err)

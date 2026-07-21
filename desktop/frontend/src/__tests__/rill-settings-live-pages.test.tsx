@@ -175,6 +175,10 @@ await waitFor("version", () => (container.textContent || "").includes("v0.1.0-li
 assert.doesNotMatch(container.textContent || "", /演示状态|模拟导出失败/);
 assert.doesNotMatch(container.textContent || "", /启动时检查更新|匿名启动遥测|聚合桌面指标/);
 assert.match(container.textContent || "", /后台更新检查、上游遥测与聚合指标始终关闭/);
+assert.match(container.textContent || "", /dl\.reasonix\.io\/plugins\/catalog\/v1\/index\.json/);
+assert.match(container.textContent || "", /minisign 公钥校验/);
+assert.match(container.textContent || "", /只读目录元数据不会授予任何工具写入权限/);
+assert.match(container.textContent || "", /不复用遥测、崩溃或更新端点/);
 await act(async () => { button(container, "打开 Rill Releases").click(); await flush(); });
 assert.ok(calls.includes("open-releases"));
 

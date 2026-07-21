@@ -57,6 +57,19 @@ export function LiveAboutSettings({ live, goTo }: { live: RillSettingsContextVal
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-[12px] text-slate-500"><div className="flex items-center gap-1.5 text-slate-700"><Lock className="size-3.5" />敏感凭据不在本页显示</div><p className="mt-1">模型密钥、机器人 Token 和代理密码只显示是否已配置，不回传原文。</p></div>
       </Section></div>
 
+      <div className="mt-4"><Section title="唯一允许的上游运行时依赖" desc="仅保留经过登记和签名验证的 MCP 目录路径">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-600">
+          <div className="flex items-center gap-1.5 text-slate-700"><ShieldCheck className="size-4 text-emerald-600" />只读 Reasonix MCP 目录例外</div>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>来源：<span className="break-all font-mono text-[11px]">https://dl.reasonix.io/plugins/catalog/v1/index.json</span> 及同路径 <span className="font-mono">.minisig</span> 签名。</li>
+            <li>用途：只读取 MCP 插件目录版本、哈希、工具类别与撤销信息，不发送会话、诊断或使用数据。</li>
+            <li>校验：目录必须通过应用内置的 <span className="font-mono">minisign</span> 公钥校验；远端内容不能新增信任根，回滚序列会被拒绝。</li>
+            <li>边界：只读目录元数据不会授予任何工具写入权限；实际 MCP 工具仍受信任、权限、审批与沙箱约束。</li>
+          </ul>
+          <p className="mt-2 text-slate-500">目录刷新只访问上述 JSON 与签名路径，不复用遥测、崩溃或更新端点。</p>
+        </div>
+      </Section></div>
+
       <div className="mt-4"><Section title="本机配置"><Row label="用户配置文件"><button onClick={() => void revealConfig()} className="flex max-w-md items-center gap-1.5 truncate font-mono text-[12px] text-slate-600 hover:text-teal-700" title={settings.configPath}><FolderOpen className="size-3.5 shrink-0" />{settings.configPath}</button></Row></Section></div>
 
       <div className="mt-4"><Section title="本地诊断导出" desc="由你主动发起，只在本机生成，不自动上传" actions={<button onClick={() => goTo("diagnostics")} className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200">完整诊断页<ChevronRight className="size-3.5" /></button>}><div className="rounded-lg bg-slate-50 p-3 text-[12px] text-slate-600"><div className="text-slate-700">诊断导出会显示脱敏预览，并明确排除：</div><ul className="mt-1 list-disc space-y-0.5 pl-5"><li>API Key、Token、密码、Cookie 和认证请求头</li><li>会话正文、用户文件正文和未脱敏私人路径</li></ul></div></Section></div>

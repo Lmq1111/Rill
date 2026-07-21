@@ -165,11 +165,10 @@ func signFiles(files []string) error {
 // version is the semver compared by the updater (e.g. "v1.1.0"); tag is the GitHub
 // release tag used in download URLs (e.g. "desktop-v1.1.0").
 func genManifest(dir, version, tag string) error {
-	repo := strings.TrimSpace(os.Getenv("GITHUB_REPOSITORY"))
-	switch strings.ToLower(repo) {
-	case "", "esengine/deepseek-reasonix":
-		repo = "Lmq1111/Rill"
-	}
+	// Release manifests are always scoped to the public Rill repository. CI
+	// environment inherited from an upstream checkout must never redirect a
+	// generated download URL back to the retired project.
+	repo := "Lmq1111/Rill"
 	m := update.Manifest{
 		Version:      version,
 		DownloadPage: "https://github.com/Lmq1111/Rill/releases",

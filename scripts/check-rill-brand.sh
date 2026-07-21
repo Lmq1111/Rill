@@ -4,75 +4,110 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-pattern='泉犀|Quanxi|DeepSeek-Rill|LDagent|ldagent|REASONIX_|reasonix\.toml|\.reasonix|DeepSeek-Reasonix|Reasonix|reasonix\.io|reasonix-guide|(^|[^[:alnum:]_])reasonix([[:space:]]|$)|cmd/reasonix|bin/reasonix|reasonix-desktop|reasonix-guard|reasonix-plugin'
-scan_paths=(
-  .env.example
-  .github
-  CHANGELOG.md
-  CONTRIBUTING.md
-  LICENSE
-  NOTICE
-  README.md
-  README.zh-CN.md
-  RILL.md
-  SECURITY.md
-  cmd
-  desktop
-  docs
-  internal
-  release-notes
-  scripts
-  Makefile
-  .goreleaser.yaml
-)
 unexpected=0
-match_count=0
+reviewed=0
 
-# Every allowlisted file has a narrow, documented reason. Adding another file
-# with a retired public name must update this review surface intentionally.
-while IFS= read -r match; do
-  [[ -z "$match" ]] && continue
-  match_count=$((match_count + 1))
-  file="${match%%:*}"
+allowed_attribution_or_sync_doc() {
+  case "$1" in
+    LICENSE|NOTICE|README.md|README.zh-CN.md|CHANGELOG.md|release-notes/releases.json|desktop/README.md|desktop/third_party/go-webview2/PATCHES.md|docs/CONFIG_PATHS.md|docs/CONFIG_PATHS.zh-CN.md|docs/MIGRATING.md|docs/RELEASING.md|docs/SESSION_REFERENCE_ARCHITECTURE.md|docs/SPEC.md)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+allowed_match() {
+  category="$1"
+  file="$2"
+  match="$3"
+
+  # Explicit negative tests are allowed to spell the retired names and blocked
+  # domains they prove cannot be read, written, contacted, or re-enabled.
   case "$file" in
-    # Open-source attribution and the real upstream repository identity.
-    LICENSE|NOTICE|README.md|README.zh-CN.md|CHANGELOG.md|release-notes/releases.json|desktop/go.mod|desktop/cmd/sign/main_test.go|desktop/third_party/go-webview2/PATCHES.md|docs/RELEASING.md|docs/SESSION_REFERENCE_ARCHITECTURE.md)
+    *_test.go|*_test.ts|*_test.tsx|*.test.ts|*.test.tsx|*.test.mjs)
+      return 0
       ;;
-    # Stage-seven deferred upstream telemetry/update endpoints, documented as
-    # still active and never mistaken for a completed privacy migration.
-    desktop/README.md|desktop/crash_app.go|desktop/metrics_app.go|desktop/telemetry_app.go|desktop/updater.go|desktop/updater_test.go)
-      ;;
-    # The one approved, signed, read-only upstream MCP catalog dependency.
-    internal/mcpcatalog/catalog.go)
-      ;;
-    # Figma-locked version/privacy disclosure: open-source attribution and the
-    # signed, read-only MCP catalog are the only retired names allowed here.
-    desktop/frontend/src/rill/components/settings/AboutSettings.tsx)
-      case "$match" in
-        *DeepSeek-Reasonix*|*"reasonix.io 运行时依赖"*|*"只读 Reasonix MCP 插件目录"*)
+  esac
+
+  case "$category" in
+    legacy_brand|legacy_data)
+      allowed_attribution_or_sync_doc "$file" && return 0
+      case "$file" in
+        internal/config/paths.go|internal/secrets/redact.go)
+          return 0
           ;;
-        *)
-          printf 'unexpected retired brand reference: %s\n' "$match" >&2
-          unexpected=1
+      esac
+      if [[ "$category" == "legacy_data" ]]; then
+        case "$file:$match" in
+          internal/mcpcatalog/catalog.go:*"https://dl.reasonix.io/plugins/catalog/v1/index.json"*|desktop/frontend/src/rill/components/settings/live/LiveAboutSettings.tsx:*"https://dl.reasonix.io/plugins/catalog/v1/index.json"*)
+            return 0
+            ;;
+        esac
+      fi
+      ;;
+    reasonix_name)
+      # Internal Go module/import paths stay unchanged to preserve upstream
+      # synchronization. This does not allow a public product label.
+      case "$match" in
+        *reasonix/internal/*|*reasonix/desktop/internal/*|*'prefix := "reasonix/"'*|*"module reasonix"*|*"require reasonix "*|*"replace reasonix "*|*"module (reasonix/desktop)"*)
+          return 0
+          ;;
+      esac
+      allowed_attribution_or_sync_doc "$file" && return 0
+      case "$file" in
+        .goreleaser.yaml|Makefile|go.mod|desktop/.gitignore|desktop/go.mod|internal/brand/brand.go|internal/config/paths.go|internal/secrets/redact.go)
+          return 0
+          ;;
+        internal/mcpcatalog/catalog.go|desktop/frontend/src/rill/components/settings/AboutSettings.tsx|desktop/frontend/src/rill/components/settings/live/LiveAboutSettings.tsx)
+          return 0
           ;;
       esac
       ;;
-    # Runtime rejection code and explicit negative isolation/brand tests.
-    docs/CONFIG_PATHS.md|docs/CONFIG_PATHS.zh-CN.md|docs/MIGRATING.md|internal/secrets/redact.go|internal/secrets/redact_test.go|internal/plugin/transport_stdio_env_test.go|internal/hook/hook_test.go|internal/lsp/lsp_test.go|internal/environment/probe_test.go|internal/config/rillagent_isolation_test.go|internal/config/commanddirs_test.go|internal/config/paths.go|internal/boot/boot_test.go|internal/cli/cli_test.go|internal/cli/rillagent_brand_test.go|internal/skill/rillagent_guide_contract_test.go|desktop/brand_identity_test.go)
-      ;;
-    *)
-      printf 'unexpected retired brand reference: %s\n' "$match" >&2
-      unexpected=1
+    upstream_domain)
+      case "$file" in
+        internal/mcpcatalog/catalog.go)
+          case "$match" in
+            *"https://dl.reasonix.io/plugins/catalog/v1/index.json"*) return 0 ;;
+          esac
+          ;;
+        desktop/frontend/src/rill/components/settings/AboutSettings.tsx|desktop/frontend/src/rill/components/settings/live/LiveAboutSettings.tsx)
+          case "$match" in
+            *"reasonix.io 运行时依赖"*|*"只读 Reasonix MCP"*|*"dl.reasonix.io/plugins/catalog/v1/index.json"*) return 0 ;;
+          esac
+          ;;
+      esac
       ;;
   esac
-done < <(rg --hidden --no-heading --line-number --color never \
-  --glob '!docs/evidence/**' \
-  --glob '!desktop/frontend/sourcemaps/**' \
-  --glob '!scripts/check-rill-brand.sh' \
-  -e "$pattern" "${scan_paths[@]}" || true)
+  return 1
+}
+
+scan_category() {
+  category="$1"
+  pattern="$2"
+  count=0
+  while IFS= read -r match; do
+    [[ -z "$match" ]] && continue
+    count=$((count + 1))
+    reviewed=$((reviewed + 1))
+    file="${match%%:*}"
+    if ! allowed_match "$category" "$file" "$match"; then
+      printf 'unexpected %s reference: %s\n' "$category" "$match" >&2
+      unexpected=1
+    fi
+  done < <(git grep --line-number -I -E "$pattern" -- . ':(exclude)docs/evidence/**' ':(exclude)scripts/check-rill-brand.sh' || true)
+  printf 'Rill %s scan reviewed %d tracked matches.\n' "$category" "$count"
+}
+
+# These are the four stage-seven audit surfaces. git grep is intentional: CI
+# always has Git, while the previous rg-only check silently passed when rg was
+# absent. Generated node_modules/dist/sourcemaps never enter the tracked scan.
+scan_category legacy_brand '泉犀|Quanxi|LDagent|ldagent'
+scan_category reasonix_name 'Reasonix|reasonix'
+scan_category legacy_data 'REASONIX_|reasonix\.toml|\.reasonix'
+scan_category upstream_domain 'crash\.reasonix\.io|dl\.reasonix\.io|reasonix\.io'
 
 if [[ "$unexpected" -ne 0 ]]; then
   exit 1
 fi
 
-printf 'Rill brand scan passed (%d allowlisted references reviewed).\n' "$match_count"
+printf 'Rill stage-seven scan passed (%d allowlisted tracked references reviewed).\n' "$reviewed"
