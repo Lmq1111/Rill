@@ -86,7 +86,8 @@ RILL_PLAYWRIGHT_CHANNEL=chrome \
 
 - `DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`GOOGLE_API_KEY`、`OPENROUTER_API_KEY` 均未设置。
 - `rillagent doctor` 显示当前配置的 `deepseek-flash` 和 `deepseek-pro` 均为 `key:missing`。
-- 未发现可供本轮验收使用的本地无密钥模型配置。
+- Rill keychain 中未保存 DeepSeek、MiMo、OpenAI、Anthropic、Gemini、OpenRouter 或 LongCat 的常见凭证账户，`~/.rillagent/.env` 也不存在。
+- 本机未安装或运行 Ollama、LM Studio、llama.cpp、MLX、vLLM 或 LocalAI，未发现可供本轮验收使用的本地无密钥模型运行时。
 
 因此以下真实验收尚未执行：创建真实模型会话、真实模型回复、运行中真实补充指令、带真实文件/Diff 引用的模型请求、清空上下文后的新模型请求、应用重启后同一会话与上下文边界恢复验证。
 
