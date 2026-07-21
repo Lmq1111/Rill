@@ -22,7 +22,7 @@ function Metric({ icon: Icon, label, value, sub, unavailable }: { icon: typeof C
 }
 
 export function ContextOverview() {
-  const { active, params, clearContext, createSession } = useStore();
+  const { active, projects, params, clearContext, createSession } = useStore();
   const c = active.context;
   const [confirmClear, setConfirmClear] = useState(params.rillVisualState === "clear-context-confirmation");
   const [refreshing, setRefreshing] = useState(false);
@@ -37,9 +37,14 @@ export function ContextOverview() {
   const refresh = () => { setRefreshing(true); toast("正在刷新上下文数据…"); setTimeout(() => { setRefreshing(false); toast.success("已刷新"); }, 800); };
 
   return (
-    <PageShell icon={Gauge} title="上下文概览" subtitle={`当前会话：${active.title} · ${projectName(active.projectId)}`}
+    <PageShell icon={Gauge} title="上下文概览" subtitle={`当前会话：${active.title} · ${projectName(projects, active.projectId)}`}
       actions={<button onClick={refresh} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> 刷新</button>}>
       <div className="mx-auto h-full max-w-3xl overflow-y-auto p-6">
+        {active.modelContextClearedAt && (
+          <div className="mb-4 rounded-lg bg-cyan-50 px-3 py-2 text-[12.5px] text-cyan-700 ring-1 ring-cyan-200">
+            模型上下文已于{active.modelContextClearedAt}清空；历史消息仍完整保留，可继续查阅。
+          </div>
+        )}
         <div className={`rounded-xl border p-5 ${pct >= 100 ? "border-rose-200 bg-rose-50" : pct >= 90 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
           <div className="flex items-baseline justify-between">
             <span className="text-[13px] text-slate-600">上下文窗口占用</span>

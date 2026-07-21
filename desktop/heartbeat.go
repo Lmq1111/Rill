@@ -11,9 +11,10 @@
 package main
 
 import (
+	cryptorand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -409,11 +410,42 @@ func (e *HeartbeatEngine) ReloadTasks() []HeartbeatTask {
 func (e *HeartbeatEngine) ReplaceTasks(tasks []HeartbeatTask) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.tasks = tasks
-	e.prunePendingTopicsLocked(tasks)
-	err := e.saveTasks(tasks)
+	normalized := normalizeHeartbeatTaskIDs(tasks)
+	e.tasks = normalized
+	e.prunePendingTopicsLocked(normalized)
+	err := e.saveTasks(normalized)
 	e.noteConfigModLocked()
 	return err
+}
+
+func normalizeHeartbeatTaskIDs(tasks []HeartbeatTask) []HeartbeatTask {
+	normalized := append([]HeartbeatTask(nil), tasks...)
+	used := make(map[string]bool, len(normalized))
+	for i := range normalized {
+		id := strings.TrimSpace(normalized[i].ID)
+		if id == "" || id == "new" || used[id] {
+			for {
+				id = generateHeartbeatID()
+				if !used[id] {
+					break
+				}
+			}
+		}
+		normalized[i].ID = id
+		used[id] = true
+	}
+	return normalized
+}
+
+func generateHeartbeatID() string {
+	b := make([]byte, 6)
+	if _, err := cryptorand.Read(b); err != nil {
+		n := time.Now().UnixNano()
+		for i := range b {
+			b[i] = byte(n >> (i * 8))
+		}
+	}
+	return hex.EncodeToString(b)
 }
 
 func (e *HeartbeatEngine) prunePendingTopicsLocked(tasks []HeartbeatTask) {
@@ -852,12 +884,7 @@ func (a *App) HeartbeatTriggerNow(id string) {
 
 // HeartbeatGenerateID returns a random id for new tasks.
 func (a *App) HeartbeatGenerateID() string {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, 12)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(b)
+	return generateHeartbeatID()
 }
 
 // newBotForwarder builds event forwarding for a heartbeat turn. The caller

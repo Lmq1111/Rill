@@ -64,7 +64,7 @@ export function Automation() {
     if (query && !t.name.includes(query)) return false;
     if (enabledFilter === "已启用" && !t.enabled) return false;
     if (enabledFilter === "已停用" && t.enabled) return false;
-    if (scopeFilter !== "全部范围" && projectName(t.scope) !== scopeFilter) return false;
+    if (scopeFilter !== "全部范围" && projectName(projects, t.scope) !== scopeFilter) return false;
     return true;
   });
 
@@ -89,7 +89,7 @@ export function Automation() {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="按名称搜索任务" className="w-full bg-transparent text-[13px] outline-none placeholder:text-slate-400" />
           </div>
           <select value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-[12px] text-slate-600">{["全部", "已启用", "已停用"].map((s) => <option key={s}>{s}</option>)}</select>
-          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-[12px] text-slate-600">{["全部范围", "rill-web", "rillagent-cli", "全局"].map((s) => <option key={s}>{s}</option>)}</select>
+          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-[12px] text-slate-600">{["全部范围", ...projects.map((project) => project.name), "全局"].map((s) => <option key={s}>{s}</option>)}</select>
         </div>
 
         {list.length === 0 ? (
@@ -106,7 +106,7 @@ export function Automation() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14px] text-slate-900">{t.name}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[11px] ${t.enabled ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-500"}`}>{t.enabled ? "已启用" : "已停用"}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{projectName(t.scope)}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{projectName(projects, t.scope)}</span>
                     {unavailable && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-600 ring-1 ring-rose-200">项目不可用</span>}
                     {t.permission === "YOLO" && <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-600 ring-1 ring-rose-200"><ShieldAlert className="size-3" />高权限风险</span>}
                   </div>

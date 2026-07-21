@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -413,6 +414,48 @@ func TestHeartbeatReplaceTasksPrunesFreshConversationPendingTopics(t *testing.T)
 	}
 	if _, ok := engine.pendingTopics["deleted"]; ok {
 		t.Fatalf("deleted task should not keep a pending topic")
+	}
+}
+
+func TestHeartbeatReplaceTasksReplacesTransientAndDuplicateIDs(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	engine := &HeartbeatEngine{pendingTopics: make(map[string]heartbeatPendingTopic)}
+
+	if err := engine.ReplaceTasks([]HeartbeatTask{
+		{ID: "new", Title: "First"},
+		{ID: "new", Title: "Second"},
+		{ID: "stable-task", Title: "Existing"},
+		{ID: "stable-task", Title: "Duplicate"},
+	}); err != nil {
+		t.Fatalf("ReplaceTasks: %v", err)
+	}
+
+	got := engine.ListTasks()
+	if len(got) != 4 {
+		t.Fatalf("tasks len = %d, want 4", len(got))
+	}
+	seen := make(map[string]bool, len(got))
+	for _, task := range got {
+		if strings.TrimSpace(task.ID) == "" || task.ID == "new" {
+			t.Fatalf("transient task ID was persisted: %+v", task)
+		}
+		if seen[task.ID] {
+			t.Fatalf("duplicate task ID was persisted: %q", task.ID)
+		}
+		seen[task.ID] = true
+	}
+	if got[2].ID != "stable-task" {
+		t.Fatalf("first stable ID changed: got %q", got[2].ID)
+	}
+
+	reloaded := engine.loadTasks()
+	if len(reloaded) != len(got) {
+		t.Fatalf("reloaded tasks len = %d, want %d", len(reloaded), len(got))
+	}
+	for i := range reloaded {
+		if reloaded[i].ID != got[i].ID {
+			t.Fatalf("reloaded task %d ID = %q, want %q", i, reloaded[i].ID, got[i].ID)
+		}
 	}
 }
 

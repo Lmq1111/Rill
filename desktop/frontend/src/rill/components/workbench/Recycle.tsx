@@ -14,7 +14,7 @@ type Confirm =
   | null;
 
 export function Recycle() {
-  const { recycled, params, restoreFromRecycle, permanentDelete, emptyRecycle, navigate } = useStore();
+  const { recycled, projects, params, restoreFromRecycle, permanentDelete, emptyRecycle, navigate } = useStore();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(recycled[0]?.id ?? null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -64,7 +64,7 @@ export function Recycle() {
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {list.length === 0 ? (
               <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{recycled.length === 0 ? "回收站为空" : "没有匹配的搜索结果"}</div>
-            ) : list.map((s) => <RecycleRow key={s.id} s={s} active={s.id === selectedId} checked={checked.has(s.id)} onCheck={() => toggleCheck(s.id)} onSelect={() => setSelectedId(s.id)} />)}
+            ) : list.map((s) => <RecycleRow key={s.id} s={s} projectLabel={projectName(projects, s.projectId)} active={s.id === selectedId} checked={checked.has(s.id)} onCheck={() => toggleCheck(s.id)} onSelect={() => setSelectedId(s.id)} />)}
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export function Recycle() {
               <div className="flex items-start gap-3 border-b border-slate-200 bg-white p-4">
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-[15px] text-slate-900">{selected.title}</h2>
-                  <div className="mt-0.5 text-[12px] text-slate-400">原属 {projectName(selected.projectId)} · {selected.snapshot.context.rounds} 轮 · 删除于 {selected.deletedAt}</div>
+                  <div className="mt-0.5 text-[12px] text-slate-400">原属 {projectName(projects, selected.projectId)} · {selected.snapshot.context.rounds} 轮 · 删除于 {selected.deletedAt}</div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button onClick={() => restoreFromRecycle(selected.id)} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700"><RotateCcw className="size-4" /> 恢复</button>
@@ -121,7 +121,7 @@ export function Recycle() {
 
 const srcIcon = { local: Circle, bot: Bot, schedule: Clock3 } as const;
 
-function RecycleRow({ s, active, checked, onCheck, onSelect }: { s: Recycled; active: boolean; checked: boolean; onCheck: () => void; onSelect: () => void }) {
+function RecycleRow({ s, projectLabel, active, checked, onCheck, onSelect }: { s: Recycled; projectLabel: string; active: boolean; checked: boolean; onCheck: () => void; onSelect: () => void }) {
   const Icon = srcIcon[s.source];
   return (
     <div onClick={onSelect} className={["mb-1 flex cursor-pointer items-start gap-2.5 rounded-lg p-2.5", active ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50"].join(" ")}>
@@ -130,7 +130,7 @@ function RecycleRow({ s, active, checked, onCheck, onSelect }: { s: Recycled; ac
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] text-slate-800">{s.title}{s.restoreCopy && <span className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] text-slate-500">副本</span>}</div>
         <div className="truncate text-[11.5px] text-slate-400">{s.summary}</div>
-        <div className="mt-0.5 text-[10.5px] text-slate-400">原属 {projectName(s.projectId)} · 删除于 {s.deletedAt}</div>
+        <div className="mt-0.5 text-[10.5px] text-slate-400">原属 {projectLabel} · 删除于 {s.deletedAt}</div>
       </div>
     </div>
   );

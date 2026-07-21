@@ -24,7 +24,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function ChannelDetail() {
-  const { params, channels, sessions, navigate, openSession, updateChannel } = useStore();
+  const { params, channels, sessions, projects, navigate, openSession, updateChannel } = useStore();
   const ch = channels.find((c) => c.id === params.id) ?? channels[0];
   if (!ch) return <PageShell icon={MessageSquare} title="消息渠道详情"><div className="grid h-full place-items-center text-[13px] text-slate-400">未找到渠道</div></PageShell>;
 
@@ -79,7 +79,7 @@ export function ChannelDetail() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-1 text-[12px] font-medium text-slate-500">作用域与访问策略</div>
-            <Field label="连接作用域">{ch.projectId ? <button onClick={() => navigate("workbench")} className="text-teal-600 hover:underline">指定项目 · {projectName(ch.projectId)}</button> : <span>全局</span>}</Field>
+            <Field label="连接作用域">{ch.projectId ? <button onClick={() => navigate("workbench")} className="text-teal-600 hover:underline">指定项目 · {projectName(projects, ch.projectId)}</button> : <span>全局</span>}</Field>
             <Field label="访问策略"><span className="flex items-center gap-1.5">{ch.policy === "trusted" ? <><ShieldCheck className="size-3.5 text-emerald-500" /> 仅可信用户</> : <>所有人可用</>}</span></Field>
             <Field label="白名单">
               {!ch.whitelistOn ? <span className="text-slate-400">未启用</span>
@@ -96,7 +96,7 @@ export function ChannelDetail() {
             <div className="space-y-2">
               {linked.map((s) => (
                 <div key={s.id} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3">
-                  <div className="min-w-0 flex-1"><div className="text-[13px] text-slate-800">{s.title}</div><div className="text-[11px] text-slate-400">{projectName(s.projectId)} · {s.context.rounds} 轮 · {s.updatedAt}</div></div>
+                  <div className="min-w-0 flex-1"><div className="text-[13px] text-slate-800">{s.title}</div><div className="text-[11px] text-slate-400">{projectName(projects, s.projectId)} · {s.context.rounds} 轮 · {s.updatedAt}</div></div>
                   <button onClick={() => openSession(s.id)} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[12px] text-white hover:bg-teal-700"><ExternalLink className="size-3.5" /> 打开会话</button>
                 </div>
               ))}

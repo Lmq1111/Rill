@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { PageShell } from "./PageShell";
 import { useStore, projectName, runMeta, type Session } from "../../state/visualStore";
 
-const scopes = ["全部范围", "rill-web", "rillagent-cli", "全局"];
 const statuses = ["全部状态", "运行中", "只读", "普通历史"];
 
 export function History() {
-  const { sessions, active, activeSessionId, openSession, deleteSession, renameSession } = useStore();
+  const { sessions, projects, active, activeSessionId, openSession, deleteSession, renameSession } = useStore();
+  const scopes = ["全部范围", ...projects.map((project) => project.name), "全局"];
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState(scopes[0]);
   const [status, setStatus] = useState(statuses[0]);
@@ -25,7 +25,7 @@ export function History() {
 
   const list = sessions.filter((s) => {
     if (query && !(s.title.includes(query) || s.summary.includes(query))) return false;
-    if (scope !== "全部范围" && projectName(s.projectId) !== scope) return false;
+    if (scope !== "全部范围" && projectName(projects, s.projectId) !== scope) return false;
     if (status === "运行中" && s.runState !== "aiRunning") return false;
     if (status === "只读" && s.runState !== "readonly") return false;
     if (status === "普通历史" && (s.runState === "aiRunning" || s.runState === "readonly")) return false;
@@ -65,7 +65,7 @@ export function History() {
             {list.length === 0 ? (
               <div className="grid h-full place-items-center p-8 text-center text-[13px] text-slate-400">{sessions.length === 0 ? "还没有历史会话" : "没有匹配的搜索结果"}</div>
             ) : list.map((s) => (
-              <HistoryRow key={s.id} s={s} active={s.id === selectedId} isCurrent={s.id === activeSessionId} checked={checked.has(s.id)} disabled={aiBusy} onCheck={() => toggleCheck(s.id)} onSelect={() => guard(() => setSelectedId(s.id))} />
+              <HistoryRow key={s.id} s={s} projectLabel={projectName(projects, s.projectId)} active={s.id === selectedId} isCurrent={s.id === activeSessionId} checked={checked.has(s.id)} disabled={aiBusy} onCheck={() => toggleCheck(s.id)} onSelect={() => guard(() => setSelectedId(s.id))} />
             ))}
           </div>
         </div>
@@ -88,7 +88,7 @@ export function History() {
                       {selected.id === activeSessionId && <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] text-cyan-700 ring-1 ring-cyan-200">当前会话</span>}
                     </div>
                   )}
-                  <div className="mt-0.5 text-[12px] text-slate-400">{projectName(selected.projectId)} · {selected.context.rounds} 轮 · {selected.updatedAt}</div>
+                  <div className="mt-0.5 text-[12px] text-slate-400">{projectName(projects, selected.projectId)} · {selected.context.rounds} 轮 · {selected.updatedAt}</div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button onClick={() => guard(() => { setRenaming(selected.id); setNameDraft(selected.title); })} className="grid size-8 place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled={aiBusy} title="重命名"><Pencil className="size-4" /></button>
@@ -120,8 +120,8 @@ export function History() {
 
 const srcIcon = { local: Circle, bot: Bot, schedule: Clock3 } as const;
 
-function HistoryRow({ s, active, isCurrent, checked, disabled, onCheck, onSelect }: {
-  s: Session; active: boolean; isCurrent: boolean; checked: boolean; disabled: boolean; onCheck: () => void; onSelect: () => void;
+function HistoryRow({ s, projectLabel, active, isCurrent, checked, disabled, onCheck, onSelect }: {
+  s: Session; projectLabel: string; active: boolean; isCurrent: boolean; checked: boolean; disabled: boolean; onCheck: () => void; onSelect: () => void;
 }) {
   const Icon = srcIcon[s.source];
   const select = () => {
@@ -151,7 +151,7 @@ function HistoryRow({ s, active, isCurrent, checked, disabled, onCheck, onSelect
           {s.runState === "readonly" && <Lock className="size-3 shrink-0 text-slate-400" />}
         </div>
         <div className="truncate text-[11.5px] text-slate-400">{s.summary}</div>
-        <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-slate-400"><span>{projectName(s.projectId)}</span><span>·</span><span>{s.context.rounds} 轮</span><span>·</span><span>{s.updatedAt}</span></div>
+        <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-slate-400"><span>{projectLabel}</span><span>·</span><span>{s.context.rounds} 轮</span><span>·</span><span>{s.updatedAt}</span></div>
       </div>
     </div>
   );

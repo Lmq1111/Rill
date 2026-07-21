@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -113,6 +114,7 @@ export interface Session {
   pendingConfirm?: PendingConfirm;
   pendingQuestion?: PendingQuestion;
   error?: string;
+  modelContextClearedAt?: string;
 }
 
 export interface Recycled {
@@ -160,16 +162,21 @@ const initialProjects: Project[] = [
   { id: "p2", name: "rillagent-cli", path: "~/work/rill/rillagent-cli", branch: "main", status: "ok", expanded: true },
 ];
 
-export function projectName(id: string) {
-  if (id === "global") return "全局";
-  return initialProjectsById[id]?.name ?? id;
+export function projectName(projectList: readonly Project[], id: string) {
+  if (id === "global" || id === "全局") return "全局";
+  return projectList.find((project) => project.id === id)?.name ?? "项目不可用";
 }
-const initialProjectsById: Record<string, Project> = Object.fromEntries(initialProjects.map((p) => [p.id, p]));
 // 兼容旧引用：导出静态 projects（只读快照，仅用于文案）
 export const projects = initialProjects;
 
 const defaultSettings: SessionSettings = { model: "Opus 4.8", reasoning: "高", exec: "自动", collab: "结对", permission: "需确认" };
 const emptyCtx = (limit = 200000): SessionContext => ({ used: 0, limit, rounds: 0, roundTokens: 0, cacheHit: 0, cacheMiss: 0, roundCost: 0, totalCost: 0, currency: "USD", balance: 42.5, refreshedAt: "刚刚" });
+let entityIDSequence = 0;
+function stableEntityID(prefix: string) {
+  entityIDSequence += 1;
+  const random = globalThis.crypto?.randomUUID?.().replaceAll("-", "") ?? `${Date.now().toString(36)}${entityIDSequence.toString(36)}`;
+  return `${prefix}-${random}`;
+}
 
 /* ============ 初始会话（每个会话内容各不相同） ============ */
 const S: Session[] = [
@@ -333,6 +340,7 @@ export interface Store {
 
   projects: Project[];
   addProject: (p: Omit<Project, "id" | "expanded" | "status">) => void;
+  renameProject: (id: string, name: string) => void;
   addIsolatedWorkspace: (fromId: string, branch: string, dir: string) => void;
   toggleProject: (id: string) => void;
 
@@ -377,7 +385,7 @@ export interface Store {
   updateChannel: (id: string, patch: Partial<Channel>) => void;
 
   // 自动化
-  saveTask: (t: AutomationTask) => void;
+  saveTask: (t: AutomationTask) => AutomationTask;
   deleteTask: (id: string) => void;
   runTaskNow: (id: string) => void;
   toggleTask: (id: string) => void;
@@ -427,6 +435,8 @@ export function StoreProvider({
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
   const [activeSessionId, setActiveSessionId] = useState(seed.activeSessionId ?? "s1");
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
 
   const patch = (id: string, p: Partial<Session>) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, ...p } : s));
 
@@ -439,6 +449,7 @@ export function StoreProvider({
 
       projects: projectList,
       addProject: (p) => { const id = `p${Date.now()}`; setProjectList((ps) => [...ps, { ...p, id, status: "ok", expanded: true }]); toast.success(`已添加项目「${p.name}」`); },
+      renameProject: (id, name) => setProjectList((ps) => ps.map((project) => project.id === id ? { ...project, name } : project)),
       addIsolatedWorkspace: (fromId, branch, dir) => {
         const src = projectList.find((p) => p.id === fromId);
         const id = `p${Date.now()}`;
@@ -523,6 +534,7 @@ export function StoreProvider({
             refs: [],
             attachments: [],
             updatedAt: "刚刚",
+            modelContextClearedAt: undefined,
           } : x));
           return true;
         }
@@ -535,6 +547,7 @@ export function StoreProvider({
             refs: [],
             attachments: [],
             updatedAt: "刚刚",
+            modelContextClearedAt: undefined,
             messages: [...x.messages, um],
           } : x));
           toast.success("已发送补充指令");
@@ -543,7 +556,7 @@ export function StoreProvider({
 
         const am: Message = { id: `a${Date.now() + 1}`, type: "ai", text: "收到，我开始处理。（演示：稍后返回结果）" };
         setSessions((ss) => ss.map((x) => x.id === id ? {
-          ...x, draft: "", refs: [], attachments: [], runState: "aiRunning", updatedAt: "刚刚",
+          ...x, draft: "", refs: [], attachments: [], runState: "aiRunning", updatedAt: "刚刚", modelContextClearedAt: undefined,
           messages: [...x.messages, um, am],
           context: { ...x.context, rounds: x.context.rounds + 1, used: Math.min(x.context.limit, x.context.used + 1500) },
         } : x));
@@ -578,7 +591,7 @@ export function StoreProvider({
       clearContext: (id) => {
         const s = sessions.find((x) => x.id === id);
         if (!s) return;
-        patch(id, { context: { ...s.context, used: 0, rounds: 0 }, messages: s.messages.filter((m) => m.type === "notice").slice(0, 1) });
+        patch(id, { context: { ...s.context, used: 0, rounds: 0, roundTokens: 0 }, modelContextClearedAt: "刚刚" });
         toast.success("已清空当前上下文", { description: "历史记录中的原始会话仍然保留" });
       },
 
@@ -594,13 +607,38 @@ export function StoreProvider({
 
       updateChannel: (id, p) => setChannels((cs) => cs.map((c) => c.id === id ? { ...c, ...p } : c)),
 
-      saveTask: (t) => { setTasks((ts) => ts.some((x) => x.id === t.id) ? ts.map((x) => x.id === t.id ? t : x) : [...ts, t]); toast.success("已保存自动化任务"); },
+      saveTask: (t) => {
+        const saved = t.id === "new" || !t.id.trim()
+          ? { ...t, id: stableEntityID("task") }
+          : t;
+        setTasks((ts) => ts.some((x) => x.id === saved.id) ? ts.map((x) => x.id === saved.id ? saved : x) : [...ts, saved]);
+        toast.success("已保存自动化任务");
+        return saved;
+      },
       deleteTask: (id) => { setTasks((ts) => ts.filter((x) => x.id !== id)); toast.success("已删除任务", { description: "已生成的会话仍然保留" }); },
       toggleTask: (id) => setTasks((ts) => ts.map((t) => t.id === id ? { ...t, enabled: !t.enabled, nextRun: !t.enabled ? "明天 08:00" : "已停用" } : t)),
       runTaskNow: (id) => {
         const t = tasks.find((x) => x.id === id);
         if (!t) return;
+        const reused = t.sessionPolicy === "reuse" ? sessions.find((session) => session.id === t.reuseSessionId) : undefined;
+        const reusedProject = reused ? projectList.find((project) => project.id === reused.projectId && project.status === "ok") : undefined;
+        if (t.sessionPolicy === "reuse" && (!reused || !reusedProject)) {
+          setTasks((ts) => ts.map((task) => task.id === id ? { ...task, lastResult: "failed" } : task));
+          toast.error("复用会话不可用", { description: "任务未运行，也未创建替代会话" });
+          return;
+        }
+        const runID = stableEntityID("automation-run");
         setTasks((ts) => ts.map((x) => x.id === id ? { ...x, lastResult: "running" } : x));
+        if (reused) {
+          const started: Message = { id: `${runID}-start`, type: "notice", tone: "bg-amber-50 text-amber-600", text: `自动化任务「${t.name}」开始执行` };
+          const progress: Message = { id: `${runID}-progress`, type: "tasklist", tasks: [{ t: t.prompt, state: "running" }] };
+          setSessions((ss) => ss.map((session) => session.id === reused.id ? {
+            ...session,
+            runState: "aiRunning",
+            updatedAt: "刚刚",
+            messages: [...session.messages, started, progress],
+          } : session));
+        }
         setTimeout(() => {
           let newSid: string | undefined;
           if (t.sessionPolicy === "new") {
@@ -612,6 +650,23 @@ export function StoreProvider({
               messages: [{ id: `rn${Date.now()}`, type: "notice", tone: "bg-amber-50 text-amber-600", text: `由自动化任务「${t.name}」手动触发` }, { id: `rn2${Date.now()}`, type: "ai", text: "任务执行完成（演示）。" }],
             };
             setSessions((ss) => [ns, ...ss]);
+          } else if (reused) {
+            const target = sessionsRef.current.find((session) => session.id === reused.id);
+            if (!target) {
+              setTasks((ts) => ts.map((task) => task.id === id ? { ...task, lastResult: "failed", lastRun: "刚刚（失败）" } : task));
+              toast.error("复用会话已关闭", { description: "任务已停止，未创建替代会话" });
+              return;
+            }
+            const completed: Message = { id: `${runID}-result`, type: "ai", text: `自动化任务「${t.name}」执行完成（演示）。` };
+            setSessions((ss) => ss.map((session) => session.id === reused.id ? {
+              ...session,
+              runState: "success",
+              updatedAt: "刚刚",
+              messages: [
+                ...session.messages.map((message) => message.id === `${runID}-progress` ? { ...message, tasks: message.tasks?.map((item) => ({ ...item, state: "done" as const })) } : message),
+                completed,
+              ],
+            } : session));
           }
           setTasks((ts) => ts.map((x) => x.id === id ? { ...x, lastResult: "success", lastRun: "刚刚（手动）", generatedSessionIds: newSid ? [newSid, ...x.generatedSessionIds] : x.generatedSessionIds } : x));
           toast.success(`「${t.name}」运行完成`, { description: t.sessionPolicy === "new" ? "已新建会话" : "已追加到复用会话；下次计划时间不变" });

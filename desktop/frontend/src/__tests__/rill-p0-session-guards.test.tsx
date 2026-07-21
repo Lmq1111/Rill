@@ -8,6 +8,7 @@ import { History } from "../rill/components/workbench/History";
 import { Sidebar } from "../rill/components/workbench/Sidebar";
 import {
   StoreProvider,
+  projectName,
   useStore,
   type RillSessionRuntime,
   type Store,
@@ -175,6 +176,76 @@ await act(async () => {
 ok(
   document.querySelector("h2")?.textContent === "修复会话切换时草稿串号问题",
   "P0-3 restores history selection after the busy state ends",
+);
+
+await render(<></>, { activeSessionId: "s3" });
+const immutableHistoryBefore = JSON.stringify(storeSnapshot?.active.messages);
+await act(async () => {
+  storeSnapshot?.clearContext("s3");
+});
+ok(
+  JSON.stringify(storeSnapshot?.active.messages) === immutableHistoryBefore,
+  "P0-4 clearing model context preserves the immutable message history",
+);
+ok(
+  storeSnapshot?.active.context.used === 0 && storeSnapshot.active.context.rounds === 0,
+  "P0-4 clearing model context resets only model-facing usage state",
+);
+ok(Boolean(storeSnapshot?.active.modelContextClearedAt), "P0-4 records the model-context cleared state separately");
+
+await render(<></>, { activeSessionId: "s3" });
+const taskTemplate = storeSnapshot?.tasks[0];
+if (!taskTemplate) throw new Error("missing automation task fixture");
+await act(async () => {
+  storeSnapshot?.saveTask({ ...taskTemplate, id: "new", name: "新增任务 A" });
+  storeSnapshot?.saveTask({ ...taskTemplate, id: "new", name: "新增任务 B" });
+});
+const createdTasks = storeSnapshot?.tasks.filter((task) => task.name.startsWith("新增任务 ")) ?? [];
+ok(
+  createdTasks.length === 2 && new Set(createdTasks.map((task) => task.id)).size === 2 && createdTasks.every((task) => task.id !== "new"),
+  "P0-5 replaces transient new IDs with distinct stable task IDs",
+);
+
+await render(<></>, { activeSessionId: "s7" });
+const reusedMessageCount = storeSnapshot?.active.messages.length ?? 0;
+await act(async () => {
+  storeSnapshot?.runTaskNow("t2");
+});
+const reusedStartMessages = storeSnapshot?.active.messages.slice(reusedMessageCount) ?? [];
+ok(
+  reusedStartMessages.some((message) => message.type === "notice")
+    && reusedStartMessages.some((message) => message.type === "tasklist"),
+  "P0-6 writes automation start and progress events into the reused session",
+);
+await act(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+});
+ok(
+  storeSnapshot?.active.messages.slice(reusedMessageCount).some((message) => message.type === "ai")
+    && storeSnapshot.active.runState === "success",
+  "P0-6 writes the automation result into the same reused session",
+);
+
+await render(<></>, { activeSessionId: "s3" });
+await act(async () => {
+  storeSnapshot?.addProject({ name: "运行时新增项目", path: "/tmp/runtime-project", branch: "main" });
+});
+const runtimeProject = storeSnapshot?.projects.find((project) => project.name === "运行时新增项目");
+ok(
+  Boolean(runtimeProject && projectName(storeSnapshot?.projects ?? [], runtimeProject.id) === "运行时新增项目"),
+  "P0-7 resolves project names from the live registry after runtime creation",
+);
+if (!runtimeProject) throw new Error("runtime project was not created");
+await act(async () => {
+  storeSnapshot?.renameProject(runtimeProject.id, "运行时重命名项目");
+});
+ok(
+  projectName(storeSnapshot?.projects ?? [], runtimeProject.id) === "运行时重命名项目",
+  "P0-7 resolves project names from the live registry after runtime rename",
+);
+ok(
+  projectName(storeSnapshot?.projects ?? [], "missing-project-id") === "项目不可用",
+  "P0-7 never exposes a missing project's internal ID",
 );
 
 if (root) await act(async () => root?.unmount());

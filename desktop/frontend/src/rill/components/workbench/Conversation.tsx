@@ -233,7 +233,7 @@ function RunningIndicator({ s }: { s: Session }) {
 /* ---------- 主体 ---------- */
 
 export function Conversation() {
-  const { active } = useStore();
+  const { active, projects } = useStore();
   const s = active;
 
   if (s.runState === "empty" || s.messages.length === 0) {
@@ -241,7 +241,7 @@ export function Conversation() {
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-3 px-5 py-20 text-center">
         <div className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white"><Sparkles className="size-6" /></div>
         <div className="text-[15px] text-slate-800">开始一个新会话</div>
-        <p className="max-w-sm text-[13px] leading-relaxed text-slate-500">当前会话（{projectName(s.projectId)}）还没有对话。在下方输入你的第一条消息，草稿与运行状态都独立于其他会话。</p>
+        <p className="max-w-sm text-[13px] leading-relaxed text-slate-500">当前会话（{projectName(projects, s.projectId)}）还没有对话。在下方输入你的第一条消息，草稿与运行状态都独立于其他会话。</p>
       </div>
     );
   }
