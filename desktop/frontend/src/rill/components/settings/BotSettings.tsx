@@ -6,10 +6,17 @@ import { Section, Row, Select, Toggle, StateBadge, ConfirmDialog, Drawer } from 
 import { bots as seedBots, models, type Bot } from "./data";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { LiveBotSettings } from "./live/LiveBotSettings";
 
 type Pair = "unconfigured" | "waitingQR" | "waitingAuth" | "paired" | "pairFailed";
 
 export function BotSettings() {
+  const live = useRillSettingsOptional();
+  return live ? <LiveBotSettings live={live} /> : <VisualBotSettings />;
+}
+
+function VisualBotSettings() {
   const { navigate, channels } = useStore();
   const [bots, setBots] = useState<Bot[]>(seedBots);
   const [editing, setEditing] = useState<Bot | null>(null);

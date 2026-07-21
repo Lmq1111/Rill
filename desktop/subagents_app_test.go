@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -548,6 +549,42 @@ api_key_env = "DEEPSEEK_API_KEY"
 	}
 	if _, ok := cfg.Agent.SubagentEfforts["explore"]; ok {
 		t.Fatalf("cleared effort override should be removed, got %+v", cfg.Agent.SubagentEfforts)
+	}
+}
+
+func TestSetSubagentProfileOverridesIsAtomic(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "deepseek/deepseek-v4-flash"
+
+[[providers]]
+name = "deepseek"
+kind = "openai"
+base_url = "https://api.deepseek.com"
+models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+default = "deepseek-v4-flash"
+api_key_env = "DEEPSEEK_API_KEY"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	if err := app.SetSubagentProfileOverrides("explore", "deepseek/deepseek-v4-pro", "max"); err != nil {
+		t.Fatalf("SetSubagentProfileOverrides: %v", err)
+	}
+	before := config.LoadForEdit(config.UserConfigPath())
+	if before.Agent.SubagentModels["explore"] != "deepseek/deepseek-v4-pro" || before.Agent.SubagentEfforts["explore"] != "max" {
+		t.Fatalf("saved overrides = model:%q effort:%q", before.Agent.SubagentModels["explore"], before.Agent.SubagentEfforts["explore"])
+	}
+	if err := app.SetSubagentProfileOverrides("explore", "deepseek/deepseek-v4-flash", "not-an-effort"); err == nil {
+		t.Fatal("SetSubagentProfileOverrides accepted invalid effort")
+	}
+	after := config.LoadForEdit(config.UserConfigPath())
+	if !reflect.DeepEqual(after.Agent.SubagentModels, before.Agent.SubagentModels) || !reflect.DeepEqual(after.Agent.SubagentEfforts, before.Agent.SubagentEfforts) {
+		t.Fatalf("failed override save changed persisted maps: before=%+v/%+v after=%+v/%+v", before.Agent.SubagentModels, before.Agent.SubagentEfforts, after.Agent.SubagentModels, after.Agent.SubagentEfforts)
 	}
 }
 

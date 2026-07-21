@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -113,11 +114,12 @@ type SandboxView struct {
 }
 
 type NetworkProxyView struct {
-	Type     string `json:"type"`
-	Server   string `json:"server"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Type        string `json:"type"`
+	Server      string `json:"server"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	PasswordSet bool   `json:"passwordSet"`
 }
 
 type NetworkView struct {
@@ -247,6 +249,19 @@ type BotSettingsView struct {
 	Connections        []BotConnectionView `json:"connections"`
 }
 
+type GeneralSettingsInput struct {
+	Language                string   `json:"language"`
+	LayoutStyle             string   `json:"layoutStyle"`
+	CloseBehavior           string   `json:"closeBehavior"`
+	DisplayMode             string   `json:"displayMode"`
+	ExpandThinking          bool     `json:"expandThinking"`
+	DefaultToolApprovalMode string   `json:"defaultToolApprovalMode"`
+	AutoPlan                string   `json:"autoPlan"`
+	MemoryCompilerEnabled   bool     `json:"memoryCompilerEnabled"`
+	StatusBarStyle          string   `json:"statusBarStyle"`
+	StatusBarItems          []string `json:"statusBarItems"`
+}
+
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
 	DefaultModel            string               `json:"defaultModel"`
@@ -276,6 +291,11 @@ type SettingsView struct {
 	Metrics                 bool                 `json:"metrics"`
 	MemoryCompiler          bool                 `json:"memoryCompilerEnabled"`
 	ExpandThinking          bool                 `json:"expandThinking"`
+	DesktopShortcuts        map[string]string    `json:"desktopShortcuts"`
+	DesktopFontFamily       string               `json:"desktopFontFamily"`
+	DesktopMonoFontFamily   string               `json:"desktopMonoFontFamily"`
+	DesktopTextSize         string               `json:"desktopTextSize"`
+	DesktopZoomFactor       float64              `json:"desktopZoomFactor"`
 	ConfigPath              string               `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -820,6 +840,11 @@ func (a *App) Settings() SettingsView {
 			Metrics:                 true,
 			MemoryCompiler:          true,
 			ExpandThinking:          false,
+			DesktopShortcuts:        map[string]string{},
+			DesktopFontFamily:       "system",
+			DesktopMonoFontFamily:   "system",
+			DesktopTextSize:         "default",
+			DesktopZoomFactor:       1,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -861,11 +886,11 @@ func (a *App) Settings() SettingsView {
 			ProxyURL:  cfg.Network.ProxyURL,
 			NoProxy:   cfg.Network.NoProxy,
 			Proxy: NetworkProxyView{
-				Type:     orDefault(cfg.Network.Proxy.Type, "socks5"),
-				Server:   cfg.Network.Proxy.Server,
-				Port:     cfg.Network.Proxy.Port,
-				Username: cfg.Network.Proxy.Username,
-				Password: cfg.Network.Proxy.Password,
+				Type:        orDefault(cfg.Network.Proxy.Type, "socks5"),
+				Server:      cfg.Network.Proxy.Server,
+				Port:        cfg.Network.Proxy.Port,
+				Username:    cfg.Network.Proxy.Username,
+				PasswordSet: strings.TrimSpace(cfg.Network.Proxy.Password) != "",
 			},
 		},
 		Agent:                   AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, MaxSubagentDepth: desktopMaxSubagentDepth(cfg.Agent.MaxSubagentDepth), SystemPrompt: cfg.Agent.SystemPrompt, ColdResumePrune: cfg.ColdResumePruneEnabled(), ReasoningLanguage: cfg.ReasoningLanguage()},
@@ -884,6 +909,11 @@ func (a *App) Settings() SettingsView {
 		Metrics:                 cfg.DesktopMetrics(),
 		MemoryCompiler:          cfg.MemoryCompilerEnabled(),
 		ExpandThinking:          cfg.Desktop.ExpandThinking,
+		DesktopShortcuts:        cfg.DesktopShortcuts(),
+		DesktopFontFamily:       cfg.DesktopFontFamily(),
+		DesktopMonoFontFamily:   cfg.DesktopMonoFontFamily(),
+		DesktopTextSize:         cfg.DesktopTextSize(),
+		DesktopZoomFactor:       cfg.DesktopZoomFactor(),
 		ConfigPath:              cfgPath,
 		ProviderKinds:           nonNil(provider.Kinds()),
 		AutoApproveTools:        ctrl != nil && ctrl.AutoApproveTools(),
@@ -1822,6 +1852,61 @@ func (a *App) SetSubagentProfileEffort(name, level string) error {
 	})
 }
 
+// SetSubagentProfileOverrides atomically replaces a built-in profile's model
+// and effort overrides so a rejected effort cannot leave only the model changed.
+func (a *App) SetSubagentProfileOverrides(name, ref, level string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("name is required")
+	}
+	return a.applyConfigChange(func(c *config.Config) error {
+		ref = strings.TrimSpace(ref)
+		level = strings.TrimSpace(level)
+		resolved := ""
+		if ref != "" {
+			var err error
+			resolved, err = selectableDesktopModelRef(c, ref)
+			if err != nil {
+				return err
+			}
+		}
+		effort := ""
+		if level != "" && level != "auto" {
+			model := resolved
+			if model == "" {
+				model = strings.TrimSpace(c.Agent.SubagentModel)
+			}
+			if model == "" {
+				model = c.DefaultModel
+			}
+			entry, ok := c.ResolveModel(model)
+			if !ok {
+				return fmt.Errorf("unknown subagent model %q", model)
+			}
+			var err error
+			effort, err = config.NormalizeEffort(entry, level)
+			if err != nil {
+				return err
+			}
+		}
+		deleteSubagentOverrideAliases(c.Agent.SubagentModels, name)
+		deleteSubagentOverrideAliases(c.Agent.SubagentEfforts, name)
+		if resolved != "" {
+			if c.Agent.SubagentModels == nil {
+				c.Agent.SubagentModels = map[string]string{}
+			}
+			c.Agent.SubagentModels[name] = resolved
+		}
+		if effort != "" {
+			if c.Agent.SubagentEfforts == nil {
+				c.Agent.SubagentEfforts = map[string]string{}
+			}
+			c.Agent.SubagentEfforts[name] = effort
+		}
+		return nil
+	})
+}
+
 func desktopMaxSubagentDepth(depth int) int {
 	if depth <= 0 {
 		return agent.DefaultMaxSubagentDepth
@@ -2738,6 +2823,21 @@ func (a *App) SetPermissionMode(mode string) error {
 	return a.applyConfigChange(func(c *config.Config) error { return c.SetPermissionMode(mode) })
 }
 
+// SetPermissions replaces the complete permission policy in one locked config
+// transaction. Validation happens before assignment so a rejected payload cannot
+// leave a partially-updated mode or rule list on disk.
+func (a *App) SetPermissions(mode string, allow, ask, deny []string) error {
+	return a.applyConfigChange(func(c *config.Config) error {
+		if err := c.SetPermissionMode(mode); err != nil {
+			return err
+		}
+		c.Permissions.Allow = trimList(allow)
+		c.Permissions.Ask = trimList(ask)
+		c.Permissions.Deny = trimList(deny)
+		return nil
+	})
+}
+
 // AddPermissionRule appends a rule to the allow/ask/deny list.
 func (a *App) AddPermissionRule(list, rule string) error {
 	return a.applyConfigChange(func(c *config.Config) error { return c.AddPermissionRule(list, rule) })
@@ -2783,6 +2883,10 @@ func (a *App) SetSandbox(bash string, network bool, workspaceRoot string, allowW
 // SetNetwork updates ordinary outbound proxy settings.
 func (a *App) SetNetwork(n NetworkView) error {
 	return a.applyConfigChange(func(c *config.Config) error {
+		password := n.Proxy.Password
+		if password == "" && n.Proxy.PasswordSet {
+			password = c.Network.Proxy.Password
+		}
 		return c.SetNetwork(config.NetworkConfig{
 			ProxyMode: n.ProxyMode,
 			ProxyURL:  n.ProxyURL,
@@ -2792,7 +2896,7 @@ func (a *App) SetNetwork(n NetworkView) error {
 				Server:   n.Proxy.Server,
 				Port:     n.Proxy.Port,
 				Username: n.Proxy.Username,
-				Password: n.Proxy.Password,
+				Password: password,
 			},
 		})
 	})
@@ -2938,6 +3042,56 @@ func (a *App) SetCloseBehavior(mode string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCloseBehavior(mode) })
 }
 
+// SetGeneralSettings persists the Rill general page as one authoritative unit.
+// Runtime-only mirrors are updated only after the single config write succeeds.
+func (a *App) SetGeneralSettings(input GeneralSettingsInput) error {
+	responseLanguage := ""
+	normalizedLanguage := ""
+	if err := a.applyConfigChange(func(c *config.Config) error {
+		if err := c.SetDesktopLanguage(input.Language); err != nil {
+			return err
+		}
+		if err := c.SetLanguage(input.Language); err != nil {
+			return err
+		}
+		if err := c.SetDesktopLayoutStyle(input.LayoutStyle); err != nil {
+			return err
+		}
+		if err := c.SetDesktopCloseBehavior(input.CloseBehavior); err != nil {
+			return err
+		}
+		if err := c.SetDesktopDisplayMode(input.DisplayMode); err != nil {
+			return err
+		}
+		if err := c.SetExpandThinking(input.ExpandThinking); err != nil {
+			return err
+		}
+		if err := c.SetDesktopDefaultToolApprovalMode(input.DefaultToolApprovalMode); err != nil {
+			return err
+		}
+		if err := c.SetAutoPlan(input.AutoPlan); err != nil {
+			return err
+		}
+		if err := c.SetMemoryCompilerEnabled(input.MemoryCompilerEnabled); err != nil {
+			return err
+		}
+		if err := c.SetDesktopStatusBarStyle(input.StatusBarStyle); err != nil {
+			return err
+		}
+		if err := c.SetDesktopStatusBarItems(input.StatusBarItems); err != nil {
+			return err
+		}
+		responseLanguage = c.ResponseLanguage()
+		normalizedLanguage = c.DesktopLanguage()
+		return nil
+	}); err != nil {
+		return err
+	}
+	a.updateTrayLocale(normalizedLanguage)
+	a.applyResponseLanguageToLiveControllers(responseLanguage)
+	return nil
+}
+
 // SetDisplayMode updates the transcript display mode. UI-only, no rebuild needed.
 func (a *App) SetDisplayMode(mode string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopDisplayMode(mode) })
@@ -2992,6 +3146,14 @@ func (a *App) SetDesktopAppearance(theme, style string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance(theme, style) })
 }
 
+// SetDesktopVisualPreferences saves theme, typography and restart zoom in one
+// config file transaction so a failure cannot persist only half the page.
+func (a *App) SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize string, zoomFactor float64) error {
+	return a.applyConfigOnly(func(c *config.Config) error {
+		return c.SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize, zoomFactor)
+	})
+}
+
 // SetDesktopLayoutStyle updates only the desktop layout style. It does not
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopLayoutStyle(style string) error {
@@ -3038,6 +3200,32 @@ func (a *App) SetDesktopMetrics(enabled bool) error {
 		a.metrics.Store(nil)
 	}
 	return nil
+}
+
+// SetDesktopShortcuts validates and persists the complete desktop shortcut
+// override map. Failed validation happens before the locked write, preserving
+// the previous authoritative snapshot.
+func (a *App) SetDesktopShortcuts(shortcuts map[string]string) error {
+	next := make(map[string]string, len(shortcuts))
+	for action, payload := range shortcuts {
+		action = strings.TrimSpace(action)
+		payload = strings.TrimSpace(payload)
+		if action == "" {
+			return fmt.Errorf("shortcut action is empty")
+		}
+		if payload == "" || !json.Valid([]byte(payload)) {
+			return fmt.Errorf("shortcut %q has invalid payload", action)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(payload), &decoded); err != nil || strings.TrimSpace(fmt.Sprint(decoded["key"])) == "" {
+			return fmt.Errorf("shortcut %q has invalid combo", action)
+		}
+		next[action] = payload
+	}
+	return a.applyConfigOnly(func(c *config.Config) error {
+		c.SetDesktopShortcuts(next)
+		return nil
+	})
 }
 
 // SetExpandThinking sets whether reasoning text is expanded by default on

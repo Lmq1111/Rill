@@ -172,6 +172,65 @@ func TestSettingsExposesEffectiveSandboxWriteRoots(t *testing.T) {
 	}
 }
 
+func TestSettingsProtectsProxyPasswordAndSetNetworkSupportsKeepReplaceClear(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	cfg.Network.ProxyMode = "custom"
+	cfg.Network.Proxy.Type = "http"
+	cfg.Network.Proxy.Server = "127.0.0.1"
+	cfg.Network.Proxy.Port = 7890
+	cfg.Network.Proxy.Username = "rill"
+	cfg.Network.Proxy.Password = "must-never-return"
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	app := NewApp()
+	view := app.Settings().Network
+	if view.Proxy.Password != "" {
+		t.Fatalf("Settings returned proxy password plaintext: %q", view.Proxy.Password)
+	}
+	if !view.Proxy.PasswordSet {
+		t.Fatal("PasswordSet = false, want true")
+	}
+
+	if err := app.SetNetwork(view); err != nil {
+		t.Fatalf("keep password: %v", err)
+	}
+	kept, err := config.Load()
+	if err != nil {
+		t.Fatalf("load kept config: %v", err)
+	}
+	if kept.Network.Proxy.Password != "must-never-return" {
+		t.Fatalf("kept password = %q", kept.Network.Proxy.Password)
+	}
+
+	view.Proxy.Password = "replacement"
+	if err := app.SetNetwork(view); err != nil {
+		t.Fatalf("replace password: %v", err)
+	}
+	replaced, err := config.Load()
+	if err != nil {
+		t.Fatalf("load replaced config: %v", err)
+	}
+	if replaced.Network.Proxy.Password != "replacement" {
+		t.Fatalf("replaced password = %q", replaced.Network.Proxy.Password)
+	}
+
+	view.Proxy.Password = ""
+	view.Proxy.PasswordSet = false
+	if err := app.SetNetwork(view); err != nil {
+		t.Fatalf("clear password: %v", err)
+	}
+	cleared, err := config.Load()
+	if err != nil {
+		t.Fatalf("load cleared config: %v", err)
+	}
+	if cleared.Network.Proxy.Password != "" {
+		t.Fatalf("cleared password = %q", cleared.Network.Proxy.Password)
+	}
+}
+
 func TestSandboxEffectiveShellViewLabels(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -1455,5 +1514,120 @@ func TestSetBotSettingsPreservesFeishuOutboundMediaRoots(t *testing.T) {
 	got := config.LoadForEditWithoutCredentials(config.UserConfigPath())
 	if !reflect.DeepEqual(got.Bot.Feishu.OutboundMediaRoots, []string{root}) {
 		t.Fatalf("outbound media roots = %v, want preserved %q", got.Bot.Feishu.OutboundMediaRoots, root)
+	}
+}
+
+func TestDesktopShortcutsPersistAcrossRestart(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	want := map[string]string{
+		"app.newSession":      `{"key":"n","meta":true,"shift":true}`,
+		"commandPalette.open": `{"key":"p","meta":true}`,
+	}
+
+	if err := app.SetDesktopShortcuts(want); err != nil {
+		t.Fatalf("SetDesktopShortcuts: %v", err)
+	}
+	got := NewApp().Settings().DesktopShortcuts
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("desktop shortcuts after restart = %#v, want %#v", got, want)
+	}
+
+	if err := app.SetDesktopShortcuts(map[string]string{"app.newSession": "not-json"}); err == nil {
+		t.Fatal("SetDesktopShortcuts accepted an invalid shortcut payload")
+	}
+	if got := NewApp().Settings().DesktopShortcuts; !reflect.DeepEqual(got, want) {
+		t.Fatalf("failed shortcut save changed persisted state = %#v, want %#v", got, want)
+	}
+}
+
+func TestGeneralSettingsPersistAtomicallyAcrossRestart(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	want := GeneralSettingsInput{
+		Language: "en", LayoutStyle: "creation", CloseBehavior: "quit",
+		DisplayMode: "compact", ExpandThinking: true, DefaultToolApprovalMode: "yolo",
+		AutoPlan: "on", MemoryCompilerEnabled: false, StatusBarStyle: "icon",
+		StatusBarItems: []string{"git_branch", "model"},
+	}
+	if err := app.SetGeneralSettings(want); err != nil {
+		t.Fatalf("SetGeneralSettings: %v", err)
+	}
+	got := NewApp().Settings()
+	if got.DesktopLanguage != "en" || got.DesktopLayoutStyle != "creation" || got.CloseBehavior != "quit" ||
+		got.DisplayMode != "compact" || !got.ExpandThinking || got.DefaultToolApprovalMode != "yolo" ||
+		got.AutoPlan != "on" || got.MemoryCompiler || got.StatusBarStyle != "icon" ||
+		!reflect.DeepEqual(got.StatusBarItems, []string{"git_branch", "model"}) {
+		t.Fatalf("general settings after restart = %+v, want %+v", got, want)
+	}
+
+	if err := app.SetGeneralSettings(GeneralSettingsInput{Language: "not-a-language"}); err == nil {
+		t.Fatal("SetGeneralSettings accepted invalid language")
+	}
+	unchanged := NewApp().Settings()
+	if unchanged.DesktopLanguage != "en" || unchanged.DesktopLayoutStyle != "creation" || unchanged.CloseBehavior != "quit" {
+		t.Fatalf("failed general save partially changed persisted state: %+v", unchanged)
+	}
+}
+
+func TestPermissionsPersistInOneAuthoritativeWrite(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetPermissions("deny", []string{"read_file"}, []string{"bash"}, []string{"write_file"}); err != nil {
+		t.Fatalf("SetPermissions: %v", err)
+	}
+	got := NewApp().Settings().Permissions
+	if got.Mode != "deny" || !reflect.DeepEqual(got.Allow, []string{"read_file"}) ||
+		!reflect.DeepEqual(got.Ask, []string{"bash"}) || !reflect.DeepEqual(got.Deny, []string{"write_file"}) {
+		t.Fatalf("permissions after restart = %+v", got)
+	}
+
+	if err := app.SetPermissions("invalid", []string{"other"}, nil, nil); err == nil {
+		t.Fatal("SetPermissions accepted invalid mode")
+	}
+	unchanged := NewApp().Settings().Permissions
+	if !reflect.DeepEqual(unchanged, got) {
+		t.Fatalf("failed permission save changed persisted state: got %+v want %+v", unchanged, got)
+	}
+}
+
+func TestDesktopVisualPreferencesPersistAcrossRestart(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDesktopVisualPreferences("dark", "carbon", "pingfang", "jetbrains", "large", 1.25); err != nil {
+		t.Fatalf("SetDesktopVisualPreferences: %v", err)
+	}
+	got := NewApp().Settings()
+	if got.DesktopTheme != "dark" || got.DesktopThemeStyle != "carbon" || got.DesktopFontFamily != "pingfang" ||
+		got.DesktopMonoFontFamily != "jetbrains" || got.DesktopTextSize != "large" || got.DesktopZoomFactor != 1.25 {
+		t.Fatalf("visual preferences after restart = %+v", got)
+	}
+
+	if err := app.SetDesktopVisualPreferences("invalid", "carbon", "system", "system", "default", 1); err == nil {
+		t.Fatal("SetDesktopVisualPreferences accepted invalid theme")
+	}
+	unchanged := NewApp().Settings()
+	if unchanged.DesktopTheme != "dark" || unchanged.DesktopFontFamily != "pingfang" || unchanged.DesktopZoomFactor != 1.25 {
+		t.Fatalf("failed visual save partially changed persisted state: %+v", unchanged)
+	}
+}
+
+func TestDisabledHookRemainsVisibleAcrossRestartAndDoesNotResolve(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SaveHooksSettings("global", []HookConfigView{{
+		Event: string(hook.Stop), Command: "echo disabled", Description: "disabled hook", Disabled: true,
+	}}); err != nil {
+		t.Fatalf("SaveHooksSettings: %v", err)
+	}
+	view := NewApp().HooksSettings("global")
+	if len(view.Hooks) != 1 || !view.Hooks[0].Disabled || view.Hooks[0].Command != "echo disabled" {
+		t.Fatalf("disabled hook after restart = %+v", view.Hooks)
+	}
+	resolved := hook.Load(hook.LoadOptions{})
+	for _, item := range resolved {
+		if item.Command == "echo disabled" {
+			t.Fatalf("disabled hook resolved for execution: %+v", item)
+		}
 	}
 }

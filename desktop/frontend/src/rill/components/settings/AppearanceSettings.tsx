@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw, AlertTriangle, Monitor, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import { SettingsBody } from "./Settings";
 import { Section, Row, Select, SaveBar, ConfirmDialog } from "./kit";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { applyTextSize, type TextSize } from "../../../lib/textSize";
+import { applyFontFamily, applyMonoFontFamily, type FontFamily, type MonoFontFamily } from "../../../lib/fontFamily";
+import { saveRestartZoom } from "../../../lib/dpiScale";
 
 const BODY_FONTS = ["系统默认", "PingFang SC", "Inter", "Source Han Sans", "未安装字体示例"];
 const CODE_FONTS = ["系统等宽", "JetBrains Mono", "Fira Code", "SF Mono"];
@@ -12,6 +16,8 @@ const AVAILABLE = new Set(["系统默认", "PingFang SC", "Inter", "Source Han S
 
 export function AppearanceSettings() {
   const { params } = useStore();
+  const live = useRillSettingsOptional();
+  const persisted = live?.snapshot?.settings;
   const visualMode: Record<string, string> = { system: "跟随系统", light: "浅色", dark: "深色" };
   const [mode, setMode] = useState(() => visualMode[params.rillVisualState] ?? "跟随系统");
   const [theme, setTheme] = useState(`${brand.productName}·浅青`);
@@ -28,6 +34,44 @@ export function AppearanceSettings() {
   const effectiveBody = bodyUnavailable ? "系统默认（回退）" : bodyFont;
   // Windows 缩放需重启
   const needsRestart = scale !== "100%";
+
+  useEffect(() => {
+    if (!persisted) return;
+    setMode(persisted.desktopTheme === "light" ? "浅色" : persisted.desktopTheme === "dark" ? "深色" : "跟随系统");
+    setTheme(persisted.desktopThemeStyle === "graphite" ? `${brand.productName}·石墨` : persisted.desktopThemeStyle === "carbon" ? "高对比" : `${brand.productName}·浅青`);
+    const sizeMap: Record<TextSize, number> = { small: 12, default: 14, large: 15, xlarge: 16, xxlarge: 18 };
+    const bodyMap: Record<string, string> = { system: "系统默认", yahei: "系统默认", pingfang: "PingFang SC", noto: "Source Han Sans", inter: "Inter", custom: "Inter" };
+    const monoMap: Record<string, string> = { system: "系统等宽", cascadia: "系统等宽", jetbrains: "JetBrains Mono", fira: "Fira Code", sfmono: "SF Mono", custom: "Fira Code" };
+    setTextSize(sizeMap[(persisted.desktopTextSize || "default") as TextSize] ?? 14);
+    setBodyFont(bodyMap[persisted.desktopFontFamily || "system"] ?? "系统默认");
+    setCodeFont(monoMap[persisted.desktopMonoFontFamily || "system"] ?? "系统等宽");
+    setScale(`${Math.round((persisted.desktopZoomFactor || 1) * 100)}%`);
+    setDirty(false);
+  }, [live?.backend, persisted]);
+
+  const save = async () => {
+    if (!live) {
+      setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); toast.success("外观设置已保存", needsRestart ? { description: "缩放将在重新启动后生效" } : undefined); }, 600);
+      return;
+    }
+    const ok = await live.apply("保存外观设置", async () => {
+      if (!live.backend.SetDesktopVisualPreferences) throw new Error("当前桌面后端缺少原子外观设置绑定");
+      const themeMode = mode === "浅色" ? "light" : mode === "深色" ? "dark" : "auto";
+      const themeStyle = theme === `${brand.productName}·石墨` ? "graphite" : theme === "高对比" ? "carbon" : "aurora";
+      const zoom = Number.parseInt(scale, 10) / 100;
+      const size: TextSize = textSize <= 12 ? "small" : textSize <= 14 ? "default" : textSize === 15 ? "large" : textSize <= 16 ? "xlarge" : "xxlarge";
+      const body = bodyFont === "PingFang SC" ? "pingfang" : bodyFont === "Source Han Sans" ? "noto" : bodyFont === "Inter" ? "inter" : "system";
+      const mono = codeFont === "JetBrains Mono" ? "jetbrains" : codeFont === "Fira Code" ? "fira" : codeFont === "SF Mono" ? "sfmono" : "system";
+      await live.backend.SetDesktopVisualPreferences(themeMode, themeStyle, body, mono, size, zoom);
+    });
+    if (!ok) { toast.error("外观设置保存失败", { description: live.error || "后端未确认保存" }); return; }
+    const size: TextSize = textSize <= 12 ? "small" : textSize <= 14 ? "default" : textSize === 15 ? "large" : textSize <= 16 ? "xlarge" : "xxlarge";
+    const body: FontFamily = bodyFont === "PingFang SC" ? "pingfang" : bodyFont === "Source Han Sans" ? "noto" : bodyFont === "Inter" ? "custom" : "system";
+    const mono: MonoFontFamily = codeFont === "JetBrains Mono" ? "jetbrains" : codeFont === "SF Mono" ? "sfmono" : codeFont === "Fira Code" ? "custom" : "system";
+    applyTextSize(size); applyFontFamily(body); applyMonoFontFamily(mono); saveRestartZoom(Number.parseInt(scale, 10) / 100);
+    setDirty(false);
+    toast.success("外观设置已保存", needsRestart ? { description: "缩放将在重新启动后生效" } : undefined);
+  };
 
   return (
     <SettingsBody title="外观" desc={`调整${brand.productName}的显示偏好，实时预览效果，并可恢复默认值`}>
@@ -74,7 +118,8 @@ export function AppearanceSettings() {
         <button onClick={() => setReset(true)} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12.5px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RotateCcw className="size-4" />恢复默认值</button>
       </div>
 
-      <SaveBar dirty={dirty} saving={saving} note={needsRestart ? "缩放需重新启动后生效" : undefined} onSave={() => { setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); toast.success("外观设置已保存", needsRestart ? { description: "缩放将在重新启动后生效" } : undefined); }, 600); }} onReset={() => { setDirty(false); toast("已放弃修改"); }} />
+      {live?.error && <div role="alert" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{live.error}</div>}
+      <SaveBar dirty={dirty} saving={live?.saving ?? saving} note={needsRestart ? "缩放需重新启动后生效" : undefined} onSave={() => void save()} onReset={() => { if (live) void live.reload(); setDirty(false); toast("已放弃修改"); }} />
 
       <ConfirmDialog open={reset} title="恢复默认外观" tone="amber" confirmText="恢复默认" onConfirm={() => { setMode("跟随系统"); setTheme(`${brand.productName}·浅青`); setTextSize(14); setBodyFont("系统默认"); setCodeFont("JetBrains Mono"); setScale("100%"); setDirty(true); setReset(false); toast.success("已恢复默认外观"); }} onCancel={() => setReset(false)}>
         将重置以下显示偏好：主题模式、主题变体、文字大小、正文与代码字体、Windows 缩放比例。确认恢复？

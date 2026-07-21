@@ -7,6 +7,8 @@ import { diagItems as seed, type DiagItem } from "./data";
 import type { SettingsTab } from "./data";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { LiveDiagnosticsSettings } from "./live/LiveDiagnosticsSettings";
 
 type Run = "idle" | "running" | "done" | "rechecking";
 
@@ -19,6 +21,11 @@ const resultMeta: Record<DiagItem["result"], { icon: typeof CheckCircle2; cls: s
 };
 
 export function DiagnosticsSettings({ goTo }: { goTo: GoTo }) {
+  const live = useRillSettingsOptional();
+  return live ? <LiveDiagnosticsSettings live={live} goTo={goTo} /> : <VisualDiagnosticsSettings goTo={goTo} />;
+}
+
+function VisualDiagnosticsSettings({ goTo }: { goTo: GoTo }) {
   const { params } = useStore();
   const [run, setRun] = useState<Run>(() => initialVisualState(params.rillVisualState, ["idle", "running", "done", "rechecking"] as const, "done"));
   const [items] = useState<DiagItem[]>(seed);

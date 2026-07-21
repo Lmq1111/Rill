@@ -74,6 +74,15 @@ func (a *App) OpenDownloadPage() {
 	}
 }
 
+// OpenRillReleases opens the public Rill release page directly. Unlike the
+// legacy updater entry it performs no manifest lookup, so the Version & Privacy
+// settings page always has a deterministic, user-triggered public link.
+func (a *App) OpenRillReleases() {
+	if a.ctx != nil {
+		wruntime.BrowserOpenURL(a.ctx, downloadPageURL)
+	}
+}
+
 // DownloadUpdate downloads, verifies, and caches the latest build. Installation is
 // deliberately a separate user action so the UI can show "downloaded" before the
 // app quits to finish the update.

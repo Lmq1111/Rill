@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShieldCheck, Plus, Trash2, AlertTriangle, ExternalLink, Play } from "lucide-react";
 import { toast } from "sonner";
 import { initialVisualState, SettingsBody } from "./Settings";
@@ -6,6 +6,7 @@ import { Section, Row, Select, Toggle, SaveBar, ConfirmDialog, Drawer } from "./
 import { permRules as seed, plugins, type PermRule } from "./data";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
 
 const OPS: PermRule["op"][] = ["文件写入", "命令执行", "网络访问", "凭据读取", "文件读取"];
 const highRiskOps = new Set(["文件写入", "命令执行", "网络访问", "凭据读取"]);
@@ -14,6 +15,8 @@ type PermissionPageState = "normal" | "empty" | "conflict";
 
 export function PermissionSettings() {
   const { navigate, params } = useStore();
+  const live = useRillSettingsOptional();
+  const persisted = live?.snapshot?.settings.permissions;
   const [mode, setMode] = useState("按风险询问");
   const [rules, setRules] = useState<PermRule[]>(seed);
   const [dirty, setDirty] = useState(false);
@@ -27,6 +30,34 @@ export function PermissionSettings() {
   const [pvOp, setPvOp] = useState<PermRule["op"]>("文件写入");
   const [pvTarget, setPvTarget] = useState("~/work/rill/rill-web/src/index.ts");
   const [preview, setPreview] = useState<Preview>("");
+
+  useEffect(() => {
+    if (!persisted) return;
+    setMode(persisted.mode === "deny" ? "仅允许明确规则" : persisted.mode === "allow" ? "按风险询问" : "始终询问");
+    setRules([
+      ...(persisted.allow ?? []).map((target, index): PermRule => ({ id: `allow-${index}`, name: target, effect: "allow", target, op: "命令执行", scope: "全局", origin: "用户", enabled: true })),
+      ...(persisted.deny ?? []).map((target, index): PermRule => ({ id: `deny-${index}`, name: target, effect: "deny", target, op: "命令执行", scope: "全局", origin: "用户", enabled: true, highRisk: true })),
+    ]);
+    setDirty(false);
+  }, [persisted]);
+
+  const saveAll = async () => {
+    if (!live || !persisted) return;
+    const desiredAllow = rules.filter((rule) => rule.enabled && rule.effect === "allow").map((rule) => rule.target.trim()).filter(Boolean);
+    const desiredDeny = rules.filter((rule) => rule.enabled && rule.effect === "deny").map((rule) => rule.target.trim()).filter(Boolean);
+    const ok = await live.apply("保存权限设置", async () => {
+      const b = live.backend;
+      if (!b.SetPermissions) throw new Error("当前桌面后端缺少原子权限设置绑定");
+      await b.SetPermissions(
+        mode === "仅允许明确规则" ? "deny" : mode === "按风险询问" ? "allow" : "ask",
+        desiredAllow,
+        persisted.ask ?? [],
+        desiredDeny,
+      );
+    });
+    if (ok) { setDirty(false); toast.success("权限设置已保存并由后端重新读取"); }
+    else toast.error("权限设置保存失败", { description: live.error || "后端未确认保存" });
+  };
 
   const list = pstate === "empty" ? rules.filter((r) => r.origin !== "用户") : pstate === "conflict" ? rules : rules;
 
@@ -53,7 +84,8 @@ export function PermissionSettings() {
 
   return (
     <SettingsBody title="权限" desc="管理工具执行与本地资源修改的默认审批方式与允许/拒绝规则；权限审批不等同于沙箱隔离">
-      <StateSwitcherLocal pstate={pstate} setPState={setPState} />
+      {!live && <StateSwitcherLocal pstate={pstate} setPState={setPState} />}
+      {live?.error && <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{live.error}</div>}
 
       <div className="mb-4 flex items-center gap-1.5 rounded-lg bg-slate-100 p-3 text-[12px] text-slate-600"><ShieldCheck className="size-4 shrink-0" />权限规则决定“是否询问 / 允许 / 拒绝”某个操作，与沙箱的隔离能力相互独立。沙箱隔离请在“沙箱”页配置。</div>
 
@@ -120,7 +152,10 @@ export function PermissionSettings() {
         </Section>
       </div>
 
-      <SaveBar dirty={dirty} saving={saving} onSave={() => { setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); toast.success("权限设置已保存", { description: "已保存不代表已在运行时生效，实际以运行时判断为准" }); }, 700); }} onReset={() => { setDirty(false); toast("已放弃修改"); }} />
+      <SaveBar dirty={dirty} saving={live?.saving ?? saving} onSave={() => {
+        if (live) { void saveAll(); return; }
+        setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); toast.success("权限设置已保存", { description: "已保存不代表已在运行时生效，实际以运行时判断为准" }); }, 700);
+      }} onReset={() => { if (live) void live.reload(); setDirty(false); toast("已放弃修改"); }} />
 
       {editing && <RuleEditor rule={editing} onClose={() => setEditing(null)} onSave={save} />}
 

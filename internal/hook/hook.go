@@ -127,6 +127,9 @@ type HookConfig struct {
 	Timeout int `json:"timeout,omitempty"`
 	// Cwd overrides the working directory (defaults to the payload's cwd).
 	Cwd string `json:"cwd,omitempty"`
+	// Disabled preserves a user-authored hook in settings while keeping it out
+	// of the resolved runtime list, so the Settings toggle survives restart.
+	Disabled bool `json:"disabled,omitempty"`
 	// Env adds environment variables for this hook invocation.
 	Env map[string]string `json:"env,omitempty"`
 	// Async and PayloadFormat are internal compatibility metadata populated for
@@ -243,7 +246,7 @@ func appendResolved(out *[]ResolvedHook, s *Settings, scope Scope, source string
 	}
 	for _, event := range Events {
 		for _, cfg := range s.Hooks[event] {
-			if strings.TrimSpace(cfg.Command) == "" {
+			if cfg.Disabled || strings.TrimSpace(cfg.Command) == "" {
 				continue
 			}
 			cfg.Command = NormalizeCommand(cfg.Command)

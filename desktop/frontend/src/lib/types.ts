@@ -1252,6 +1252,7 @@ export interface NetworkProxyView {
   port: number;
   username: string;
   password: string;
+  passwordSet: boolean;
 }
 
 export interface NetworkView {
@@ -1465,6 +1466,20 @@ export interface HookConfigView {
   description?: string;
   timeout?: number;
   cwd?: string;
+  disabled?: boolean;
+}
+
+export interface GeneralSettingsInput {
+  language: string;
+  layoutStyle: string;
+  closeBehavior: string;
+  displayMode: string;
+  expandThinking: boolean;
+  defaultToolApprovalMode: string;
+  autoPlan: string;
+  memoryCompilerEnabled: boolean;
+  statusBarStyle: string;
+  statusBarItems: string[];
 }
 
 export interface HooksSettingsView {
@@ -1516,6 +1531,12 @@ export interface SettingsView {
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
   metrics: boolean; // aggregate desktop metrics (anonymous signal/bucket counts)
   memoryCompilerEnabled: boolean; // Memory v5 execution compiler
+  expandThinking: boolean; // default visibility for tool/reasoning process blocks
+  desktopShortcuts: Record<string, string>; // backend-confirmed ShortcutCombo JSON by action
+  desktopFontFamily: string;
+  desktopMonoFontFamily: string;
+  desktopTextSize: string;
+  desktopZoomFactor: number;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

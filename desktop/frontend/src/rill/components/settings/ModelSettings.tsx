@@ -6,10 +6,17 @@ import { brand } from "../../../lib/brand";
 import { Section, Row, Select, SaveBar, StateBadge, StateSwitcher, ConfirmDialog, Drawer, SecretField } from "./kit";
 import { providers as seedProviders, models as seedModels, type Provider } from "./data";
 import { useStore } from "../../state/visualStore";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { LiveModelSettings } from "./live/LiveModelSettings";
 
 type Test = "idle" | "testing" | "ok" | "keyInvalid" | "network" | "address" | "noModel";
 
 export function ModelSettings() {
+  const live = useRillSettingsOptional();
+  return live ? <LiveModelSettings live={live} /> : <VisualModelSettings />;
+}
+
+function VisualModelSettings() {
   const { params } = useStore();
   const [providers, setProviders] = useState<Provider[]>(seedProviders);
   const [dirty, setDirty] = useState(false);

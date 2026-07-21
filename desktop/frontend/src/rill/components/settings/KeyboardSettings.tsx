@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { SettingsBody } from "./Settings";
 import { Section, SaveBar, ConfirmDialog } from "./kit";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { LiveKeyboardSettings } from "./live/LiveKeyboardSettings";
 
 interface Binding { id: string; action: string; scope: string; current: string; def: string; }
 
@@ -21,6 +23,11 @@ const seed: Binding[] = [
 const RESERVED = new Set(["⌘Q", "⌘W", "⌘M", "⌘H", "⌘空格"]);
 
 export function KeyboardSettings() {
+  const live = useRillSettingsOptional();
+  return live ? <LiveKeyboardSettings live={live} /> : <VisualKeyboardSettings />;
+}
+
+function VisualKeyboardSettings() {
   const [items, setItems] = useState<Binding[]>(seed);
   const [query, setQuery] = useState("");
   const [dirty, setDirty] = useState(false);

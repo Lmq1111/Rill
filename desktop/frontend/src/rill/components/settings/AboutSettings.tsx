@@ -5,11 +5,18 @@ import { initialVisualState, SettingsBody, type GoTo } from "./Settings";
 import { Section, Row } from "./kit";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import { LiveAboutSettings } from "./live/LiveAboutSettings";
 
 type Check = "latest" | "checking" | "found" | "noAccess" | "failed" | "offline";
 type Diag = "idle" | "generating" | "done";
 
 export function AboutSettings({ goTo }: { goTo: GoTo }) {
+  const live = useRillSettingsOptional();
+  return live ? <LiveAboutSettings live={live} goTo={goTo} /> : <VisualAboutSettings goTo={goTo} />;
+}
+
+function VisualAboutSettings({ goTo }: { goTo: GoTo }) {
   const { params } = useStore();
   const [check, setCheck] = useState<Check>(() => initialVisualState(params.rillVisualState, ["latest", "checking", "found", "noAccess", "failed", "offline"] as const, "latest"));
   const [diag, setDiag] = useState<Diag>("idle");

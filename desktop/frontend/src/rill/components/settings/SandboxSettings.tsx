@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, FolderPlus, Trash2, AlertTriangle, ShieldCheck, ShieldOff, RotateCcw, Play, FileText, FileEdit, Terminal, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { initialVisualState, SettingsBody } from "./Settings";
 import { Section, Row, Select, Toggle, SaveBar, ConfirmDialog } from "./kit";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
 
 type Detect = "idle" | "detecting" | "protected" | "partial" | "off" | "unavailable" | "invalid" | "applying" | "applyFailed";
 
@@ -12,6 +13,8 @@ const MODES = ["只读", "仅工作区可写", "关闭沙箱"];
 
 export function SandboxSettings() {
   const { params } = useStore();
+  const live = useRillSettingsOptional();
+  const persisted = live?.snapshot?.settings.sandbox;
   const [detect, setDetect] = useState<Detect>(() => initialVisualState(params.rillVisualState, ["protected", "partial", "off", "unavailable", "invalid", "applyFailed"] as const, "partial"));
   const [mode, setMode] = useState("仅工作区可写");
   const [network, setNetwork] = useState(false);
@@ -21,7 +24,40 @@ export function SandboxSettings() {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<null | "off" | "net" | "write" | "reset">(null);
 
-  const runDetect = (result: Detect) => { setDetect("detecting"); toast("正在检测沙箱是否生效…"); setTimeout(() => { setDetect(result); }, 1200); };
+  useEffect(() => {
+    if (!persisted) return;
+    setMode(persisted.bash === "off" ? "关闭沙箱" : "仅工作区可写");
+    setNetwork(persisted.network);
+    setDirs(persisted.allowWrite ?? []);
+    setDetect(persisted.bash === "off" ? "off" : persisted.network ? "partial" : "protected");
+    setDirty(false);
+  }, [persisted]);
+
+  const runDetect = async (result: Detect) => {
+    setDetect("detecting");
+    if (live) {
+      try {
+        const current = (await live.backend.Settings()).sandbox;
+        setDetect(current.bash === "off" ? "off" : current.network ? "partial" : "protected");
+        await live.reload();
+      } catch {
+        setDetect("unavailable");
+      }
+      return;
+    }
+    toast("正在检测沙箱是否生效…"); setTimeout(() => { setDetect(result); }, 1200);
+  };
+
+  const saveLive = async () => {
+    if (!live) return;
+    setDetect("applying");
+    const ok = await live.apply("保存沙箱设置", async () => {
+      if (!live.backend.SetSandbox) throw new Error("当前桌面后端缺少沙箱设置绑定");
+      await live.backend.SetSandbox(mode === "关闭沙箱" ? "off" : "enforce", network, persisted?.workspaceRoot ?? "", dirs, persisted?.shell ?? "auto");
+    });
+    if (ok) { setDirty(false); setDetect(mode === "关闭沙箱" ? "off" : network ? "partial" : "protected"); toast.success("沙箱配置已由后端确认"); }
+    else { setDetect("applyFailed"); toast.error("沙箱配置应用失败", { description: live.error || "已保留上一个权威配置" }); }
+  };
 
   const summary: Record<string, { title: string; cls: string; icon: typeof ShieldCheck; text: string }> = {
     protected: { title: "保护已启用", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: ShieldCheck, text: "命令运行在隔离环境中，写入被限制在授权范围内。" },
@@ -46,24 +82,25 @@ export function SandboxSettings() {
 
   return (
     <SettingsBody title="沙箱" desc={`配置${brand.productName}运行命令时实际可用的隔离能力、文件访问范围和网络范围；显示状态基于实际检测结果`}>
-      <StateSwitcherLocal value={detect} onChange={setDetect} />
+      {!live && <StateSwitcherLocal value={detect} onChange={setDetect} />}
+      {live?.error && <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{live.error}</div>}
 
       <div className={`mb-4 flex items-start gap-2 rounded-xl border p-3.5 ${s.cls}`}>
         <SIcon className="mt-0.5 size-5 shrink-0" />
         <div className="min-w-0"><div className="text-[14px]">{s.title}</div><p className="mt-0.5 text-[12.5px] opacity-90">{s.text}</p></div>
-        <button onClick={() => runDetect(mode === "关闭沙箱" ? "off" : network ? "partial" : "protected")} className="ml-auto shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-[11.5px] text-slate-700 ring-1 ring-black/5 hover:bg-white">重新检测</button>
+        <button onClick={() => void runDetect(mode === "关闭沙箱" ? "off" : network ? "partial" : "protected")} className="ml-auto shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-[11.5px] text-slate-700 ring-1 ring-black/5 hover:bg-white">{live ? "重新读取" : "重新检测"}</button>
       </div>
 
       <Section title="沙箱后端" desc="不同系统可用的隔离能力不同，不可用时会明确降级">
         <Row label="检测到的后端" hint="macOS Seatbelt / Linux bubblewrap / 无">
-          <span className="text-[13px] text-slate-700">{detect === "unavailable" ? "无（不可用）" : "Seatbelt"}</span>
+          <span className="text-[13px] text-slate-700">{detect === "unavailable" ? "后端不可用" : live ? "后端配置已读取" : "Seatbelt"}</span>
         </Row>
         <Row label="Bash 命令沙箱模式" hint="决定命令执行时的实际隔离方式">
           <Select value={mode} onChange={(v) => {
             if (v === "关闭沙箱") { setConfirm("off"); return; }
             if (v === "仅工作区可写" && mode === "只读") { setConfirm("write"); return; }
             setMode(v); setDirty(true);
-          }} options={MODES} />
+          }} options={live ? ["仅工作区可写", "关闭沙箱"] : MODES} />
         </Row>
       </Section>
 
@@ -104,11 +141,14 @@ export function SandboxSettings() {
       </div>
 
       <div className="mt-4 flex items-center gap-2">
-        <button onClick={() => runDetect(mode === "关闭沙箱" ? "off" : network ? "partial" : "protected")} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12.5px] text-teal-700 ring-1 ring-teal-200 hover:bg-teal-50"><Play className="size-4" />检测配置是否生效</button>
+        <button onClick={() => void runDetect(mode === "关闭沙箱" ? "off" : network ? "partial" : "protected")} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12.5px] text-teal-700 ring-1 ring-teal-200 hover:bg-teal-50"><Play className="size-4" />检测配置是否生效</button>
         <button onClick={() => setConfirm("reset")} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12.5px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RotateCcw className="size-4" />恢复安全默认值</button>
       </div>
 
-      <SaveBar dirty={dirty} saving={saving} note="保存不代表已生效，请检测配置是否生效" onSave={() => { setSaving(true); setDetect("applying"); setTimeout(() => { setSaving(false); setDirty(false); setDetect(network ? "partial" : "protected"); toast.success("配置已应用，请查看检测结果"); }, 900); }} onReset={() => { setDirty(false); toast("已放弃修改"); }} />
+      <SaveBar dirty={dirty} saving={live?.saving ?? saving} note="保存后重新读取实际生效配置" onSave={() => {
+        if (live) { void saveLive(); return; }
+        setSaving(true); setDetect("applying"); setTimeout(() => { setSaving(false); setDirty(false); setDetect(network ? "partial" : "protected"); toast.success("配置已应用，请查看检测结果"); }, 900);
+      }} onReset={() => { if (live) void live.reload(); setDirty(false); toast("已放弃修改"); }} />
 
       <ConfirmDialog open={confirm === "off"} title="关闭沙箱确认" confirmText="仍然关闭" onConfirm={() => { setMode("关闭沙箱"); setDirty(true); setConfirm(null); }} onCancel={() => setConfirm(null)}>
         关闭沙箱后，命令将以当前用户完整权限执行，不再受文件与网络隔离保护。确认关闭？

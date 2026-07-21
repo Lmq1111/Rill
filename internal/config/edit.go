@@ -267,6 +267,48 @@ func (c *Config) SetDesktopAppearance(theme, style string) error {
 	return nil
 }
 
+// SetDesktopVisualPreferences validates the complete appearance payload before
+// mutating config so the desktop can persist theme, typography and zoom in one
+// authoritative write.
+func (c *Config) SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize string, zoomFactor float64) error {
+	next := *c
+	if err := next.SetDesktopAppearance(theme, style); err != nil {
+		return err
+	}
+	switch strings.ToLower(strings.TrimSpace(fontFamily)) {
+	case "system", "pingfang", "noto", "inter":
+		next.Desktop.FontFamily = strings.ToLower(strings.TrimSpace(fontFamily))
+	default:
+		return fmt.Errorf("desktop font family %q: must be system|pingfang|noto|inter", fontFamily)
+	}
+	switch strings.ToLower(strings.TrimSpace(monoFontFamily)) {
+	case "system", "jetbrains", "fira", "sfmono":
+		next.Desktop.MonoFontFamily = strings.ToLower(strings.TrimSpace(monoFontFamily))
+	default:
+		return fmt.Errorf("desktop mono font family %q: must be system|jetbrains|fira|sfmono", monoFontFamily)
+	}
+	switch strings.ToLower(strings.TrimSpace(textSize)) {
+	case "small", "default", "large", "xlarge", "xxlarge":
+		next.Desktop.TextSize = strings.ToLower(strings.TrimSpace(textSize))
+	default:
+		return fmt.Errorf("desktop text size %q: must be small|default|large|xlarge|xxlarge", textSize)
+	}
+	if zoomFactor < 0.5 || zoomFactor > 2 {
+		return fmt.Errorf("desktop zoom factor %.2f: must be between 0.5 and 2", zoomFactor)
+	}
+	next.Desktop.ZoomFactor = zoomFactor
+	c.Desktop = next.Desktop
+	return nil
+}
+
+func (c *Config) SetDesktopZoomFactor(zoomFactor float64) error {
+	if zoomFactor < 0.5 || zoomFactor > 2 {
+		return fmt.Errorf("desktop zoom factor %.2f: must be between 0.5 and 2", zoomFactor)
+	}
+	c.Desktop.ZoomFactor = zoomFactor
+	return nil
+}
+
 // SetDesktopLayoutStyle sets the desktop layout style. UI-only; it must not
 // affect CLI output or provider-visible request data.
 func (c *Config) SetDesktopLayoutStyle(style string) error {
@@ -387,6 +429,16 @@ func (c *Config) SetDesktopTelemetry(enabled bool) error {
 func (c *Config) SetDesktopMetrics(enabled bool) error {
 	c.Desktop.Metrics = &enabled
 	return nil
+}
+
+// SetDesktopShortcuts persists backend-confirmed desktop shortcut overrides.
+// Payload validation lives at the desktop binding boundary where the JSON
+// representation is known; config retains an opaque defensive copy.
+func (c *Config) SetDesktopShortcuts(shortcuts map[string]string) {
+	c.Desktop.Shortcuts = make(map[string]string, len(shortcuts))
+	for action, combo := range shortcuts {
+		c.Desktop.Shortcuts[action] = combo
+	}
 }
 
 // SetUICloseBehavior is kept for callers compiled against the old edit API.

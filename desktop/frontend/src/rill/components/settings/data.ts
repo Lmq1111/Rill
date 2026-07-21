@@ -127,6 +127,8 @@ export interface Subagent {
   model: string; // 或“继承默认”
   reasoning: string;
   tools: string; // “全部工具” 或 数量
+  systemPrompt?: string;
+  allowedTools?: string[];
   color?: string;
 }
 

@@ -123,6 +123,13 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
 		}
 		fmt.Fprintf(&b, "expand_thinking = %v   # desktop: show reasoning text expanded by default; false = collapsed\n", c.Desktop.ExpandThinking)
+		if len(c.Desktop.Shortcuts) > 0 {
+			fmt.Fprintf(&b, "shortcuts = %s   # desktop: backend-confirmed custom keyboard shortcuts\n", renderStringMap(c.Desktop.Shortcuts))
+		}
+		fmt.Fprintf(&b, "font_family = %q   # desktop: system|pingfang|noto|inter\n", c.DesktopFontFamily())
+		fmt.Fprintf(&b, "mono_font_family = %q   # desktop: system|jetbrains|fira|sfmono\n", c.DesktopMonoFontFamily())
+		fmt.Fprintf(&b, "text_size = %q   # desktop: small|default|large|xlarge|xxlarge\n", c.DesktopTextSize())
+		fmt.Fprintf(&b, "zoom_factor = %.2f   # desktop restart zoom: 0.5..2.0\n", c.DesktopZoomFactor())
 		fmt.Fprintf(&b, "display_mode = %q   # desktop: standard|compact transcript display mode\n", c.DesktopDisplayMode())
 		b.WriteString("\n")
 	} else if c.Desktop.ProviderAccess != nil {

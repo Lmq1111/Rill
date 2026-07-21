@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Webhook, Plus, Play, Copy, Trash2, ExternalLink, AlertTriangle, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { initialVisualState, SettingsBody } from "./Settings";
@@ -6,6 +6,8 @@ import { Section, Toggle, StateSwitcher, ConfirmDialog, Drawer, Select } from ".
 import { hooks as seed, plugins, type Hook } from "./data";
 import { useStore } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
+import { useRillSettingsOptional } from "../../settings/runtime";
+import type { HookConfigView } from "../../../lib/types";
 
 const EVENTS = ["会话开始", "会话结束", "模型调用前", "模型调用后", "工具调用前", "工具调用后", "任务完成"];
 const resultMeta: Record<Hook["lastResult"], { label: string; cls: string }> = {
@@ -21,11 +23,36 @@ type Test = "idle" | "running" | "ok" | "failed" | "timeout" | "unavailable";
 
 export function HooksSettings() {
   const { navigate, params } = useStore();
+  const live = useRillSettingsOptional();
   const [items, setItems] = useState<Hook[]>(seed);
   const [editing, setEditing] = useState<Hook | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [riskConfirm, setRiskConfirm] = useState<Hook | null>(null);
   const [pstate, setPState] = useState(() => initialVisualState(params.rillVisualState, ["normal", "empty"] as const, "normal"));
+
+  useEffect(() => {
+    if (!live?.snapshot) return;
+    setItems(live.snapshot.hooks.hooks.map((hook, index): Hook => ({
+      id: `hook-${index}`,
+      name: hook.description || `${hook.event} Hook`,
+      event: hook.event,
+      command: hook.command,
+      scope: "全局",
+      origin: "用户",
+      enabled: !hook.disabled,
+      lastResult: live.snapshot!.diagnostics.issues.some((issue) => issue.subsystem === "hooks" && issue.name === hook.event) ? "failed" : "never",
+      highRisk: isRisky(hook.command),
+    })));
+  }, [live?.snapshot]);
+
+  const persist = async (next: Hook[], label: string) => {
+    if (!live) return false;
+    return live.apply(label, async () => {
+      if (!live.backend.SaveHooksSettingsForRoot) throw new Error("当前桌面后端缺少 Hooks 保存绑定");
+      const hooks: HookConfigView[] = next.map((hook) => ({ event: hook.event, command: hook.command, description: hook.name, disabled: !hook.enabled }));
+      await live.backend.SaveHooksSettingsForRoot("global", "", hooks);
+    });
+  };
 
   const list = pstate === "empty" ? [] : items;
 
@@ -36,14 +63,16 @@ export function HooksSettings() {
   };
   const commit = (h: Hook) => {
     const withRisk = { ...h, highRisk: isRisky(h.command) };
-    if (h.id === "new") setItems((is) => [...is, { ...withRisk, id: `hk${Date.now()}`, lastResult: "never" }]);
-    else setItems((is) => is.map((x) => x.id === h.id ? withRisk : x));
-    toast.success("Hook 已保存"); setEditing(null); setRiskConfirm(null);
+    const next = h.id === "new" ? [...items, { ...withRisk, id: `hk${Date.now()}`, lastResult: "never" as const }] : items.map((x) => x.id === h.id ? withRisk : x);
+    if (live) {
+      void persist(next, "保存 Hook").then((ok) => { if (ok) { setEditing(null); setRiskConfirm(null); toast.success("Hook 已保存"); } else toast.error("Hook 保存失败", { description: live.error }); });
+    } else { setItems(next); toast.success("Hook 已保存"); setEditing(null); setRiskConfirm(null); }
   };
 
   return (
     <SettingsBody title="Hooks" desc={`管理在${brand.productName}运行生命周期中自动执行的本地命令；Hook 以当前用户权限执行，并非运行在隔离环境中`}>
-      <StateSwitcher value={pstate} onChange={setPState} options={[{ id: "normal", label: "正常列表" }, { id: "empty", label: "无 Hook" }]} />
+      {!live && <StateSwitcher value={pstate} onChange={setPState} options={[{ id: "normal", label: "正常列表" }, { id: "empty", label: "无 Hook" }]} />}
+      {live?.error && <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{live.error}</div>}
 
       <div className="mb-4 flex items-center gap-1.5 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-800"><AlertTriangle className="size-4 shrink-0" />Hook 以当前用户权限在本机执行，不处于沙箱隔离中，请仅配置可信命令。</div>
 
@@ -66,7 +95,9 @@ export function HooksSettings() {
                     <span className={`rounded px-1.5 py-0.5 text-[10.5px] ${r.cls}`}>{r.label}</span>
                     <div className="ml-auto"><Toggle checked={h.enabled} onChange={(v) => {
                       if (h.origin === "插件") return toast.error("插件 Hook 请前往插件管理调整");
-                      setItems((is) => is.map((x) => x.id === h.id ? { ...x, enabled: v } : x)); toast(v ? "已启用" : "已停用");
+                      const next = items.map((x) => x.id === h.id ? { ...x, enabled: v } : x);
+                      if (live) void persist(next, v ? "启用 Hook" : "停用 Hook").then((ok) => ok ? toast(v ? "已启用" : "已停用") : toast.error("Hook 状态保存失败", { description: live.error }));
+                      else { setItems(next); toast(v ? "已启用" : "已停用"); }
                     }} /></div>
                   </div>
                   <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[11.5px] text-slate-500"><Terminal className="size-3.5 shrink-0" /><span className="truncate">{h.command}</span></div>
@@ -75,7 +106,7 @@ export function HooksSettings() {
                     <div className="mt-2.5 border-t border-slate-100 pt-2.5"><button onClick={() => navigate("settings", { tab: "plugin" })} className="flex items-center gap-1 text-[11.5px] text-violet-600 hover:underline"><ExternalLink className="size-3" />由插件 {plugins.find(p=>p.id===h.pluginId)?.name} 提供 · 前往插件管理</button></div>
                   ) : (
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
-                      <button onClick={() => setEditing(h)} className="rounded-lg bg-white px-2.5 py-1 text-[11.5px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">编辑 / 测试</button>
+                      <button onClick={() => setEditing(h)} className="rounded-lg bg-white px-2.5 py-1 text-[11.5px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">{live ? "编辑" : "编辑 / 测试"}</button>
                       <button onClick={() => { const clone = { ...h, id: "new", name: h.name + " 副本", enabled: false }; setEditing(clone); }} className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11.5px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><Copy className="size-3.5" />复制</button>
                       <button onClick={() => setDeleteId(h.id)} className="ml-auto flex items-center gap-1 text-[11.5px] text-rose-600 hover:underline"><Trash2 className="size-3.5" />删除</button>
                     </div>
@@ -87,21 +118,25 @@ export function HooksSettings() {
         )}
       </Section>
 
-      {editing && <HookEditor hook={editing} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <HookEditor hook={editing} liveMode={Boolean(live)} onClose={() => setEditing(null)} onSave={save} />}
 
       <ConfirmDialog open={!!riskConfirm} title="高风险命令确认" confirmText="我已了解风险，保存" onConfirm={() => riskConfirm && commit(riskConfirm)} onCancel={() => setRiskConfirm(null)}>
         该 Hook 的命令包含可能造成数据丢失或安全风险的操作，且以当前用户权限执行。确认保存？
         <div className="mt-2 rounded-lg bg-slate-50 p-2 font-mono text-[11.5px] text-slate-600">{riskConfirm?.command}</div>
       </ConfirmDialog>
 
-      <ConfirmDialog open={!!deleteId} title="删除 Hook" confirmText="删除" onConfirm={() => { setItems((is) => is.filter((x) => x.id !== deleteId)); setDeleteId(null); toast.success("已删除 Hook"); }} onCancel={() => setDeleteId(null)}>
+      <ConfirmDialog open={!!deleteId} title="删除 Hook" confirmText="删除" onConfirm={() => {
+        const next = items.filter((x) => x.id !== deleteId);
+        if (live) void persist(next, "删除 Hook").then((ok) => { if (ok) { setDeleteId(null); toast.success("已删除 Hook"); } else toast.error("Hook 删除失败", { description: live.error }); });
+        else { setItems(next); setDeleteId(null); toast.success("已删除 Hook"); }
+      }} onCancel={() => setDeleteId(null)}>
         删除后该 Hook 将不再在生命周期事件中执行。确认删除？
       </ConfirmDialog>
     </SettingsBody>
   );
 }
 
-function HookEditor({ hook, onClose, onSave }: { hook: Hook; onClose: () => void; onSave: (h: Hook) => void }) {
+function HookEditor({ hook, liveMode, onClose, onSave }: { hook: Hook; liveMode: boolean; onClose: () => void; onSave: (h: Hook) => void }) {
   const [h, setH] = useState<Hook>(hook);
   const set = (patch: Partial<Hook>) => setH((p) => ({ ...p, ...patch }));
   const [test, setTest] = useState<Test>("idle");
@@ -123,15 +158,15 @@ function HookEditor({ hook, onClose, onSave }: { hook: Hook; onClose: () => void
       <label className="block"><span className="text-[12px] text-slate-500">名称</span><input value={h.name} onChange={(e) => set({ name: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-teal-300" /></label>
       <label className="block"><span className="text-[12px] text-slate-500">触发事件</span><Select value={h.event} onChange={(v) => set({ event: v })} options={EVENTS} /></label>
       <label className="block"><span className="text-[12px] text-slate-500">命令</span><input value={h.command} onChange={(e) => set({ command: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-teal-300" placeholder="./scripts/run.sh --flag" /></label>
-      <div className="grid grid-cols-2 gap-3">
+      {!liveMode && <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className="text-[12px] text-slate-500">工作目录</span><input defaultValue="${workspace}" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-teal-300" /></label>
         <label className="block"><span className="text-[12px] text-slate-500">超时（秒）</span><input defaultValue="30" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-teal-300" /></label>
-      </div>
-      <label className="block"><span className="text-[12px] text-slate-500">环境变量（KEY=VALUE，每行一个）</span><textarea rows={2} className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-teal-300" placeholder="NODE_ENV=production" /></label>
-      <div className="grid grid-cols-2 gap-3">
+      </div>}
+      {!liveMode && <label className="block"><span className="text-[12px] text-slate-500">环境变量（KEY=VALUE，每行一个）</span><textarea rows={2} className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-teal-300" placeholder="NODE_ENV=production" /></label>}
+      {!liveMode && <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className="text-[12px] text-slate-500">作用范围</span><Select value={h.scope} onChange={(v) => set({ scope: v })} options={["全局", "rill-web", "rillagent-cli"]} /></label>
         <label className="block"><span className="text-[12px] text-slate-500">失败处理</span><Select value="记录并继续" onChange={() => {}} options={["记录并继续", "阻断当前任务"]} /></label>
-      </div>
+      </div>}
 
       {isRisky(h.command) && <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 p-2.5 text-[12px] text-rose-700"><AlertTriangle className="size-4" />检测到高风险命令，保存时需要额外确认。</div>}
 
@@ -143,7 +178,7 @@ function HookEditor({ hook, onClose, onSave }: { hook: Hook; onClose: () => void
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 p-3">
+      {!liveMode && <div className="rounded-lg border border-slate-200 p-3">
         <div className="flex items-center justify-between">
           <span className="text-[13px] text-slate-800">测试运行</span>
           <div className="flex gap-1.5">
@@ -161,7 +196,7 @@ function HookEditor({ hook, onClose, onSave }: { hook: Hook; onClose: () => void
           </div>
         )}
         {(test === "failed" || test === "timeout" || test === "unavailable") && <button onClick={() => runTest("ok")} className="mt-2 text-[11.5px] text-teal-700 hover:underline">重新测试</button>}
-      </div>
+      </div>}
     </Drawer>
   );
 }

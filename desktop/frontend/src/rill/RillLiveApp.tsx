@@ -9,6 +9,7 @@ import { adaptBotChannels, patchBotChannel } from "./adapters/channels";
 import { adaptHeartbeatTasks, toHeartbeatTask } from "./adapters/automation";
 import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "./adapters/workspace";
 import { CorePages } from "./pages/core";
+import { RillSettingsProvider } from "./settings/runtime";
 import {
   StoreProvider,
   useStore,
@@ -444,8 +445,10 @@ export function RillLiveApp() {
   return (
     <div className="rill-app" data-testid="rill-live-shell">
       <StoreProvider seed={seed} runtime={runtime}>
-        <RillRouteOutlet />
-        <Toaster position="bottom-right" richColors />
+        <RillSettingsProvider backend={app}>
+          <RillRouteOutlet />
+          <Toaster position="bottom-right" richColors />
+        </RillSettingsProvider>
       </StoreProvider>
     </div>
   );

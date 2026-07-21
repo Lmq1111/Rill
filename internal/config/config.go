@@ -135,21 +135,75 @@ type UIConfig struct {
 // separate from top-level language and [ui] so desktop choices do not affect CLI
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
-	Language                string   `toml:"language"`                   // auto|en|zh; empty/auto = browser/OS auto-detect
-	LayoutStyle             string   `toml:"layout_style"`               // classic|workbench|creation; desktop layout style
-	Theme                   string   `toml:"theme"`                      // auto|dark|light; empty resolves to auto
-	ThemeStyle              string   `toml:"theme_style"`                // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
-	ExternalOpener          string   `toml:"external_opener"`            // preferred installed app used by the desktop Open control
-	CloseBehavior           string   `toml:"close_behavior"`             // quit|background; desktop window close behavior
-	DisplayMode             string   `toml:"display_mode"`               // standard|compact (legacy "minimal" maps to compact); transcript display mode
-	StatusBarStyle          string   `toml:"status_bar_style"`           // icon|text; desktop status bar metric labels
-	StatusBarItems          []string `toml:"status_bar_items"`           // ordered visible desktop status bar items
-	DefaultToolApprovalMode string   `toml:"default_tool_approval_mode"` // ask|auto|yolo; defaults to auto for newly-created desktop sessions
-	CheckUpdates            *bool    `toml:"check_updates"`              // startup update checks; nil keeps the default enabled
-	Telemetry               *bool    `toml:"telemetry"`                  // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics                 *bool    `toml:"metrics"`                    // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
-	ProviderAccess          []string `toml:"provider_access"`            // desktop-only list of provider entries shown in Settings > Model > Access
-	ExpandThinking          bool     `toml:"expand_thinking"`            // true = show reasoning text expanded by default; false = collapsed
+	Language                string            `toml:"language"`                   // auto|en|zh; empty/auto = browser/OS auto-detect
+	LayoutStyle             string            `toml:"layout_style"`               // classic|workbench|creation; desktop layout style
+	Theme                   string            `toml:"theme"`                      // auto|dark|light; empty resolves to auto
+	ThemeStyle              string            `toml:"theme_style"`                // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	ExternalOpener          string            `toml:"external_opener"`            // preferred installed app used by the desktop Open control
+	CloseBehavior           string            `toml:"close_behavior"`             // quit|background; desktop window close behavior
+	DisplayMode             string            `toml:"display_mode"`               // standard|compact (legacy "minimal" maps to compact); transcript display mode
+	StatusBarStyle          string            `toml:"status_bar_style"`           // icon|text; desktop status bar metric labels
+	StatusBarItems          []string          `toml:"status_bar_items"`           // ordered visible desktop status bar items
+	DefaultToolApprovalMode string            `toml:"default_tool_approval_mode"` // ask|auto|yolo; defaults to auto for newly-created desktop sessions
+	CheckUpdates            *bool             `toml:"check_updates"`              // startup update checks; nil keeps the default enabled
+	Telemetry               *bool             `toml:"telemetry"`                  // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+	Metrics                 *bool             `toml:"metrics"`                    // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
+	ProviderAccess          []string          `toml:"provider_access"`            // desktop-only list of provider entries shown in Settings > Model > Access
+	ExpandThinking          bool              `toml:"expand_thinking"`            // true = show reasoning text expanded by default; false = collapsed
+	Shortcuts               map[string]string `toml:"shortcuts"`                  // desktop action -> normalized ShortcutCombo JSON
+	FontFamily              string            `toml:"font_family"`                // system|pingfang|noto|inter
+	MonoFontFamily          string            `toml:"mono_font_family"`           // system|jetbrains|fira|sfmono
+	TextSize                string            `toml:"text_size"`                  // small|default|large|xlarge|xxlarge
+	ZoomFactor              float64           `toml:"zoom_factor"`                // desktop restart zoom; 0 defaults to 1
+}
+
+// DesktopShortcuts returns a defensive copy of the persisted desktop shortcut
+// overrides. The values are normalized ShortcutCombo JSON owned by the desktop
+// frontend; keeping them opaque here avoids coupling the core config package to
+// browser keyboard-event types.
+func (c *Config) DesktopShortcuts() map[string]string {
+	out := map[string]string{}
+	if c == nil {
+		return out
+	}
+	for action, combo := range c.Desktop.Shortcuts {
+		out[action] = combo
+	}
+	return out
+}
+
+func (c *Config) DesktopFontFamily() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.FontFamily)) {
+	case "pingfang", "noto", "inter":
+		return strings.ToLower(strings.TrimSpace(c.Desktop.FontFamily))
+	default:
+		return "system"
+	}
+}
+
+func (c *Config) DesktopMonoFontFamily() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.MonoFontFamily)) {
+	case "jetbrains", "fira", "sfmono":
+		return strings.ToLower(strings.TrimSpace(c.Desktop.MonoFontFamily))
+	default:
+		return "system"
+	}
+}
+
+func (c *Config) DesktopTextSize() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.TextSize)) {
+	case "small", "large", "xlarge", "xxlarge":
+		return strings.ToLower(strings.TrimSpace(c.Desktop.TextSize))
+	default:
+		return "default"
+	}
+}
+
+func (c *Config) DesktopZoomFactor() float64 {
+	if c == nil || c.Desktop.ZoomFactor < 0.5 || c.Desktop.ZoomFactor > 2 {
+		return 1
+	}
+	return c.Desktop.ZoomFactor
 }
 
 // DesktopExternalOpener returns the user-selected external opener id. The

@@ -86,6 +86,7 @@ import type {
   WorkspaceFileDiffView,
   GitCommitView,
   GitCommitDetailView,
+  GeneralSettingsInput,
   WorkspaceView,
 } from "./types";
 
@@ -272,6 +273,7 @@ export interface AppBindings {
   DeleteSubagentProfile(name: string, scope: string): Promise<void>;
   SetSubagentProfileModel(name: string, ref: string): Promise<void>;
   SetSubagentProfileEffort(name: string, level: string): Promise<void>;
+  SetSubagentProfileOverrides(name: string, ref: string, level: string): Promise<void>;
   TrySubagentProfile(input: SubagentProfileInput, task: string): Promise<string>;
   CancelTrySubagentProfile(): Promise<void>;
   SetMCPServerEnabled(name: string, enabled: boolean): Promise<void>;
@@ -355,6 +357,7 @@ export interface AppBindings {
   SetProviderKey(apiKeyEnv: string, value: string): Promise<string>;
   ClearProviderKey(apiKeyEnv: string): Promise<void>;
   SetPermissionMode(mode: string): Promise<void>;
+  SetPermissions(mode: string, allow: string[], ask: string[], deny: string[]): Promise<void>;
   AddPermissionRule(list: string, rule: string): Promise<void>;
   RemovePermissionRule(list: string, rule: string): Promise<void>;
   ReloadSettings(): Promise<void>;
@@ -370,11 +373,13 @@ export interface AppBindings {
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
   TestBotConnection(id: string, target?: string): Promise<BotConnectionDiagnostic>;
   SetCloseBehavior(mode: string): Promise<void>;
+  SetGeneralSettings(input: GeneralSettingsInput): Promise<void>;
   SetDisplayMode(mode: string): Promise<void>;
   SetStatusBarStyle(style: string): Promise<void>;
   SetStatusBarItems(items: string[]): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
+  SetDesktopVisualPreferences(theme: string, style: string, fontFamily: string, monoFontFamily: string, textSize: string, zoomFactor: number): Promise<void>;
   SetDesktopLayoutStyle(style: string): Promise<void>;
   SetDesktopZoomFactor(factor: number): Promise<void>;
   GetDesktopZoomFactor(): Promise<number>;
@@ -382,6 +387,7 @@ export interface AppBindings {
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
   SetDesktopMetrics(enabled: boolean): Promise<void>;
+  SetDesktopShortcuts(shortcuts: Record<string, string>): Promise<void>;
   SetMemoryCompilerEnabled(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
@@ -399,6 +405,7 @@ export interface AppBindings {
   InstallUpdate(): Promise<void>;
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
+  OpenRillReleases(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
   ConnectKey(apiKey: string): Promise<string>;
   // Crash overlay "Send report" (desktop/crash_app.go): scrubs user paths, attaches
@@ -804,7 +811,7 @@ function browserPreviewEffectiveShell(prefer = "auto"): "bash" | "git-bash" | "p
   return browserPlatformOverride() === "windows" ? "git-bash" : "bash";
 }
 
-function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" | "startup_failed" | "model_unavailable" {
+function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" | "startup_failed" | "model_unavailable" | "settings_write_failed" {
   if (typeof window === "undefined") return "demo";
   const value = new URLSearchParams(window.location.search).get("mock")?.trim().toLowerCase();
   if (value === "fresh" || value === "empty" || value === "first-run") return "fresh";
@@ -814,6 +821,7 @@ function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_es
   if (value === "notice" || value === "notices" || value === "notice-preview") return "notice";
   if (value === "startup_failed" || value === "startup-failed") return "startup_failed";
   if (value === "model_unavailable" || value === "model-unavailable") return "model_unavailable";
+  if (value === "settings_write_failed" || value === "settings-write-failed") return "settings_write_failed";
   return "demo";
 }
 
@@ -971,6 +979,7 @@ function makeMockApp(): AppBindings {
   const noticePreviewMock = scenario === "notice";
   const startupFailedMock = scenario === "startup_failed";
   const modelUnavailableMock = scenario === "model_unavailable";
+  const settingsWriteFailedMock = scenario === "settings_write_failed";
   const mockAttachmentDataURLs = new Map<string, string>();
   let cancelled = false;
   let pendingAskPreview = false;
@@ -1187,7 +1196,7 @@ function makeMockApp(): AppBindings {
       proxyMode: "auto",
       proxyUrl: "",
       noProxy: "",
-      proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
+      proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "", passwordSet: false },
     },
     agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 0, maxSubagentDepth: 2, systemPrompt: "You are Rill, a coding agent.", coldResumePrune: true, reasoningLanguage: "auto" },
     bot: {
@@ -1337,6 +1346,12 @@ function makeMockApp(): AppBindings {
     telemetry: true,
     metrics: true,
     memoryCompilerEnabled: true,
+    expandThinking: false,
+    desktopShortcuts: {},
+    desktopFontFamily: "system",
+    desktopMonoFontFamily: "system",
+    desktopTextSize: "default",
+    desktopZoomFactor: 1,
     configPath: "~/projects/rillagent/rillagent.toml",
     providerKinds: ["openai", "anthropic"],
     autoApproveTools: false,
@@ -3101,7 +3116,7 @@ function makeMockApp(): AppBindings {
       capSkills.push({
         name, description: input.description, scope: input.scope === "project" ? "project" : "global",
         runAs: "subagent", enabled: true, model: input.model, effort: input.effort,
-        allowedTools: input.allowedTools, color: input.color, invocation: `/${name}`, invocationMode: "manual",
+        allowedTools: input.allowedTools, color: input.color, body: input.systemPrompt, invocation: `/${name}`, invocationMode: "manual",
       });
       return `~/.rillagent/skills/${name}/SKILL.md`;
     },
@@ -3113,6 +3128,7 @@ function makeMockApp(): AppBindings {
       skill.model = input.model;
       skill.effort = input.effort;
       skill.allowedTools = input.allowedTools;
+      skill.body = input.systemPrompt;
     },
     async DeleteSubagentProfile(name: string, scope: string) {
       const idx = capSkills.findIndex((s) => s.name === name && s.scope === scope);
@@ -3126,6 +3142,13 @@ function makeMockApp(): AppBindings {
     async SetSubagentProfileEffort(name: string, level: string) {
       const skill = capSkills.find((s) => s.name === name);
       if (skill) skill.configuredEffort = level || undefined;
+    },
+    async SetSubagentProfileOverrides(name: string, ref: string, level: string) {
+      const skill = capSkills.find((s) => s.name === name);
+      if (skill) {
+        skill.configuredModel = ref || undefined;
+        skill.configuredEffort = level || undefined;
+      }
     },
     async CancelTrySubagentProfile() {},
     async TrySubagentProfile(input: SubagentProfileInput, task: string) {
@@ -3661,6 +3684,9 @@ function makeMockApp(): AppBindings {
     async SetPermissionMode(mode: string) {
       settings.permissions.mode = mode;
     },
+    async SetPermissions(mode: string, allow: string[], ask: string[], deny: string[]) {
+      settings.permissions = { mode, allow: [...allow], ask: [...ask], deny: [...deny] };
+    },
     async AddPermissionRule(list: string, rule: string) {
       const k = list as "allow" | "ask" | "deny";
       if (settings.permissions[k] && !settings.permissions[k].includes(rule)) settings.permissions[k].push(rule);
@@ -3789,6 +3815,19 @@ function makeMockApp(): AppBindings {
         async SetCloseBehavior(mode: string) {
           settings.closeBehavior = mode === "quit" ? "quit" : "background";
         },
+        async SetGeneralSettings(input: GeneralSettingsInput) {
+          if (settingsWriteFailedMock) throw new Error("controlled settings write failure");
+          settings.desktopLanguage = input.language === "en" || input.language === "zh" ? input.language : "";
+          settings.desktopLayoutStyle = input.layoutStyle;
+          settings.closeBehavior = input.closeBehavior;
+          settings.displayMode = input.displayMode;
+          settings.expandThinking = input.expandThinking;
+          settings.defaultToolApprovalMode = input.defaultToolApprovalMode;
+          settings.autoPlan = input.autoPlan;
+          settings.memoryCompilerEnabled = input.memoryCompilerEnabled;
+          settings.statusBarStyle = input.statusBarStyle;
+          settings.statusBarItems = [...input.statusBarItems];
+        },
         async SetDisplayMode(mode: string) {
           settings.displayMode = mode;
         },
@@ -3804,6 +3843,15 @@ function makeMockApp(): AppBindings {
         async SetDesktopAppearance(theme: string, style: string) {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
+        },
+        async SetDesktopVisualPreferences(theme: string, style: string, fontFamily: string, monoFontFamily: string, textSize: string, zoomFactor: number) {
+          settings.desktopTheme = theme;
+          settings.desktopThemeStyle = style;
+          settings.desktopFontFamily = fontFamily;
+          settings.desktopMonoFontFamily = monoFontFamily;
+          settings.desktopTextSize = textSize;
+          settings.desktopZoomFactor = zoomFactor;
+          mockDesktopZoomFactor = zoomFactor;
         },
         async SetDesktopLayoutStyle(style: string) {
           settings.desktopLayoutStyle = style === "workbench" || style === "creation" ? style : "classic";
@@ -3823,13 +3871,16 @@ function makeMockApp(): AppBindings {
         async SetDesktopTelemetry(enabled: boolean) {
           settings.telemetry = enabled;
         },
-        async SetDesktopMetrics(enabled: boolean) {
-          settings.metrics = enabled;
-        },
+    async SetDesktopMetrics(enabled: boolean) {
+      settings.metrics = enabled;
+    },
+    async SetDesktopShortcuts(shortcuts: Record<string, string>) {
+      settings.desktopShortcuts = JSON.parse(JSON.stringify(shortcuts)) as Record<string, string>;
+    },
         async SetMemoryCompilerEnabled(enabled: boolean) {
           settings.memoryCompilerEnabled = enabled;
         },
-        async SetExpandThinking(_on: boolean) {},
+        async SetExpandThinking(on: boolean) { settings.expandThinking = on; },
         async MigrateDesktopPreferences(language: string, theme: string, style: string) {
           if (!settings.desktopLanguage) settings.desktopLanguage = language === "en" || language === "zh" || language === "zh-TW" ? language : "";
           if (!settings.desktopTheme && !settings.desktopThemeStyle) {
@@ -3922,6 +3973,11 @@ function makeMockApp(): AppBindings {
       await this.InstallUpdate();
     },
     async OpenDownloadPage() {
+      if (typeof window !== "undefined") {
+        window.open("https://github.com/Lmq1111/Rill/releases", "_blank", "noopener");
+      }
+    },
+    async OpenRillReleases() {
       if (typeof window !== "undefined") {
         window.open("https://github.com/Lmq1111/Rill/releases", "_blank", "noopener");
       }
