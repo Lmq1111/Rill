@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { app, onProjectTreeChanged, onReady, onRuntimeRebuilt } from "../lib/bridge";
 import type { BotRuntimeStatusView, BotSettingsView, ProjectNode, TabMeta } from "../lib/types";
+import type { HeartbeatTask } from "../custom/features/heartbeat/heartbeat.types";
 import { useController } from "../lib/useController";
 import { adaptHistorySession, adaptLiveProjects, adaptLiveSession, adaptTrashedSession } from "./adapters/live";
 import { adaptBotChannels, patchBotChannel } from "./adapters/channels";
+import { adaptHeartbeatTasks, toHeartbeatTask } from "./adapters/automation";
 import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "./adapters/workspace";
 import { CorePages } from "./pages/core";
 import {
@@ -52,19 +54,22 @@ export function RillLiveApp() {
   const [modelAvailability, setModelAvailability] = useState<Record<string, boolean>>({});
   const [botSettings, setBotSettings] = useState<BotSettingsView | null>(null);
   const [botRuntimeStatus, setBotRuntimeStatus] = useState<BotRuntimeStatusView | null>(null);
+  const [heartbeatTasks, setHeartbeatTasks] = useState<HeartbeatTask[]>([]);
 
   const refresh = useCallback(async () => {
     try {
-      const [nextTabs, nextTree, nextSettings, nextRuntime] = await Promise.all([
+      const [nextTabs, nextTree, nextSettings, nextRuntime, nextHeartbeatTasks] = await Promise.all([
         app.ListTabs(),
         app.ListProjectTree(),
         app.Settings().catch(() => null),
         app.BotRuntimeStatus().catch(() => null),
+        app.HeartbeatReloadTasks().catch(() => []),
       ]);
       setTabs(Array.isArray(nextTabs) ? nextTabs : []);
       setTree(Array.isArray(nextTree) ? nextTree : []);
       if (nextSettings) setBotSettings(nextSettings.bot);
       if (nextRuntime) setBotRuntimeStatus(nextRuntime);
+      setHeartbeatTasks(Array.isArray(nextHeartbeatTasks) ? nextHeartbeatTasks as HeartbeatTask[] : []);
       setLoadError("");
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "无法读取工作区");
@@ -113,6 +118,10 @@ export function RillLiveApp() {
     () => botSettings ? adaptBotChannels(botSettings, botRuntimeStatus, projects, sessions) : [],
     [botRuntimeStatus, botSettings, projects, sessions],
   );
+  const automationTasks = useMemo(
+    () => adaptHeartbeatTasks(heartbeatTasks, projects, sessions, channels),
+    [channels, heartbeatTasks, projects, sessions],
+  );
 
   const loadLiveChannels = useCallback(async () => {
     const [settings, status] = await Promise.all([app.Settings(), app.BotRuntimeStatus()]);
@@ -121,13 +130,21 @@ export function RillLiveApp() {
     return adaptBotChannels(settings.bot, status, projects, sessions);
   }, [projects, sessions]);
 
+  const loadLiveAutomationTasks = useCallback(async () => {
+    const next = await app.HeartbeatReloadTasks() as HeartbeatTask[] | null;
+    const authoritative = Array.isArray(next) ? next : [];
+    setHeartbeatTasks(authoritative);
+    return adaptHeartbeatTasks(authoritative, projects, sessions, channels);
+  }, [channels, projects, sessions]);
+
   const seed = useMemo<VisualStoreSeed>(() => ({
     route: "workbench" as Route,
     projects,
     sessions,
     channels,
+    tasks: automationTasks,
     activeSessionId: activeTabId,
-  }), [activeTabId, channels, projects, sessions]);
+  }), [activeTabId, automationTasks, channels, projects, sessions]);
 
   const runtime = useMemo<RillSessionRuntime>(() => ({
     submit: async (session, input) => {
@@ -341,6 +358,37 @@ export function RillLiveApp() {
       const current = latest.find((candidate) => candidate.id === channel.id);
       throw new Error(current?.lastError || "Bot 运行时未能恢复连接");
     },
+    listAutomationTasks: loadLiveAutomationTasks,
+    saveAutomationTask: async (task) => {
+      const current = (await app.HeartbeatReloadTasks() ?? []) as HeartbeatTask[];
+      const id = task.id === "new" || !task.id.trim() ? await app.HeartbeatGenerateID() : task.id;
+      const previous = current.find((candidate) => candidate.id === id);
+      const saved = toHeartbeatTask({ ...task, id }, projects, previous);
+      const next = current.some((candidate) => candidate.id === id)
+        ? current.map((candidate) => candidate.id === id ? saved : candidate)
+        : [...current, saved];
+      await app.HeartbeatSaveTasks(next);
+      return loadLiveAutomationTasks();
+    },
+    deleteAutomationTask: async (task) => {
+      const current = (await app.HeartbeatReloadTasks() ?? []) as HeartbeatTask[];
+      if (!current.some((candidate) => candidate.id === task.id)) throw new Error("任务不存在或已被删除");
+      await app.HeartbeatSaveTasks(current.filter((candidate) => candidate.id !== task.id));
+      return loadLiveAutomationTasks();
+    },
+    toggleAutomationTask: async (task, enabled) => {
+      const current = (await app.HeartbeatReloadTasks() ?? []) as HeartbeatTask[];
+      const previous = current.find((candidate) => candidate.id === task.id);
+      if (!previous) throw new Error("任务不存在或已被删除");
+      const saved = toHeartbeatTask({ ...task, enabled }, projects, previous);
+      await app.HeartbeatSaveTasks(current.map((candidate) => candidate.id === task.id ? saved : candidate));
+      return loadLiveAutomationTasks();
+    },
+    runAutomationTask: async (task) => {
+      await app.HeartbeatTriggerNow(task.id);
+      await refresh();
+      return loadLiveAutomationTasks();
+    },
     refreshContext: async (session) => {
       const context = await app.ContextUsageForTab(session.id);
       return {
@@ -354,7 +402,7 @@ export function RillLiveApp() {
         refreshedAt: "刚刚",
       };
     },
-  }), [controller, loadLiveChannels, projects, refresh, tabs]);
+  }), [controller, loadLiveAutomationTasks, loadLiveChannels, projects, refresh, tabs]);
 
   if (!loaded) {
     return (

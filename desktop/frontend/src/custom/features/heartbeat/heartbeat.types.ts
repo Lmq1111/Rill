@@ -16,4 +16,9 @@ export interface HeartbeatTask {
   timeWindowStart?: string; // "HH:MM" — interval tasks only run after this time
   timeWindowEnd?: string;   // "HH:MM" — interval tasks only run before this time
   notifyChannels?: boolean; // true = push to bot channels; false/nil = skip
+  notifyChannelIds?: string[]; // selected bot connection ids; empty keeps legacy all-channel behavior
+  timeZone?: string; // IANA name, UTC, or Local
+  biweeklyStart?: string; // selected start week as YYYY-MM-DD
+  lastRunStatus?: "success" | "failed";
+  lastRunError?: string;
 }

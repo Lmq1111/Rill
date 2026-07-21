@@ -58,7 +58,7 @@ export function Automation() {
     visualState === "automation-yolo-confirmation" ? { action: "enable", task: visualDraft } : null,
   );
 
-  const projectOk = (scope: string) => scope === "全局" || projects.some((p) => p.id === scope);
+  const projectOk = (scope: string) => scope === "全局" || projects.some((p) => p.id === scope && p.status !== "unavailable");
 
   const list = tasks.filter((t) => {
     if (query && !t.name.includes(query)) return false;
@@ -71,12 +71,12 @@ export function Automation() {
   const tryRun = (t: AutomationTask) => {
     if (!projectOk(t.scope)) return toast.error("绑定项目不可用，无法运行");
     if (t.permission === "YOLO") return setYoloConfirm({ action: "run", task: t });
-    runTaskNow(t.id);
+    void runTaskNow(t.id);
   };
   const tryToggle = (t: AutomationTask) => {
     if (!t.enabled && !projectOk(t.scope)) return toast.error("绑定项目不可用，无法启用");
     if (!t.enabled && t.permission === "YOLO") return setYoloConfirm({ action: "enable", task: t });
-    toggleTask(t.id);
+    void toggleTask(t.id);
   };
 
   return (
@@ -116,12 +116,13 @@ export function Automation() {
                     <span>权限：{t.permission}</span><span>会话：{t.sessionPolicy === "new" ? "每次新建" : "复用同一会话"}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                    <button onClick={() => tryRun(t)} disabled={t.lastResult === "running"} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700 disabled:opacity-50"><Play className="size-3.5" />立即运行</button>
+                    <button onClick={() => tryRun(t)} disabled={t.lastResult === "running"} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700 disabled:opacity-50"><Play className="size-3.5" />{t.lastResult === "failed" ? "重试" : "立即运行"}</button>
                     <button onClick={() => tryToggle(t)} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><Power className="size-3.5" />{t.enabled ? "停用" : "启用"}</button>
                     <button onClick={() => setEditing(t)} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><Pencil className="size-3.5" />编辑</button>
                     {lastSid && <button onClick={() => openSession(lastSid)} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><ExternalLink className="size-3.5" />打开会话</button>}
                     <button onClick={() => setDeleteId(t.id)} className="ml-auto flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-rose-600 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="size-3.5" />删除</button>
                   </div>
+                  {t.lastResult === "failed" && t.lastError && <p className="mt-2 text-[11.5px] text-rose-600">最近错误：{t.lastError}</p>}
                 </div>
               );
             })}
@@ -134,9 +135,11 @@ export function Automation() {
           onSave={(t) => {
             if (!t.name.trim()) return toast.error("请填写任务名称");
             if (!projectOk(t.scope)) return toast.error("任务必须绑定有效项目");
-            const commit = () => { saveTask(t); setEditing(null); };
+            if (t.freqType === "biweekly" && !t.startWeek?.trim()) return toast.error("双周任务必须选择起始周");
+            if (t.push && !channels.some((channel) => channel.id === t.pushChannelId && channel.connState === "connected")) return toast.error("请选择一个已连接的推送渠道");
+            const commit = async () => { if (await saveTask(t)) setEditing(null); };
             if (t.permission === "YOLO") { setYoloConfirm({ action: "enable", task: t }); }
-            else commit();
+            else void commit();
           }} />
       )}
 
@@ -148,8 +151,8 @@ export function Automation() {
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setYoloConfirm(null)} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">取消</button>
               <button onClick={() => {
-                if (yoloConfirm.action === "run") runTaskNow(yoloConfirm.task.id);
-                else { saveTask(yoloConfirm.task); setEditing(null); }
+                if (yoloConfirm.action === "run") void runTaskNow(yoloConfirm.task.id);
+                else void saveTask(yoloConfirm.task).then((saved) => { if (saved) setEditing(null); });
                 setYoloConfirm(null);
               }} className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-[13px] text-white hover:bg-rose-700">我已知晓，继续</button>
             </div>
@@ -164,7 +167,7 @@ export function Automation() {
             <p className="mt-2 text-[13px] text-slate-600">删除任务不会删除它已经生成的会话。确认删除该任务？</p>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setDeleteId(null)} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">取消</button>
-              <button onClick={() => { deleteTask(deleteId); setDeleteId(null); }} className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-[13px] text-white hover:bg-rose-700">确认删除</button>
+              <button onClick={() => { const id = deleteId; void deleteTask(id).then((deleted) => { if (deleted) setDeleteId(null); }); }} className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-[13px] text-white hover:bg-rose-700">确认删除</button>
             </div>
           </div>
         </div>
@@ -174,7 +177,7 @@ export function Automation() {
 }
 
 function newTask(scope: string): AutomationTask {
-  return { id: "new", name: "", prompt: "", scope, freqType: "daily", intervalVal: 6, intervalUnit: "小时", time: "08:00", weekday: "周一", monthday: "1", month: "1 月", window: "±10 分钟", enabled: true, permission: "Ask", sessionPolicy: "new", push: false, tz: "UTC+8 (Asia/Shanghai)", lastResult: "none", nextRun: "—", generatedSessionIds: [] };
+  return { id: "new", name: "", prompt: "", scope, freqType: "daily", intervalVal: 6, intervalUnit: "小时", time: "08:00", weekday: "周一", monthday: "1", month: "1 月", window: "±10 分钟", enabled: true, permission: "Ask", sessionPolicy: "new", push: false, tz: "UTC+8 (Asia/Shanghai)", startWeek: "", lastResult: "none", nextRun: "—", generatedSessionIds: [] };
 }
 
 function TaskEditor({ task, channels, projectOk, onClose, onSave }: { task: AutomationTask; channels: Channel[]; projectOk: (s: string) => boolean; onClose: () => void; onSave: (t: AutomationTask) => void }) {
@@ -186,7 +189,7 @@ function TaskEditor({ task, channels, projectOk, onClose, onSave }: { task: Auto
   const connChannels = channels.filter((c) => c.connState === "connected");
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
+    <div data-testid="rill-automation-editor" className="fixed inset-0 z-50 flex justify-end bg-black/30">
       <div className="flex h-full w-full max-w-md flex-col bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 p-4">
           <h3 className="text-[15px] text-slate-900">{t.id === "new" ? "新增任务" : "编辑任务"}</h3>
@@ -197,27 +200,28 @@ function TaskEditor({ task, channels, projectOk, onClose, onSave }: { task: Auto
           <label className="block"><span className="text-[12px] text-slate-500">任务提示词</span><textarea value={t.prompt} onChange={(e) => set({ prompt: e.target.value })} rows={3} className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-teal-300" placeholder={`描述${brand.productName}每次运行应完成的目标`} /></label>
           <label className="block">
             <span className="text-[12px] text-slate-500">作用范围</span>
-            <select value={t.scope} onChange={(e) => set({ scope: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]"><option value="全局">全局</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+            <select aria-label="作用范围" value={t.scope} onChange={(e) => set({ scope: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]"><option value="全局">全局</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             {!projectOk(t.scope) && <p className="mt-1 flex items-center gap-1 text-[11.5px] text-rose-600"><AlertTriangle className="size-3.5" />该项目当前不可用，保存 / 运行将被阻止。</p>}
           </label>
 
           <div>
             <span className="text-[12px] text-slate-500">执行频率</span>
-            <select value={t.freqType} onChange={(e) => set({ freqType: e.target.value as AutomationTask["freqType"] })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{freqOptions.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select>
+            <select aria-label="执行频率" value={t.freqType} onChange={(e) => set({ freqType: e.target.value as AutomationTask["freqType"] })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{freqOptions.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {t.freqType === "interval" && (<>
                 <label className="block"><span className="text-[11px] text-slate-400">间隔</span><input type="number" min={1} value={t.intervalVal} onChange={(e) => set({ intervalVal: +e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]" /></label>
-                <label className="block"><span className="text-[11px] text-slate-400">单位</span><select value={t.intervalUnit} onChange={(e) => set({ intervalUnit: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{["分钟", "小时", "天"].map((u) => <option key={u}>{u}</option>)}</select></label>
+                <label className="block"><span className="text-[11px] text-slate-400">单位</span><select value={t.intervalUnit} onChange={(e) => set({ intervalUnit: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{["秒", "分钟", "小时", "天"].map((u) => <option key={u}>{u}</option>)}</select></label>
               </>)}
-              {(t.freqType === "weekly" || t.freqType === "biweekly") && <label className="block"><span className="text-[11px] text-slate-400">星期</span><select value={t.weekday} onChange={(e) => set({ weekday: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{weekdays.map((w) => <option key={w}>{w}</option>)}</select></label>}
-              {(t.freqType === "monthly" || t.freqType === "yearly") && <label className="block"><span className="text-[11px] text-slate-400">日期</span><select value={t.monthday} onChange={(e) => set({ monthday: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{Array.from({ length: 28 }, (_, i) => `${i + 1}`).map((d) => <option key={d}>{d}</option>)}</select></label>}
+              {(t.freqType === "weekly" || t.freqType === "biweekly") && <label className="block"><span className="text-[11px] text-slate-400">星期</span><select aria-label="星期" value={t.weekday} onChange={(e) => set({ weekday: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{weekdays.map((w) => <option key={w}>{w}</option>)}</select></label>}
+              {(t.freqType === "monthly" || t.freqType === "yearly") && <label className="block"><span className="text-[11px] text-slate-400">日期</span><select aria-label="日期" value={t.monthday} onChange={(e) => set({ monthday: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{Array.from({ length: 31 }, (_, i) => `${i + 1}`).map((d) => <option key={d}>{d}</option>)}</select></label>}
+              {t.freqType === "biweekly" && <label className="block"><span className="text-[11px] text-slate-400">起始周</span><input aria-label="双周起始周" type="date" value={t.startWeek ?? ""} onChange={(e) => set({ startWeek: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]" /></label>}
               {t.freqType === "yearly" && <label className="block"><span className="text-[11px] text-slate-400">月份</span><select value={t.month} onChange={(e) => set({ month: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{months.map((m) => <option key={m}>{m}</option>)}</select></label>}
-              {t.freqType !== "interval" && <label className="block"><span className="text-[11px] text-slate-400">时间</span><input type="time" value={t.time} onChange={(e) => set({ time: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]" /></label>}
+              {t.freqType !== "interval" && <label className="block"><span className="text-[11px] text-slate-400">时间</span><input aria-label="时间" type="time" value={t.time} onChange={(e) => set({ time: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]" /></label>}
               <label className="block"><span className="text-[11px] text-slate-400">执行窗口</span><select value={t.window} onChange={(e) => set({ window: e.target.value })} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[13px]">{["精确", "±5 分钟", "±10 分钟", "±30 分钟"].map((w) => <option key={w}>{w}</option>)}</select></label>
             </div>
           </div>
 
-          <label className="block"><span className="text-[12px] text-slate-500">时区</span><select value={t.tz} onChange={(e) => set({ tz: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{["UTC+8 (Asia/Shanghai)", "UTC+0 (UTC)", "UTC-8 (America/Los_Angeles)", "跟随系统"].map((z) => <option key={z}>{z}</option>)}</select></label>
+          <label className="block"><span className="text-[12px] text-slate-500">时区</span><select aria-label="时区" value={t.tz} onChange={(e) => set({ tz: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{["UTC+8 (Asia/Shanghai)", "UTC+0 (UTC)", "UTC-8 (America/Los_Angeles)", "跟随系统"].map((z) => <option key={z}>{z}</option>)}</select></label>
 
           <div>
             <span className="text-[12px] text-slate-500">权限等级</span>
@@ -232,15 +236,15 @@ function TaskEditor({ task, channels, projectOk, onClose, onSave }: { task: Auto
             {t.permission === "YOLO" && <p className="mt-1.5 flex items-center gap-1 text-[11.5px] text-rose-600"><AlertTriangle className="size-3.5" />高权限自动任务将不经确认执行全部操作，保存 / 启用 / 运行前会再次确认。</p>}
           </div>
 
-          <label className="block"><span className="text-[12px] text-slate-500">会话策略</span><select value={t.sessionPolicy} onChange={(e) => set({ sessionPolicy: e.target.value as AutomationTask["sessionPolicy"] })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]"><option value="new">每次新建会话</option><option value="reuse">复用同一会话</option></select></label>
+          <label className="block"><span className="text-[12px] text-slate-500">会话策略</span><select aria-label="会话策略" value={t.sessionPolicy} onChange={(e) => set({ sessionPolicy: e.target.value as AutomationTask["sessionPolicy"] })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]"><option value="new">每次新建会话</option><option value="reuse">复用同一会话</option></select></label>
 
           <label className="flex items-center justify-between">
             <div><div className="text-[13px] text-slate-800">推送到机器人渠道</div><div className="text-[11.5px] text-slate-400">把执行结果推送到已连接渠道</div></div>
-            <input type="checkbox" checked={t.push} onChange={(e) => set({ push: e.target.checked, pushChannelId: e.target.checked ? (connChannels[0]?.id) : undefined })} className="size-4 accent-teal-600" />
+            <input aria-label="推送到机器人渠道" type="checkbox" checked={t.push} onChange={(e) => set({ push: e.target.checked, pushChannelId: e.target.checked ? (connChannels[0]?.id) : undefined })} className="size-4 accent-teal-600" />
           </label>
-          {t.push && <label className="block"><span className="text-[12px] text-slate-500">推送渠道</span><select value={t.pushChannelId ?? ""} onChange={(e) => set({ pushChannelId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{connChannels.length === 0 ? <option value="">无已连接渠道</option> : connChannels.map((c) => <option key={c.id} value={c.id}>{c.type} · {c.name}</option>)}</select></label>}
+          {t.push && <label className="block"><span className="text-[12px] text-slate-500">推送渠道</span><select aria-label="推送渠道" value={t.pushChannelId ?? ""} onChange={(e) => set({ pushChannelId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px]">{connChannels.length === 0 ? <option value="">无已连接渠道</option> : connChannels.map((c) => <option key={c.id} value={c.id}>{c.type} · {c.name}</option>)}</select></label>}
 
-          <label className="flex items-center justify-between"><span className="text-[13px] text-slate-800">启用任务</span><input type="checkbox" checked={t.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="size-4 accent-teal-600" /></label>
+          <label className="flex items-center justify-between"><span className="text-[13px] text-slate-800">启用任务</span><input aria-label="启用任务" type="checkbox" checked={t.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="size-4 accent-teal-600" /></label>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-200 p-4">
           <button onClick={onClose} className="rounded-lg bg-white px-3.5 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">取消</button>

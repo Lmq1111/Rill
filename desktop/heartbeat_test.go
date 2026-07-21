@@ -83,6 +83,67 @@ func TestHeartbeatTaskDueAtHonorsWeeklySelection(t *testing.T) {
 	}
 }
 
+func TestHeartbeatTaskDueAtHonorsSelectedBiweeklyStart(t *testing.T) {
+	loc := time.UTC
+	task := HeartbeatTask{
+		ID:            "biweekly",
+		Interval:      "336h|biweekly:mon@09:00",
+		Enabled:       true,
+		BiweeklyStart: "2026-06-15",
+		CreatedAt:     time.Date(2026, 6, 15, 8, 0, 0, 0, loc).UnixMilli(),
+		LastRunAt:     time.Date(2026, 6, 15, 9, 0, 0, 0, loc).UnixMilli(),
+		TimeZone:      "UTC",
+	}
+
+	if heartbeatTaskDueAt(task, time.Date(2026, 6, 22, 9, 0, 0, 0, loc)) {
+		t.Fatal("biweekly task should skip the week after its selected start week")
+	}
+	if !heartbeatTaskDueAt(task, time.Date(2026, 6, 29, 9, 0, 0, 0, loc)) {
+		t.Fatal("biweekly task should run two weeks after its selected start week")
+	}
+}
+
+func TestHeartbeatTaskDueAtUsesPersistedTimeZone(t *testing.T) {
+	task := HeartbeatTask{
+		ID:        "timezone",
+		Interval:  "24h|daily@09:00",
+		Enabled:   true,
+		CreatedAt: time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC).UnixMilli(),
+		LastRunAt: time.Date(2026, 6, 17, 1, 0, 0, 0, time.UTC).UnixMilli(),
+		TimeZone:  "Asia/Shanghai",
+	}
+
+	if heartbeatTaskDueAt(task, time.Date(2026, 6, 18, 0, 59, 0, 0, time.UTC)) {
+		t.Fatal("09:00 Asia/Shanghai task should not run at 08:59 local time")
+	}
+	if !heartbeatTaskDueAt(task, time.Date(2026, 6, 18, 1, 0, 0, 0, time.UTC)) {
+		t.Fatal("09:00 Asia/Shanghai task should run at 01:00 UTC")
+	}
+}
+
+func TestHeartbeatMonthlyScheduleClampsToMonthEnd(t *testing.T) {
+	loc := time.UTC
+	cases := []struct {
+		name string
+		now  time.Time
+		day  int
+		want time.Time
+	}{
+		{name: "non-leap February 29", now: time.Date(2025, 2, 28, 12, 0, 0, 0, loc), day: 29, want: time.Date(2025, 2, 28, 9, 0, 0, 0, loc)},
+		{name: "leap February 29", now: time.Date(2028, 2, 29, 12, 0, 0, 0, loc), day: 29, want: time.Date(2028, 2, 29, 9, 0, 0, 0, loc)},
+		{name: "February 30", now: time.Date(2026, 2, 28, 12, 0, 0, 0, loc), day: 30, want: time.Date(2026, 2, 28, 9, 0, 0, 0, loc)},
+		{name: "April 31", now: time.Date(2026, 4, 30, 12, 0, 0, 0, loc), day: 31, want: time.Date(2026, 4, 30, 9, 0, 0, 0, loc)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := previousHeartbeatMonthlyAt(heartbeatSchedule{day: tc.day, hour: 9}, tc.now)
+			if !got.Equal(tc.want) {
+				t.Fatalf("previous monthly schedule = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 type heartbeatStatusStub struct {
 	status control.RuntimeStatus
 }
@@ -302,6 +363,9 @@ func TestHeartbeatExecuteTaskSkipsPendingPrompt(t *testing.T) {
 	if ctrl.approvalMode != "" {
 		t.Fatalf("approval mode = %q, want unchanged while prompt is pending", ctrl.approvalMode)
 	}
+	if got.LastRunStatus != "failed" || !strings.Contains(got.LastRunError, "busy") {
+		t.Fatalf("busy execution result = status %q error %q, want explicit retryable failure", got.LastRunStatus, got.LastRunError)
+	}
 }
 
 func TestHeartbeatTaskDueAtHonorsIntervalTimeWindow(t *testing.T) {
@@ -456,6 +520,100 @@ func TestHeartbeatReplaceTasksReplacesTransientAndDuplicateIDs(t *testing.T) {
 		if reloaded[i].ID != got[i].ID {
 			t.Fatalf("reloaded task %d ID = %q, want %q", i, reloaded[i].ID, got[i].ID)
 		}
+	}
+}
+
+func TestHeartbeatReplaceTasksRejectsBiweeklyWithoutStartWeek(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	engine := &HeartbeatEngine{pendingTopics: make(map[string]heartbeatPendingTopic)}
+
+	err := engine.ReplaceTasks([]HeartbeatTask{{
+		ID:       "missing-start",
+		Title:    "Missing start",
+		Interval: "336h|biweekly:mon@09:00",
+		Enabled:  true,
+		TimeZone: "UTC",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "start week") {
+		t.Fatalf("ReplaceTasks error = %v, want a start week validation error", err)
+	}
+	if got := engine.ListTasks(); len(got) != 0 {
+		t.Fatalf("invalid biweekly task polluted in-memory state: %+v", got)
+	}
+}
+
+func TestHeartbeatReplaceTasksKeepsAuthoritativeStateWhenSaveFails(t *testing.T) {
+	home := isolateDesktopUserDirs(t)
+	badStateRoot := filepath.Join(home, "state-file")
+	if err := os.WriteFile(badStateRoot, []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RILLAGENT_STATE_HOME", badStateRoot)
+	engine := &HeartbeatEngine{
+		tasks:         []HeartbeatTask{{ID: "persisted", Title: "Persisted"}},
+		pendingTopics: make(map[string]heartbeatPendingTopic),
+	}
+
+	if err := engine.ReplaceTasks([]HeartbeatTask{{ID: "new", Title: "Must not leak"}}); err == nil {
+		t.Fatal("ReplaceTasks should report the atomic save failure")
+	}
+	got := engine.ListTasks()
+	if len(got) != 1 || got[0].ID != "persisted" {
+		t.Fatalf("failed save changed in-memory authoritative state: %+v", got)
+	}
+}
+
+func TestHeartbeatReplaceTasksPersistsAutomationDetails(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	engine := &HeartbeatEngine{pendingTopics: make(map[string]heartbeatPendingTopic)}
+	notify := true
+	want := HeartbeatTask{
+		ID:                     "details",
+		Title:                  "Details",
+		Prompt:                 "inspect",
+		Interval:               "336h|biweekly:wed@09:45",
+		Enabled:                true,
+		Scope:                  "project",
+		WorkspaceRoot:          "/repo/a",
+		NewConversationEachRun: false,
+		ApprovalMode:           "auto",
+		NotifyChannels:         &notify,
+		NotifyChannelIDs:       []string{"feishu-main", "feishu-main", "qq-support"},
+		TimeZone:               "Asia/Shanghai",
+		BiweeklyStart:          "2026-07-20",
+	}
+	if err := engine.ReplaceTasks([]HeartbeatTask{want}); err != nil {
+		t.Fatalf("ReplaceTasks: %v", err)
+	}
+	reloaded := engine.loadTasks()
+	if len(reloaded) != 1 {
+		t.Fatalf("reloaded tasks = %+v", reloaded)
+	}
+	got := reloaded[0]
+	if got.TimeZone != want.TimeZone || got.BiweeklyStart != want.BiweeklyStart || got.ApprovalMode != want.ApprovalMode {
+		t.Fatalf("persisted schedule details = %+v, want timezone/start/permission from %+v", got, want)
+	}
+	if len(got.NotifyChannelIDs) != 2 || got.NotifyChannelIDs[0] != "feishu-main" || got.NotifyChannelIDs[1] != "qq-support" {
+		t.Fatalf("persisted channel ids = %v, want deduplicated selected channels", got.NotifyChannelIDs)
+	}
+}
+
+func TestHeartbeatTriggerNowReportsMissingTask(t *testing.T) {
+	engine := &HeartbeatEngine{}
+	if _, err := engine.TriggerNow("missing"); err == nil {
+		t.Fatal("TriggerNow should return an explicit error for a missing task")
+	}
+}
+
+func TestHeartbeatForwardTargetsHonorSelectedChannelIDs(t *testing.T) {
+	targets := []botForwardTarget{
+		{ConnID: "feishu-main", ChatID: "oc_a"},
+		{ConnID: "qq-support", ChatID: "10001"},
+		{ConnID: "feishu-main", ChatID: "oc_b"},
+	}
+	got := filterHeartbeatForwardTargets(targets, []string{"feishu-main"})
+	if len(got) != 2 || got[0].ConnID != "feishu-main" || got[1].ConnID != "feishu-main" {
+		t.Fatalf("filtered targets = %+v, want only the selected channel", got)
 	}
 }
 

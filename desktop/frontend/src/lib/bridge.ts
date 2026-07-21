@@ -141,7 +141,7 @@ export interface AppBindings {
   HeartbeatListTasks(): Promise<unknown>;
   HeartbeatReloadTasks(): Promise<unknown>;
   HeartbeatSaveTasks(tasks: unknown): Promise<void>;
-  HeartbeatTriggerNow(id: string): Promise<void>;
+  HeartbeatTriggerNow(id: string): Promise<unknown>;
   HeartbeatGenerateID(): Promise<string>;
   Submit(input: string): Promise<void>;
   SubmitToTab(tabID: string, input: string): Promise<void>;
@@ -986,6 +986,21 @@ function makeMockApp(): AppBindings {
   let mockDesktopZoomFactor = 1.0;
   const day = 86_400_000;
   const t0 = Date.now();
+  let mockHeartbeatTasks: Array<Record<string, unknown>> = [{
+    id: "mock-heartbeat-daily",
+    title: "每日构建产物巡检",
+    prompt: "检查最新构建产物是否完整，并汇报异常。",
+    interval: "24h|daily@08:00",
+    enabled: true,
+    scope: "project",
+    workspaceRoot: "~/projects/joyquant-db",
+    approvalMode: "auto",
+    newConversationEachRun: false,
+    notifyChannels: false,
+    notifyChannelIds: [],
+    timeZone: "Asia/Shanghai",
+    createdAt: Date.now(),
+  }];
   // Mutable so MCP add/remove/retry are observable in browser dev.
   let capServers: ServerView[] = [
     {
@@ -1521,8 +1536,10 @@ function makeMockApp(): AppBindings {
 	    try {
 	      const stored = JSON.parse(sessionStorage.getItem(mockRuntimeStorageKey) ?? "null") as {
 	        history?: Record<string, HistoryMessage[]>;
+	        heartbeatTasks?: Array<Record<string, unknown>>;
 	      } | null;
 	      if (stored?.history && typeof stored.history === "object") persistedMockHistory = stored.history;
+	      if (Array.isArray(stored?.heartbeatTasks)) mockHeartbeatTasks = stored.heartbeatTasks;
 	    } catch {
 	      // Ignore stale browser-dev state and fall back to the deterministic fixture.
 	    }
@@ -1830,7 +1847,7 @@ function makeMockApp(): AppBindings {
   }
   const persistMockRuntime = () => {
     if (typeof sessionStorage === "undefined") return;
-    sessionStorage.setItem(mockRuntimeStorageKey, JSON.stringify({ tabs: mockTabs, history: persistedMockHistory }));
+    sessionStorage.setItem(mockRuntimeStorageKey, JSON.stringify({ tabs: mockTabs, history: persistedMockHistory, heartbeatTasks: mockHeartbeatTasks }));
   };
   const appendMockHistory = (tabId: string, display: string, input = display) => {
     const tab = mockTabs.find((item) => item.id === tabId);
@@ -3831,10 +3848,29 @@ function makeMockApp(): AppBindings {
       settings.agent = { ...settings.agent, reasoningLanguage: normalized };
     },
     // ── Heartbeat mock ──
-    async HeartbeatListTasks() { return []; },
-    async HeartbeatReloadTasks() { return []; },
-    async HeartbeatSaveTasks(_tasks: unknown) {},
-    async HeartbeatTriggerNow(_id: string) {},
+    async HeartbeatListTasks() { return structuredClone(mockHeartbeatTasks); },
+    async HeartbeatReloadTasks() { return structuredClone(mockHeartbeatTasks); },
+    async HeartbeatSaveTasks(tasks: unknown) {
+      if (!Array.isArray(tasks)) throw new Error("heartbeat tasks must be an array");
+      mockHeartbeatTasks = structuredClone(tasks) as Array<Record<string, unknown>>;
+      persistMockRuntime();
+    },
+    async HeartbeatTriggerNow(id: string) {
+      const index = mockHeartbeatTasks.findIndex((task) => task.id === id);
+      if (index < 0) throw new Error(`heartbeat task ${id} not found`);
+      const current = mockHeartbeatTasks[index];
+      if (typeof current.prompt === "string" && current.prompt.includes("[fail-once]") && current.lastRunStatus !== "failed") {
+        const failed = { ...current, lastRunStatus: "failed", lastRunError: "controlled transient heartbeat failure" };
+        mockHeartbeatTasks = mockHeartbeatTasks.map((task, taskIndex) => taskIndex === index ? failed : task);
+        persistMockRuntime();
+        throw new Error("controlled transient heartbeat failure");
+      }
+      const topicId = typeof current.topicId === "string" && current.topicId ? current.topicId : "topic_dev_standard";
+      const updated = { ...current, topicId, lastRunAt: Date.now(), lastRunStatus: "success", lastRunError: "" };
+      mockHeartbeatTasks = mockHeartbeatTasks.map((task, taskIndex) => taskIndex === index ? updated : task);
+      persistMockRuntime();
+      return structuredClone(updated);
+    },
     async HeartbeatGenerateID() { return "mock-" + Date.now().toString(36); },
     async SetTrayLocale(_locale: "en" | "zh" | "zh-TW") {},
     async SetAutoApproveTools(on: boolean) {

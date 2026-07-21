@@ -165,7 +165,9 @@ export interface AutomationTask {
   intervalVal: number; intervalUnit: string; time: string; weekday: string; monthday: string; month: string; window: string;
   enabled: boolean; permission: "Ask" | "Auto" | "YOLO"; sessionPolicy: "new" | "reuse";
   push: boolean; pushChannelId?: string; tz: string;
+  startWeek?: string;
   lastRun?: string; lastResult?: "success" | "failed" | "running" | "none"; nextRun: string;
+  lastError?: string;
   reuseSessionId?: string; generatedSessionIds: string[];
 }
 
@@ -367,6 +369,7 @@ export interface Store {
   recycleError: string;
   channels: Channel[];
   tasks: AutomationTask[];
+  refreshTasks: () => Promise<boolean>;
   slashCommands: CommandInfo[];
   refreshSlashCommands: () => Promise<void>;
 
@@ -415,10 +418,10 @@ export interface Store {
   reconnectChannel: (id: string) => Promise<boolean>;
 
   // 自动化
-  saveTask: (t: AutomationTask) => AutomationTask;
-  deleteTask: (id: string) => void;
-  runTaskNow: (id: string) => void;
-  toggleTask: (id: string) => void;
+  saveTask: (t: AutomationTask) => Promise<boolean>;
+  deleteTask: (id: string) => Promise<boolean>;
+  runTaskNow: (id: string) => Promise<boolean>;
+  toggleTask: (id: string) => Promise<boolean>;
 
   // 文件 / 改动（当前项目）
   filesOf: (projectId: string) => FileNode[];
@@ -443,6 +446,7 @@ export interface VisualStoreSeed {
   readonly historySessions?: readonly Session[];
   readonly recycled?: readonly Recycled[];
   readonly channels?: readonly Channel[];
+  readonly tasks?: readonly AutomationTask[];
   readonly activeSessionId?: string;
   readonly activeSessionPatch?: Partial<Session>;
 }
@@ -479,6 +483,11 @@ export interface RillSessionRuntime {
   saveChannel?: (channel: Channel, patch: Partial<Channel>) => Promise<Channel[]>;
   saveChannelSecret?: (channel: Channel, secret: string) => Promise<Channel[]>;
   reconnectChannel?: (channel: Channel) => Promise<Channel[]>;
+  listAutomationTasks?: () => Promise<AutomationTask[]>;
+  saveAutomationTask?: (task: AutomationTask) => Promise<AutomationTask[]>;
+  deleteAutomationTask?: (task: AutomationTask) => Promise<AutomationTask[]>;
+  toggleAutomationTask?: (task: AutomationTask, enabled: boolean) => Promise<AutomationTask[]>;
+  runAutomationTask?: (task: AutomationTask) => Promise<AutomationTask[]>;
 }
 
 function sessionsFromSeed(seed: VisualStoreSeed): Session[] {
@@ -523,7 +532,7 @@ export function StoreProvider({
   const [historyError, setHistoryError] = useState("");
   const [recycleError, setRecycleError] = useState("");
   const [channels, setChannels] = useState<Channel[]>(() => seed.channels ? [...seed.channels] : initialChannels);
-  const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
+  const [tasks, setTasks] = useState<AutomationTask[]>(() => seed.tasks ? [...seed.tasks] : initialTasks);
   const [slashCommands, setSlashCommands] = useState<CommandInfo[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, FileNode[]>>(filesByProject);
   const [workspaceDiffs, setWorkspaceDiffs] = useState<Record<string, DiffFile[]>>(diffsByProject);
@@ -557,6 +566,11 @@ export function StoreProvider({
     if (!seed.channels) return;
     setChannels([...seed.channels]);
   }, [seed.channels]);
+
+  useEffect(() => {
+    if (!seed.tasks) return;
+    setTasks([...seed.tasks]);
+  }, [seed.tasks]);
 
   const patch = (id: string, p: Partial<Session>) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, ...p } : s));
 
@@ -604,6 +618,18 @@ export function StoreProvider({
     }
   }, []);
 
+  const refreshTasks = useCallback(async () => {
+    const currentRuntime = runtimeRef.current;
+    if (!currentRuntime?.listAutomationTasks) return true;
+    try {
+      setTasks(await currentRuntime.listAutomationTasks());
+      return true;
+    } catch (error) {
+      toast.error("自动化任务刷新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     if (!runtimeRef.current) return;
     void refreshHistory();
@@ -614,7 +640,8 @@ export function StoreProvider({
     if (!runtimeRef.current) return;
     if (nav.route === "history") void refreshHistory();
     if (nav.route === "recycle") void refreshRecycle();
-  }, [nav.route, refreshHistory, refreshRecycle]);
+    if (nav.route === "automation") void refreshTasks();
+  }, [nav.route, refreshHistory, refreshRecycle, refreshTasks]);
 
   const value = useMemo<Store>(() => {
     const active = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
@@ -811,7 +838,7 @@ export function StoreProvider({
         return { succeeded, failed };
       },
       openSession: async (id) => {
-        const opened = sessions.find((candidate) => candidate.id === id || candidate.sessionPath === id);
+        const opened = sessions.find((candidate) => candidate.id === id || candidate.sessionPath === id || candidate.topicId === id);
         if (opened) {
           setActiveSessionId(opened.id);
           if (runtime?.activate) await runtime.activate(opened);
@@ -1132,71 +1159,155 @@ export function StoreProvider({
         }
       },
 
-      saveTask: (t) => {
-        const saved = t.id === "new" || !t.id.trim()
-          ? { ...t, id: stableEntityID("task") }
-          : t;
-        setTasks((ts) => ts.some((x) => x.id === saved.id) ? ts.map((x) => x.id === saved.id ? saved : x) : [...ts, saved]);
-        toast.success("已保存自动化任务");
-        return saved;
+      refreshTasks,
+      saveTask: async (task) => {
+        const project = task.scope === "全局" ? undefined : projectList.find((candidate) => candidate.id === task.scope);
+        if (task.scope !== "全局" && (!project || project.status === "unavailable")) {
+          toast.error("任务必须绑定有效项目");
+          return false;
+        }
+        if (task.freqType === "biweekly" && !task.startWeek?.trim()) {
+          toast.error("双周任务必须选择起始周");
+          return false;
+        }
+        try {
+          if (runtime?.saveAutomationTask) setTasks(await runtime.saveAutomationTask(task));
+          else {
+            const saved = task.id === "new" || !task.id.trim() ? { ...task, id: stableEntityID("task") } : task;
+            setTasks((current) => current.some((candidate) => candidate.id === saved.id)
+              ? current.map((candidate) => candidate.id === saved.id ? saved : candidate)
+              : [...current, saved]);
+          }
+          toast.success("已保存自动化任务");
+          return true;
+        } catch (error) {
+          if (runtime?.listAutomationTasks) await refreshTasks();
+          toast.error("自动化任务保存失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
-      deleteTask: (id) => { setTasks((ts) => ts.filter((x) => x.id !== id)); toast.success("已删除任务", { description: "已生成的会话仍然保留" }); },
-      toggleTask: (id) => setTasks((ts) => ts.map((t) => t.id === id ? { ...t, enabled: !t.enabled, nextRun: !t.enabled ? "明天 08:00" : "已停用" } : t)),
-      runTaskNow: (id) => {
-        const t = tasks.find((x) => x.id === id);
-        if (!t) return;
-        const reused = t.sessionPolicy === "reuse" ? sessions.find((session) => session.id === t.reuseSessionId) : undefined;
-        const reusedProject = reused ? projectList.find((project) => project.id === reused.projectId && project.status === "ok") : undefined;
-        if (t.sessionPolicy === "reuse" && (!reused || !reusedProject)) {
-          setTasks((ts) => ts.map((task) => task.id === id ? { ...task, lastResult: "failed" } : task));
-          toast.error("复用会话不可用", { description: "任务未运行，也未创建替代会话" });
-          return;
+      deleteTask: async (id) => {
+        const task = tasks.find((candidate) => candidate.id === id);
+        if (!task) return false;
+        try {
+          if (runtime?.deleteAutomationTask) setTasks(await runtime.deleteAutomationTask(task));
+          else setTasks((current) => current.filter((candidate) => candidate.id !== id));
+          toast.success("已删除任务", { description: "已生成的会话仍然保留" });
+          return true;
+        } catch (error) {
+          if (runtime?.listAutomationTasks) await refreshTasks();
+          toast.error("自动化任务删除失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
         }
-        const runID = stableEntityID("automation-run");
-        setTasks((ts) => ts.map((x) => x.id === id ? { ...x, lastResult: "running" } : x));
-        if (reused) {
-          const started: Message = { id: `${runID}-start`, type: "notice", tone: "bg-amber-50 text-amber-600", text: `自动化任务「${t.name}」开始执行` };
-          const progress: Message = { id: `${runID}-progress`, type: "tasklist", tasks: [{ t: t.prompt, state: "running" }] };
-          setSessions((ss) => ss.map((session) => session.id === reused.id ? {
-            ...session,
-            runState: "aiRunning",
-            updatedAt: "刚刚",
-            messages: [...session.messages, started, progress],
-          } : session));
+      },
+      toggleTask: async (id) => {
+        const task = tasks.find((candidate) => candidate.id === id);
+        if (!task) return false;
+        const project = task.scope === "全局" ? undefined : projectList.find((candidate) => candidate.id === task.scope);
+        if (!task.enabled && task.scope !== "全局" && (!project || project.status === "unavailable")) {
+          toast.error("绑定项目不可用，无法启用");
+          return false;
         }
-        setTimeout(() => {
-          let newSid: string | undefined;
-          if (t.sessionPolicy === "new") {
-            newSid = `s${Date.now()}`;
-            const ns: Session = {
-              id: newSid, title: `${t.name} · 手动运行`, summary: "由“立即运行”生成的会话。", projectId: t.scope === "全局" ? projectList[0].id : t.scope,
-              source: "schedule", sourceDetail: `自动化任务：${t.name} · 手动运行`, scheduleTaskId: t.id, runState: "success", updatedAt: "刚刚", createdAt: "刚刚",
-              draft: "", attachments: [], refs: [], settings: { ...defaultSettings }, context: emptyCtx(),
-              messages: [{ id: `rn${Date.now()}`, type: "notice", tone: "bg-amber-50 text-amber-600", text: `由自动化任务「${t.name}」手动触发` }, { id: `rn2${Date.now()}`, type: "ai", text: "任务执行完成（演示）。" }],
-            };
-            setSessions((ss) => [ns, ...ss]);
-          } else if (reused) {
-            const target = sessionsRef.current.find((session) => session.id === reused.id);
-            if (!target) {
-              setTasks((ts) => ts.map((task) => task.id === id ? { ...task, lastResult: "failed", lastRun: "刚刚（失败）" } : task));
-              toast.error("复用会话已关闭", { description: "任务已停止，未创建替代会话" });
-              return;
-            }
-            const completed: Message = { id: `${runID}-result`, type: "ai", text: `自动化任务「${t.name}」执行完成（演示）。` };
-            setSessions((ss) => ss.map((session) => session.id === reused.id ? {
+        try {
+          const enabled = !task.enabled;
+          if (runtime?.toggleAutomationTask) setTasks(await runtime.toggleAutomationTask(task, enabled));
+          else setTasks((current) => current.map((candidate) => candidate.id === id ? { ...candidate, enabled, nextRun: enabled ? "按计划执行" : "已停用" } : candidate));
+          toast.success(enabled ? "已启用任务" : "已停用任务");
+          return true;
+        } catch (error) {
+          if (runtime?.listAutomationTasks) await refreshTasks();
+          toast.error("自动化任务状态更新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      runTaskNow: async (id) => {
+        const task = tasks.find((candidate) => candidate.id === id);
+        if (!task) return false;
+        const project = task.scope === "全局" ? undefined : projectList.find((candidate) => candidate.id === task.scope);
+        if (task.scope !== "全局" && (!project || project.status === "unavailable")) {
+          toast.error("绑定项目不可用，无法运行");
+          return false;
+        }
+        if (!runtime?.runAutomationTask) {
+          const reused = task.sessionPolicy === "reuse" ? sessions.find((session) => session.id === task.reuseSessionId) : undefined;
+          const reusedProject = reused ? projectList.find((candidate) => candidate.id === reused.projectId && candidate.status === "ok") : undefined;
+          if (task.sessionPolicy === "reuse" && (!reused || !reusedProject)) {
+            setTasks((current) => current.map((candidate) => candidate.id === id ? { ...candidate, lastResult: "failed" } : candidate));
+            toast.error("复用会话不可用", { description: "任务未运行，也未创建替代会话" });
+            return false;
+          }
+          const runID = stableEntityID("automation-run");
+          setTasks((current) => current.map((candidate) => candidate.id === id ? { ...candidate, lastResult: "running" } : candidate));
+          if (reused) {
+            const started: Message = { id: `${runID}-start`, type: "notice", tone: "bg-amber-50 text-amber-600", text: `自动化任务「${task.name}」开始执行` };
+            const progress: Message = { id: `${runID}-progress`, type: "tasklist", tasks: [{ t: task.prompt, state: "running" }] };
+            setSessions((current) => current.map((session) => session.id === reused.id ? {
               ...session,
-              runState: "success",
+              runState: "aiRunning",
               updatedAt: "刚刚",
-              messages: [
-                ...session.messages.map((message) => message.id === `${runID}-progress` ? { ...message, tasks: message.tasks?.map((item) => ({ ...item, state: "done" as const })) } : message),
-                completed,
-              ],
+              messages: [...session.messages, started, progress],
             } : session));
           }
-          setTasks((ts) => ts.map((x) => x.id === id ? { ...x, lastResult: "success", lastRun: "刚刚（手动）", generatedSessionIds: newSid ? [newSid, ...x.generatedSessionIds] : x.generatedSessionIds } : x));
-          toast.success(`「${t.name}」运行完成`, { description: t.sessionPolicy === "new" ? "已新建会话" : "已追加到复用会话；下次计划时间不变" });
-        }, 1400);
-        toast("已开始立即运行", { description: "不改变原计划时间" });
+          setTimeout(() => {
+            let newSessionID: string | undefined;
+            if (task.sessionPolicy === "new") {
+              newSessionID = stableEntityID("session");
+              const created: Session = {
+                id: newSessionID,
+                title: `${task.name} · 手动运行`,
+                summary: "由“立即运行”生成的会话。",
+                projectId: task.scope === "全局" ? projectList[0].id : task.scope,
+                source: "schedule",
+                sourceDetail: `自动化任务：${task.name} · 手动运行`,
+                scheduleTaskId: task.id,
+                runState: "success",
+                updatedAt: "刚刚",
+                createdAt: "刚刚",
+                draft: "",
+                attachments: [],
+                refs: [],
+                settings: { ...defaultSettings },
+                context: emptyCtx(),
+                messages: [{ id: `${runID}-result`, type: "ai", text: `自动化任务「${task.name}」执行完成（视觉适配器）。` }],
+              };
+              setSessions((current) => [created, ...current]);
+            } else if (reused) {
+              if (!sessionsRef.current.some((session) => session.id === reused.id)) {
+                setTasks((current) => current.map((candidate) => candidate.id === id ? { ...candidate, lastResult: "failed", lastRun: "刚刚（失败）" } : candidate));
+                return;
+              }
+              const completed: Message = { id: `${runID}-result`, type: "ai", text: `自动化任务「${task.name}」执行完成（视觉适配器）。` };
+              setSessions((current) => current.map((session) => session.id === reused.id ? {
+                ...session,
+                runState: "success",
+                updatedAt: "刚刚",
+                messages: [
+                  ...session.messages.map((message) => message.id === `${runID}-progress`
+                    ? { ...message, tasks: message.tasks?.map((item) => ({ ...item, state: "done" as const })) }
+                    : message),
+                  completed,
+                ],
+              } : session));
+            }
+            setTasks((current) => current.map((candidate) => candidate.id === id ? {
+              ...candidate,
+              lastResult: "success",
+              lastRun: "刚刚（手动）",
+              generatedSessionIds: newSessionID ? [newSessionID, ...candidate.generatedSessionIds] : candidate.generatedSessionIds,
+            } : candidate));
+          }, 1400);
+          toast("已开始立即运行", { description: "静态视觉适配器，不改变原计划时间" });
+          return true;
+        }
+        try {
+          setTasks(await runtime.runAutomationTask(task));
+          toast.success(`「${task.name}」已提交运行`, { description: "原计划时间保持不变" });
+          return true;
+        } catch (error) {
+          if (runtime?.listAutomationTasks) await refreshTasks();
+          toast.error("自动化任务运行失败，可重试", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
 
       filesOf: (pid) => workspaceFiles[pid] ?? [],
@@ -1269,7 +1380,7 @@ export function StoreProvider({
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, historySessions, recycled, historyLoading, recycleLoading, historyError, recycleError, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime, refreshHistory, refreshRecycle, refreshChannels]);
+  }, [nav, projectList, sessions, historySessions, recycled, historyLoading, recycleLoading, historyError, recycleError, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime, refreshHistory, refreshRecycle, refreshChannels, refreshTasks]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
