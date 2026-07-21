@@ -3,12 +3,12 @@ import { defineConfig } from "@playwright/test";
 const baseURL = process.env.RILL_VISUAL_BASE_URL || "http://127.0.0.1:5174";
 
 export default defineConfig({
-  testDir: "./tests/visual",
+  testDir: "./tests",
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,
   expect: { timeout: 10_000 },
-  snapshotPathTemplate: "{testDir}/baselines/{arg}{ext}",
+  snapshotPathTemplate: "{testDir}/visual/baselines/{arg}{ext}",
   use: {
     baseURL,
     browserName: "chromium",

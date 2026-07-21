@@ -800,7 +800,7 @@ function browserPreviewEffectiveShell(prefer = "auto"): "bash" | "git-bash" | "p
   return browserPlatformOverride() === "windows" ? "git-bash" : "bash";
 }
 
-function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" {
+function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" | "startup_failed" | "model_unavailable" {
   if (typeof window === "undefined") return "demo";
   const value = new URLSearchParams(window.location.search).get("mock")?.trim().toLowerCase();
   if (value === "fresh" || value === "empty" || value === "first-run") return "fresh";
@@ -808,6 +808,8 @@ function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_es
   if (value === "running" || value === "busy" || value === "streaming") return "running";
   if (value === "sandbox_escape" || value === "sandbox-escape" || value === "sandboxescape") return "sandbox_escape";
   if (value === "notice" || value === "notices" || value === "notice-preview") return "notice";
+  if (value === "startup_failed" || value === "startup-failed") return "startup_failed";
+  if (value === "model_unavailable" || value === "model-unavailable") return "model_unavailable";
   return "demo";
 }
 
@@ -957,11 +959,14 @@ function mockExternalOpenerIconDataURL(color: string, label: string): string {
 
 function makeMockApp(): AppBindings {
   const scenario = mockScenario();
+  const mockRuntimeStorageKey = `rill.mock.runtime.${scenario}`;
   const freshMock = scenario === "fresh";
   const guidanceMock = scenario === "guidance";
   const runningMock = scenario === "running" || guidanceMock;
   const sandboxEscapeMock = scenario === "sandbox_escape";
   const noticePreviewMock = scenario === "notice";
+  const startupFailedMock = scenario === "startup_failed";
+  const modelUnavailableMock = scenario === "model_unavailable";
   const mockAttachmentDataURLs = new Map<string, string>();
   let cancelled = false;
   let pendingAskPreview = false;
@@ -1507,10 +1512,22 @@ function makeMockApp(): AppBindings {
     });
     return out;
   };
+	  let persistedMockHistory: Record<string, HistoryMessage[]> = {};
+	  if (typeof sessionStorage !== "undefined") {
+	    try {
+	      const stored = JSON.parse(sessionStorage.getItem(mockRuntimeStorageKey) ?? "null") as {
+	        history?: Record<string, HistoryMessage[]>;
+	      } | null;
+	      if (stored?.history && typeof stored.history === "object") persistedMockHistory = stored.history;
+	    } catch {
+	      // Ignore stale browser-dev state and fall back to the deterministic fixture.
+	    }
+	  }
 	  const mockTopicHistory = (topicId: string): HistoryMessage[] => {
+	    let fixture: HistoryMessage[];
 	    switch (topicId) {
       case "topic_product":
-        return [
+        fixture = [
           {
             role: "user",
             content: [
@@ -1528,8 +1545,9 @@ function makeMockApp(): AppBindings {
             content: "这是 Global 范围下的 IM 会话。我可以先处理不依赖项目文件的问答、计划和信息整理；需要进入项目时，再由桌面端显式绑定或迁移到项目话题。",
           },
         ];
+        break;
       case "topic_ai":
-        return [
+        fixture = [
           {
             role: "user",
             content: [
@@ -1547,42 +1565,57 @@ function makeMockApp(): AppBindings {
             content: "可以。我会先在 Global 范围里整理任务清单；如果某条任务需要读取项目文件，再切到你授权的项目话题处理。",
           },
         ];
+        break;
       case "topic_dev_standard":
-        return mockLongTranscriptHistory();
+        fixture = mockLongTranscriptHistory();
+        break;
       case "topic_p3b_pd":
-        return [
+        fixture = [
           { role: "user", content: "把 p3b P&D 的范围和风险重新整理成可执行计划。" },
           { role: "phase", content: "分析需求范围" },
         ];
+        break;
       case "topic_p3a_pd":
-        return [
+        fixture = [
           { role: "user", content: "复盘 p3a 的技术方案，先不要写文件，先说明你的判断。" },
         ];
+        break;
       case "topic_hotfix":
-        return [
+        fixture = [
           { role: "user", content: "检查 post-p3-hotfix 的回归风险，重点看最近的 shell 输出和 git 改动。" },
           { role: "assistant", content: "", reasoning: "我先定位最近一次 hotfix 的上下文，然后用只读命令检查状态；左侧保持“思考中”，工具细节在这里展开。" },
         ];
+        break;
       case "topic_sys_coord":
-        return [
+        fixture = [
           { role: "user", content: "准备执行 joyquant-sys 的同步脚本，但需要我确认后再运行。" },
           { role: "assistant", content: "", reasoning: "这个动作会运行脚本并可能刷新本地缓存，所以需要先等用户确认。" },
         ];
+        break;
       case "topic_sys_standard":
-        return [
+        fixture = [
           { role: "user", content: "继续制定 SYS 项目开发规范，先停在当前检查点。" },
           { role: "assistant", content: "已暂停在规范整理阶段。当前保留了目录约定、分支策略和待确认的发布检查项；继续时可以从这里恢复。" },
           { role: "notice", level: "info", content: "会话已暂停：未继续执行命令，等待用户恢复或切换任务。" },
         ];
+        break;
       case "topic_sys_exception":
-        return [
+        fixture = [
           { role: "user", content: "演练异常处理流程，看看失败时界面怎么提示。" },
           { role: "assistant", content: "我尝试校验恢复脚本时遇到异常，已停止继续执行。" },
           { role: "notice", level: "warn", content: "运行异常：恢复脚本缺少必要环境变量 JOYQUANT_SYS_TOKEN。请补齐配置后重试。" },
         ];
+        break;
       default:
-        return [];
+	        fixture = [];
 	    }
+	    let userTurn = 0;
+	    return [...fixture, ...(persistedMockHistory[topicId] ?? [])].map((message) => {
+	      if (message.role !== "user") return message;
+	      const checkpointTurn = message.checkpointTurn ?? userTurn;
+	      userTurn += 1;
+	      return { ...message, checkpointTurn };
+	    });
 	  };
 	  const mockHistoryPage = (messages: HistoryMessage[], beforeTurn = 0, limit = 60): HistoryPage => {
 	    const totalTurns = messages.reduce((count, message) => count + (message.role === "user" ? 1 : 0), 0);
@@ -1778,6 +1811,38 @@ function makeMockApp(): AppBindings {
       cwd: "~/projects/joyquant-db",
     },
   ];
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(mockRuntimeStorageKey) ?? "null") as {
+        tabs?: TabMeta[];
+      } | null;
+      if (Array.isArray(stored?.tabs) && stored.tabs.length > 0) mockTabs = stored.tabs;
+    } catch {
+      // Ignore stale browser-dev state and fall back to the deterministic fixture.
+    }
+  }
+  if (startupFailedMock) {
+    mockTabs = mockTabs.map((tab) => tab.active ? { ...tab, ready: false, startupErr: "controlled startup failure" } : tab);
+  }
+  const persistMockRuntime = () => {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(mockRuntimeStorageKey, JSON.stringify({ tabs: mockTabs, history: persistedMockHistory }));
+  };
+  const appendMockHistory = (tabId: string, display: string, input = display) => {
+    const tab = mockTabs.find((item) => item.id === tabId);
+    if (!tab?.topicId) return;
+    const text = display.trim();
+    const submitText = input.trim();
+    if (!text) return;
+    persistedMockHistory = {
+      ...persistedMockHistory,
+      [tab.topicId]: [
+        ...(persistedMockHistory[tab.topicId] ?? []),
+        { role: "user", content: text, submitText: text === submitText ? undefined : submitText, createdAt: Date.now() },
+      ],
+    };
+    persistMockRuntime();
+  };
   if (sandboxEscapeMock) {
     window.setTimeout(() => {
       if (pendingApprovalPreview) return;
@@ -2147,21 +2212,26 @@ function makeMockApp(): AppBindings {
           emitMockTurnDone();
         },
         async SubmitToTab(_tabID, input) {
+          appendMockHistory(_tabID, input);
           await withMockTabScope(_tabID, () => this.Submit(input));
         },
         async SubmitDisplay(_display, input) {
           await this.Submit(input);
         },
         async SubmitDisplayToTab(_tabID, display, input) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitDeliveryRecoveryToTab(_tabID, display, input) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitInvocationsToTab(_tabID, display, input, _invocations) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitEditedDisplayToTab(_tabID, display, input, _original) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async RunShell(command) {
@@ -2326,7 +2396,9 @@ function makeMockApp(): AppBindings {
         async ClearSession() {},
         async ClearSessionForTab() {},
         async ClearModelContext() {},
-        async ClearModelContextForTab() {},
+        async ClearModelContextForTab(tabID: string) {
+          if (typeof sessionStorage !== "undefined") sessionStorage.setItem(`rill.mock.model-context-cleared.${tabID}`, "1");
+        },
     async Checkpoints() {
       return [
         { turn: 0, prompt: "你好呀", files: ["src/App.tsx"], fileCount: 1, turnFileCount: 1, time: Date.now() - 30_000, canCode: true, canConversation: true },
@@ -2336,7 +2408,9 @@ function makeMockApp(): AppBindings {
       return this.Checkpoints();
     },
     async Rewind() {},
-    async RewindForTab() {},
+    async RewindForTab(tabID, turn) {
+      if (typeof sessionStorage !== "undefined") sessionStorage.setItem("rill.mock.last-rewind", `${tabID}:${turn}`);
+    },
     async Fork() {
       const active = mockTabs.find((tab) => tab.active) ?? mockTabs[0];
       const tab: TabMeta = {
@@ -2501,8 +2575,10 @@ function makeMockApp(): AppBindings {
         async ContextUsage() {
           return { used: 42124, window: 128000, sessionTokens: 34479, compactRatio: 0.8 };
         },
-        async ContextUsageForTab() {
-          return this.ContextUsage();
+        async ContextUsageForTab(tabID: string) {
+          const base = await this.ContextUsage();
+          const cleared = typeof sessionStorage !== "undefined" && sessionStorage.getItem(`rill.mock.model-context-cleared.${tabID}`) === "1";
+          return { ...base, used: cleared ? 0 : base.used, modelContextCleared: cleared, modelContextStart: cleared ? 1 : 0 };
         },
         async Balance() {
       // Mirror the active mock provider: deepseek-flash carries a balance_url.
@@ -3244,11 +3320,13 @@ function makeMockApp(): AppBindings {
       return mockAttachmentDataURLs.get(path) ?? mockPreviewImageDataURL;
     },
         async Models() {
+          if (modelUnavailableMock) return [];
           const active = mockTabs.find((tab) => tab.active) ?? mockTabs[0];
           const current = mockTabModelRef(active);
           return mockModelCatalog.map((model) => ({ ...model, current: model.ref === current }));
         },
         async ModelsForTab(tabID) {
+          if (modelUnavailableMock) return [];
           const tab = mockTabs.find((item) => item.id === tabID) ?? mockTabs.find((item) => item.active) ?? mockTabs[0];
           const current = mockTabModelRef(tab);
           return mockModelCatalog.map((model) => ({ ...model, current: model.ref === current }));
@@ -3807,6 +3885,7 @@ function makeMockApp(): AppBindings {
       if (existing) {
         const active = { ...existing, active: true, running: mockTopicRunsInScenario(_topicID) };
         mockTabs = mockTabs.map((tab) => (tab.id === existing.id ? active : { ...tab, active: false }));
+        persistMockRuntime();
         return { ...active };
       }
       const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
@@ -3832,6 +3911,7 @@ function makeMockApp(): AppBindings {
         cwd: workspaceRoot,
       };
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
+      persistMockRuntime();
       return { ...tab };
     },
     async DeliveryWorktreeAvailability(workspaceRoot: string) {
@@ -3844,10 +3924,29 @@ function makeMockApp(): AppBindings {
       const suffix = Date.now().toString(36);
       const isolatedRoot = `/mock/rillagent-worktrees/${suffix}/${workspaceRoot.split("/").filter(Boolean).pop() ?? "project"}`;
       const topicID = `topic_worktree_${suffix}`;
+      const sourceProject = mockProjectTree.find((node) => node.kind === "project" && node.root === workspaceRoot);
+      mockProjectTree.unshift({
+        key: `project_${isolatedRoot}`,
+        kind: "project",
+        label: `${sourceProject?.label || baseName(workspaceRoot)}·隔离`,
+        root: isolatedRoot,
+        projectColor: sourceProject?.projectColor,
+        isolatedWorktree: true,
+        children: [{
+          key: `topic_${topicID}`,
+          kind: "topic",
+          label: t("mock.newSession"),
+          root: isolatedRoot,
+          topicId: topicID,
+          projectColor: sourceProject?.projectColor,
+          open: true,
+        }],
+      });
       const tab = await this.OpenProjectTab(isolatedRoot, topicID);
       tab.isolatedWorktree = true;
       tab.gitBranch = `rill/delivery-${suffix}`;
       mockTabs = mockTabs.map((candidate) => candidate.id === tab.id ? { ...tab } : candidate);
+      persistMockRuntime();
       return {
         workspaceRoot: isolatedRoot,
         worktreeRoot: isolatedRoot,
@@ -3861,6 +3960,7 @@ function makeMockApp(): AppBindings {
       const existing = mockTabs.find((tab) => tab.scope === "global" && tab.topicId === _topicID);
       if (existing) {
         setMockActiveTab(existing.id);
+        persistMockRuntime();
         return { ...existing, active: true };
       }
       const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
@@ -3884,6 +3984,7 @@ function makeMockApp(): AppBindings {
         cwd: "",
       };
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
+      persistMockRuntime();
       return { ...tab };
     },
     async OpenTopicSession(scope: string, workspaceRoot: string, topicID: string, sessionPath: string) {
@@ -3892,6 +3993,7 @@ function makeMockApp(): AppBindings {
         : await this.OpenGlobalTab(topicID);
       const active = { ...tab, sessionPath };
       mockTabs = mockTabs.map((item) => (item.id === tab.id ? active : item));
+      persistMockRuntime();
       return { ...active };
     },
     async EnsureBlankTab(scope: string, workspaceRoot: string) {
@@ -3905,6 +4007,7 @@ function makeMockApp(): AppBindings {
       );
       if (existing) {
         setMockActiveTab(existing.id);
+        persistMockRuntime();
         return { ...existing, active: true };
       }
       const topic = await this.CreateTopic(targetScope, targetRoot, "");
@@ -3917,22 +4020,28 @@ function makeMockApp(): AppBindings {
           ? await this.OpenProjectTab(workspaceRoot, topicID)
           : await this.OpenGlobalTab(topicID);
       mockTabs = mockTabs.filter((item) => item.id === tab.id).map((item) => ({ ...item, active: true }));
+      persistMockRuntime();
       return { ...mockTabs[0] };
     },
     async EnsureBlankSurface(scope: string, workspaceRoot: string) {
       const tab = await this.EnsureBlankTab(scope, workspaceRoot);
       mockTabs = mockTabs.filter((item) => item.id === tab.id).map((item) => ({ ...item, active: true }));
+      persistMockRuntime();
       return { ...mockTabs[0] };
     },
     async SetActiveTab(_tabID: string) {
       setMockActiveTab(_tabID);
+      persistMockRuntime();
       const tab = mockTabs.find((item) => item.id === _tabID);
       if (tab) queueMockTopicRuntime(tab);
     },
     async ReorderTabs(_tabIDs: string[]) {
       const byId = new Map(mockTabs.map((tab) => [tab.id, tab]));
       const ordered = _tabIDs.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
-      if (ordered.length === mockTabs.length) mockTabs = ordered;
+      if (ordered.length === mockTabs.length) {
+        mockTabs = ordered;
+        persistMockRuntime();
+      }
     },
     async CloseTab(_tabID: string) {
       if (mockTabs.length <= 1) return;
@@ -3941,6 +4050,7 @@ function makeMockApp(): AppBindings {
       if (wasActive && mockTabs.length > 0 && !mockTabs.some((tab) => tab.active)) {
         mockTabs[mockTabs.length - 1] = { ...mockTabs[mockTabs.length - 1], active: true };
       }
+      persistMockRuntime();
     },
     async ListProjectTree() {
       return cloneProjectTree();
