@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"reasonix/internal/control"
@@ -36,6 +37,37 @@ func TestCapabilityDiagnosticsStaticUsesWorkspaceRoot(t *testing.T) {
 	}
 	if report.SchemaVersion != 1 {
 		t.Fatalf("schema = %d", report.SchemaVersion)
+	}
+	if report.Root != "<workspace>" {
+		t.Fatalf("diagnostics root = %q, want redacted workspace marker", report.Root)
+	}
+}
+
+func TestSaveExportFileWritesDiagnosticsPayloadLocally(t *testing.T) {
+	app := NewApp()
+	path := filepath.Join(t.TempDir(), "rill-diagnostics.json")
+	payload := `{"product":"Rill","redactedFields":["token"]}`
+	if err := app.SaveExportFile(path, payload, false); err != nil {
+		t.Fatalf("SaveExportFile() error = %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read exported diagnostics: %v", err)
+	}
+	if string(got) != payload {
+		t.Fatalf("exported payload = %q, want exact preview bytes %q", got, payload)
+	}
+}
+
+func TestSaveExportFileReturnsDiagnosticsWriteError(t *testing.T) {
+	app := NewApp()
+	path := filepath.Join(t.TempDir(), "missing", "rill-diagnostics.json")
+	err := app.SaveExportFile(path, `{}`, false)
+	if err == nil {
+		t.Fatal("SaveExportFile() error = nil, want local write failure")
+	}
+	if !strings.Contains(err.Error(), "no such file") {
+		t.Fatalf("SaveExportFile() error = %q, want real filesystem error", err)
 	}
 }
 

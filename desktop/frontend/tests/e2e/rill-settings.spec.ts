@@ -75,3 +75,25 @@ test("failed settings writes retain the last backend-confirmed snapshot", async 
   await openTab(page, "通用");
   await expect(page.locator("select").first()).toHaveValue("简体中文");
 });
+
+test("diagnostics previews redacted contents and destination before local export", async ({ page }) => {
+  await openSettings(page);
+  await openTab(page, "诊断");
+
+  const payload = page.locator("pre").filter({ hasText: "redactedFields" });
+  await expect(payload).toBeVisible();
+  await expect(payload).not.toContainText("/Users/");
+  await expect(page.getByTestId("diagnostics-export-preview")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "导出 JSON", exact: true }).click();
+  const preview = page.getByTestId("diagnostics-export-preview");
+  await expect(preview).toContainText("导出前确认");
+  await expect(preview).toContainText("应用版本、隐私状态、能力诊断摘要与脱敏问题详情");
+  await expect(preview).toContainText("保存位置：rill-diagnostics.json");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "确认导出", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("rill-diagnostics.json");
+  await expect(page.getByText("已保存：rill-diagnostics.json", { exact: true })).toBeVisible();
+});

@@ -19,7 +19,7 @@ const report = {
     severity: "error",
     code: "provider.failed",
     subsystem: "provider",
-    message: "Authorization: Bearer secret-token-value at /Users/private-user/.rillagent/config.toml",
+    message: "Authorization: Bearer secret-token-value at /Users/private-user/private-project/config.toml PATH=/Users/private-user/private-project/bin:/usr/bin jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature ghp_abcdefghijklmnopqrstuvwxyz123456",
     source: "/Users/private-user/.rillagent/config.toml",
   }],
 } as CapabilityDiagnosticsReport;
@@ -30,8 +30,11 @@ const payload = buildRillDiagnosticsPayload(report, {
 });
 
 assert.doesNotMatch(payload, /private-user/);
+assert.doesNotMatch(payload, /private-project/);
 assert.doesNotMatch(payload, /secret-token-value/);
-assert.match(payload, /<home>/);
+assert.doesNotMatch(payload, /eyJhbGciOiJIUzI1NiJ9/);
+assert.doesNotMatch(payload, /ghp_abcdefghijklmnopqrstuvwxyz123456/);
+assert.match(payload, /<private-path>/);
 assert.match(payload, /Bearer \[REDACTED\]/);
 assert.match(payload, /"telemetry": false/);
 assert.match(payload, /"redactedFields"/);

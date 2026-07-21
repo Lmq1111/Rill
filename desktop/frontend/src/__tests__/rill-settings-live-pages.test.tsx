@@ -65,6 +65,7 @@ let settings = {
 const diagnostics = { schema_version: 1, root: "/Users/private/repo", live: false, summary: { errors: 0, warnings: 0, infos: 0, instructions: 0, skills: 0, commands: 0, hooks: 0, plugins: 0, mcp_servers: 0 }, instructions: { docs: [] }, skills: { roots: [], entries: [], winners: 0, shadowed: 0 }, commands: { roots: [], entries: [], winners: 0, shadowed: 0 }, hooks: { trusted_project: true, project_defines_hooks: false, sources: [], entries: [] }, plugins: { packages: [] }, mcp: { servers: [] }, issues: [] } as CapabilityDiagnosticsReport;
 const calls: string[] = [];
 let exported = "";
+let exportWriteError = "";
 let subagentPrompt = "只处理文档";
 const backend = {
   async Settings() { return structuredClone(settings); },
@@ -80,7 +81,11 @@ const backend = {
   async DiagnoseBotConnection(id: string) { calls.push(`diagnose:${id}`); return { id, label: "真实飞书", status: "ok", message: "配置可用", messageId: "", phase: "config", code: "ok", reportKind: "", reportDetail: "", occurredAt: now }; },
   async TestBotConnection(id: string) { calls.push(`test:${id}`); return { id, label: "真实飞书", status: "ok", message: "连接成功", messageId: "", phase: "runtime", code: "ok", reportKind: "", reportDetail: "", occurredAt: now }; },
   async PickExportFile() { calls.push("pick-export"); return "/tmp/rill-diagnostics.json"; },
-  async SaveExportFile(_path: string, payload: string) { calls.push("save-export"); exported = payload; },
+  async SaveExportFile(_path: string, payload: string) {
+    calls.push("save-export");
+    if (exportWriteError) throw new Error(exportWriteError);
+    exported = payload;
+  },
   async SetDesktopShortcuts(shortcuts: Record<string, string>) { calls.push("save-shortcuts"); settings = { ...settings, desktopShortcuts: structuredClone(shortcuts) }; },
   async SetGeneralSettings(input: any) { calls.push("save-general"); settings = { ...settings, desktopLanguage: input.language, desktopLayoutStyle: input.layoutStyle, closeBehavior: input.closeBehavior, displayMode: input.displayMode, expandThinking: input.expandThinking, defaultToolApprovalMode: input.defaultToolApprovalMode, autoPlan: input.autoPlan, memoryCompilerEnabled: input.memoryCompilerEnabled, statusBarStyle: input.statusBarStyle, statusBarItems: [...input.statusBarItems] }; },
   async SetPermissions(mode: string, allow: string[], ask: string[], deny: string[]) { calls.push("save-permissions"); settings = { ...settings, permissions: { mode, allow: [...allow], ask: [...ask], deny: [...deny] } }; },
@@ -132,10 +137,31 @@ assert.match(container.textContent || "", /连接成功/);
 
 container = await render(<DiagnosticsSettings goTo={() => {}} />);
 assert.doesNotMatch(container.textContent || "", /模拟导出失败|演示状态/);
+await act(async () => { button(container, "复制").click(); await flush(); });
+await waitFor("diagnostics copy", () => clipboardWrites.length > 0);
+assert.doesNotMatch(clipboardWrites.at(-1) || "", /\/Users\/private/);
 await act(async () => { button(container, "导出 JSON").click(); await flush(); });
-await waitFor("diagnostics export", () => calls.includes("save-export"));
+await waitFor("diagnostics export location", () => calls.includes("pick-export"));
+assert.ok(!calls.includes("save-export"), "choosing a location must not write before confirmation");
+assert.match(container.textContent || "", /导出前确认/);
+assert.match(container.textContent || "", /保存位置/);
+assert.match(container.textContent || "", /\/tmp\/rill-diagnostics\.json/);
+assert.match(container.textContent || "", /应用版本、隐私状态、能力诊断摘要与脱敏问题详情/);
+
+exportWriteError = "controlled diagnostics write failure";
+await act(async () => { button(container, "确认导出").click(); await flush(); });
+await waitFor("diagnostics export failure", () => (container.textContent || "").includes(exportWriteError));
+assert.match(container.textContent || "", /\/tmp\/rill-diagnostics\.json/, "failed export retains the selected destination");
+assert.match(container.textContent || "", /redactedFields/, "failed export retains the copyable preview");
+await act(async () => { button(container, "复制").click(); await flush(); });
+assert.ok(clipboardWrites.length >= 2, "failed export keeps the diagnostics copy action available");
+
+exportWriteError = "";
+await act(async () => { button(container, "确认导出").click(); await flush(); });
+await waitFor("diagnostics export", () => exported.length > 0);
 assert.doesNotMatch(exported, /\/Users\/private/);
 assert.match(exported, /redactedFields/);
+assert.equal(exported, clipboardWrites.at(-1), "the retained copy action and confirmed export use the exact same preview bytes");
 
 container = await render(<KeyboardSettings />);
 await act(async () => { button(container, "恢复全部默认").click(); await flush(); });

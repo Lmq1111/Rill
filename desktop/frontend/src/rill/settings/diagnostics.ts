@@ -4,19 +4,22 @@ const SENSITIVE_KEY = /(api.?key|token|secret|password|cookie|authorization|cred
 const PATH_KEY = /(^|_)(path|root|source|cwd|store_dir)$/i;
 
 function redactText(value: string, pathLike = false): string {
+  if (pathLike && /^(?:\/|[A-Za-z]:\\)/.test(value.trim())) return "<private-path>";
   let next = value
     .replace(/Bearer\s+[^\s"']+/gi, "Bearer [REDACTED]")
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[REDACTED]")
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, "[REDACTED]")
+    .replace(/\b(?:eyJ[A-Za-z0-9_-]{8,}\.){2}[A-Za-z0-9_-]{4,}\b/g, "[REDACTED]")
     .replace(/\b(?:api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/gi, (match) => {
       const separator = match.includes("=") ? "=" : ":";
       return `${match.split(/[=:]/, 1)[0]}${separator}[REDACTED]`;
     })
-    .replace(/\/Users\/[^/\s"']+/g, "<home>")
-    .replace(/\/home\/[^/\s"']+/g, "<home>")
-    .replace(/[A-Za-z]:\\Users\\[^\\\s"']+/g, "<home>");
+    .replace(/\b([A-Z][A-Z0-9_]{1,})\s*=\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/g, "$1=[REDACTED]")
+    .replace(/\/Users\/[^/\s"'<>]+(?:\/[^\s"'<>:,;)\]}]+)*/g, "<private-path>")
+    .replace(/\/home\/[^/\s"'<>]+(?:\/[^\s"'<>:,;)\]}]+)*/g, "<private-path>")
+    .replace(/[A-Za-z]:\\Users\\[^\\\s"'<>]+(?:\\[^\s"'<>:,;)\]}]+)*/g, "<private-path>");
   if (pathLike && /^(?:\/|[A-Za-z]:\\)/.test(next) && !next.startsWith("<home>")) {
-    const base = next.split(/[\\/]/).filter(Boolean).pop() ?? "path";
-    next = `<path>/${base}`;
+    next = "<private-path>";
   }
   return next;
 }
