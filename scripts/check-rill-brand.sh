@@ -24,7 +24,7 @@ allowed_match() {
   # Explicit negative tests are allowed to spell the retired names and blocked
   # domains they prove cannot be read, written, contacted, or re-enabled.
   case "$file" in
-    *_test.go|*_test.ts|*_test.tsx|*.test.ts|*.test.tsx|*.test.mjs)
+    *_test.go|*_test.ts|*_test.tsx|*.test.ts|*.test.tsx|*.test.mjs|*.spec.ts|*.spec.tsx)
       return 0
       ;;
   esac
