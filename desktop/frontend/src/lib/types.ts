@@ -1425,6 +1425,16 @@ export interface BotRuntimeStatusView {
   message: string;
   connections: number;
   startedAt: string;
+  adapters?: BotRuntimeConnectionStatusView[];
+}
+
+export interface BotRuntimeConnectionStatusView {
+  id: string;
+  status: string;
+  startedAt: string;
+  lastSyncAt: string;
+  lastErrorAt: string;
+  lastError: string;
 }
 
 export interface BotInstallStartResult {

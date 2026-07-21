@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { app, onProjectTreeChanged, onReady, onRuntimeRebuilt } from "../lib/bridge";
-import type { ProjectNode, TabMeta } from "../lib/types";
+import type { BotRuntimeStatusView, BotSettingsView, ProjectNode, TabMeta } from "../lib/types";
 import { useController } from "../lib/useController";
 import { adaptHistorySession, adaptLiveProjects, adaptLiveSession, adaptTrashedSession } from "./adapters/live";
+import { adaptBotChannels, patchBotChannel } from "./adapters/channels";
 import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "./adapters/workspace";
 import { CorePages } from "./pages/core";
 import {
@@ -49,12 +50,21 @@ export function RillLiveApp() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [modelAvailability, setModelAvailability] = useState<Record<string, boolean>>({});
+  const [botSettings, setBotSettings] = useState<BotSettingsView | null>(null);
+  const [botRuntimeStatus, setBotRuntimeStatus] = useState<BotRuntimeStatusView | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [nextTabs, nextTree] = await Promise.all([app.ListTabs(), app.ListProjectTree()]);
+      const [nextTabs, nextTree, nextSettings, nextRuntime] = await Promise.all([
+        app.ListTabs(),
+        app.ListProjectTree(),
+        app.Settings().catch(() => null),
+        app.BotRuntimeStatus().catch(() => null),
+      ]);
       setTabs(Array.isArray(nextTabs) ? nextTabs : []);
       setTree(Array.isArray(nextTree) ? nextTree : []);
+      if (nextSettings) setBotSettings(nextSettings.bot);
+      if (nextRuntime) setBotRuntimeStatus(nextRuntime);
       setLoadError("");
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "无法读取工作区");
@@ -99,13 +109,25 @@ export function RillLiveApp() {
       meta: controller.state.meta,
       modelsAvailable: modelAvailability[tab.id],
     } : undefined)), [controller.activeTabId, controller.state, tabs]);
+  const channels = useMemo(
+    () => botSettings ? adaptBotChannels(botSettings, botRuntimeStatus, projects, sessions) : [],
+    [botRuntimeStatus, botSettings, projects, sessions],
+  );
+
+  const loadLiveChannels = useCallback(async () => {
+    const [settings, status] = await Promise.all([app.Settings(), app.BotRuntimeStatus()]);
+    setBotSettings(settings.bot);
+    setBotRuntimeStatus(status);
+    return adaptBotChannels(settings.bot, status, projects, sessions);
+  }, [projects, sessions]);
 
   const seed = useMemo<VisualStoreSeed>(() => ({
     route: "workbench" as Route,
     projects,
     sessions,
+    channels,
     activeSessionId: activeTabId,
-  }), [activeTabId, projects, sessions]);
+  }), [activeTabId, channels, projects, sessions]);
 
   const runtime = useMemo<RillSessionRuntime>(() => ({
     submit: async (session, input) => {
@@ -291,6 +313,34 @@ export function RillLiveApp() {
       return adaptWorkspaceChanges(view);
     },
     readDiff: async (session, file) => attachWorkspaceDiff(file, await app.WorkspaceFileDiff(session.id, file.path)),
+    listChannels: loadLiveChannels,
+    saveChannel: async (channel, channelPatch) => {
+      const settings = await app.Settings();
+      const nextBot = patchBotChannel(settings.bot, channel.id, channelPatch, projects);
+      await app.SetBotSettings(nextBot);
+      return loadLiveChannels();
+    },
+    saveChannelSecret: async (channel, secret) => {
+      const envName = channel.credentialEnv?.trim() ?? "";
+      if (!envName) throw new Error("该渠道没有可用的凭证存储引用");
+      await app.SetBotSecret(envName, secret);
+      return loadLiveChannels();
+    },
+    reconnectChannel: async (channel) => {
+      const settings = await app.Settings();
+      const nextBot = patchBotChannel(settings.bot, channel.id, { enabled: true }, projects);
+      await app.SetBotSettings({ ...nextBot, enabled: true });
+      let latest = await loadLiveChannels();
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const current = latest.find((candidate) => candidate.id === channel.id);
+        if (current?.connState === "connected") return latest;
+        if (current?.connState === "failed" && current.lastError) throw new Error(current.lastError);
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        latest = await loadLiveChannels();
+      }
+      const current = latest.find((candidate) => candidate.id === channel.id);
+      throw new Error(current?.lastError || "Bot 运行时未能恢复连接");
+    },
     refreshContext: async (session) => {
       const context = await app.ContextUsageForTab(session.id);
       return {
@@ -304,7 +354,7 @@ export function RillLiveApp() {
         refreshedAt: "刚刚",
       };
     },
-  }), [controller, projects, refresh, tabs]);
+  }), [controller, loadLiveChannels, projects, refresh, tabs]);
 
   if (!loaded) {
     return (

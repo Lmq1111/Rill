@@ -148,11 +148,14 @@ export interface DiffFile {
 /* ============ 渠道 ============ */
 export interface Channel {
   id: string; type: "飞书/Lark" | "QQ" | "微信"; name: string;
+  provider?: string; domain?: string; enabled?: boolean;
   connState: "connected" | "failed" | "credExpired" | "missingConfig";
   hasAssociation: boolean; // 是否存在关联会话（与连接状态独立）
   remoteId: string; scope: "全局" | string; projectId?: string;
+  workspaceRoot?: string;
   policy: "trusted" | "everyone"; whitelistOn: boolean; userHit: boolean;
   users: string[]; groups: string[]; lastSync: string; sessionIds: string[];
+  credentialSet?: boolean; credentialEnv?: string; lastError?: string;
 }
 
 /* ============ 自动化任务 ============ */
@@ -406,7 +409,10 @@ export interface Store {
   cleanRestoreCopies: () => Promise<boolean>;
 
   // 渠道
-  updateChannel: (id: string, patch: Partial<Channel>) => void;
+  refreshChannels: () => Promise<boolean>;
+  saveChannel: (id: string, patch: Partial<Channel>) => Promise<boolean>;
+  saveChannelSecret: (id: string, secret: string) => Promise<boolean>;
+  reconnectChannel: (id: string) => Promise<boolean>;
 
   // 自动化
   saveTask: (t: AutomationTask) => AutomationTask;
@@ -436,6 +442,7 @@ export interface VisualStoreSeed {
   readonly sessions?: readonly Session[];
   readonly historySessions?: readonly Session[];
   readonly recycled?: readonly Recycled[];
+  readonly channels?: readonly Channel[];
   readonly activeSessionId?: string;
   readonly activeSessionPatch?: Partial<Session>;
 }
@@ -468,6 +475,10 @@ export interface RillSessionRuntime {
   listDiffs?: (session: Session) => Promise<DiffFile[]>;
   readDiff?: (session: Session, file: DiffFile) => Promise<DiffFile>;
   refreshContext?: (session: Session) => Promise<SessionContext>;
+  listChannels?: () => Promise<Channel[]>;
+  saveChannel?: (channel: Channel, patch: Partial<Channel>) => Promise<Channel[]>;
+  saveChannelSecret?: (channel: Channel, secret: string) => Promise<Channel[]>;
+  reconnectChannel?: (channel: Channel) => Promise<Channel[]>;
 }
 
 function sessionsFromSeed(seed: VisualStoreSeed): Session[] {
@@ -511,7 +522,7 @@ export function StoreProvider({
   const [recycleLoading, setRecycleLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [recycleError, setRecycleError] = useState("");
-  const [channels, setChannels] = useState<Channel[]>(initialChannels);
+  const [channels, setChannels] = useState<Channel[]>(() => seed.channels ? [...seed.channels] : initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
   const [slashCommands, setSlashCommands] = useState<CommandInfo[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, FileNode[]>>(filesByProject);
@@ -542,6 +553,11 @@ export function StoreProvider({
     if (next && sessions.some((session) => session.id === next)) setActiveSessionId(next);
   }, [seed.activeSessionId]);
 
+  useEffect(() => {
+    if (!seed.channels) return;
+    setChannels([...seed.channels]);
+  }, [seed.channels]);
+
   const patch = (id: string, p: Partial<Session>) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, ...p } : s));
 
   const refreshHistory = useCallback(async () => {
@@ -557,6 +573,18 @@ export function StoreProvider({
       return false;
     } finally {
       setHistoryLoading(false);
+    }
+  }, []);
+
+  const refreshChannels = useCallback(async () => {
+    const currentRuntime = runtimeRef.current;
+    if (!currentRuntime?.listChannels) return true;
+    try {
+      setChannels(await currentRuntime.listChannels());
+      return true;
+    } catch (error) {
+      toast.error("渠道刷新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+      return false;
     }
   }, []);
 
@@ -1060,7 +1088,49 @@ export function StoreProvider({
         }
       },
 
-      updateChannel: (id, p) => setChannels((cs) => cs.map((c) => c.id === id ? { ...c, ...p } : c)),
+      refreshChannels,
+      saveChannel: async (id, channelPatch) => {
+        const channel = channels.find((candidate) => candidate.id === id);
+        if (!channel) return false;
+        try {
+          if (runtime?.saveChannel) setChannels(await runtime.saveChannel(channel, channelPatch));
+          else setChannels((current) => current.map((candidate) => candidate.id === id ? { ...candidate, ...channelPatch } : candidate));
+          toast.success("机器人设置已保存");
+          return true;
+        } catch (error) {
+          if (runtime?.listChannels) await refreshChannels();
+          toast.error("机器人设置保存失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      saveChannelSecret: async (id, secret) => {
+        const channel = channels.find((candidate) => candidate.id === id);
+        if (!channel || !secret.trim()) return false;
+        try {
+          if (!runtime?.saveChannelSecret) throw new Error("当前环境不支持安全凭证存储");
+          setChannels(await runtime.saveChannelSecret(channel, secret));
+          toast.success("凭证已安全更新", { description: "密钥原文不会显示或写入渠道配置" });
+          return true;
+        } catch (error) {
+          if (runtime?.listChannels) await refreshChannels();
+          toast.error("凭证更新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      reconnectChannel: async (id) => {
+        const channel = channels.find((candidate) => candidate.id === id);
+        if (!channel) return false;
+        try {
+          if (!runtime?.reconnectChannel) throw new Error("当前环境不支持重新连接");
+          setChannels(await runtime.reconnectChannel(channel));
+          toast.success("已请求重新连接");
+          return true;
+        } catch (error) {
+          if (runtime?.listChannels) await refreshChannels();
+          toast.error("重新连接失败", { description: error instanceof Error ? error.message : "请检查凭证和网络后重试" });
+          return false;
+        }
+      },
 
       saveTask: (t) => {
         const saved = t.id === "new" || !t.id.trim()
@@ -1199,7 +1269,7 @@ export function StoreProvider({
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, historySessions, recycled, historyLoading, recycleLoading, historyError, recycleError, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime, refreshHistory, refreshRecycle]);
+  }, [nav, projectList, sessions, historySessions, recycled, historyLoading, recycleLoading, historyError, recycleError, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime, refreshHistory, refreshRecycle, refreshChannels]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

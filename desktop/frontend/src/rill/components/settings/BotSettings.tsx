@@ -10,7 +10,7 @@ import { brand } from "../../../lib/brand";
 type Pair = "unconfigured" | "waitingQR" | "waitingAuth" | "paired" | "pairFailed";
 
 export function BotSettings() {
-  const { navigate } = useStore();
+  const { navigate, channels } = useStore();
   const [bots, setBots] = useState<Bot[]>(seedBots);
   const [editing, setEditing] = useState<Bot | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -98,8 +98,8 @@ export function BotSettings() {
         删除后该渠道将无法调用{brand.productName}，已关联会话仍会保留。凭据配置将一并移除。
       </ConfirmDialog>
 
-      <button onClick={() => navigate("channel", { id: "ch1" })} className="mt-4 flex items-center gap-1.5 text-[12px] text-teal-600 hover:underline">
-        <ExternalLink className="size-3.5" /> 查看某个渠道的运行详情
+      <button disabled={channels.length === 0} onClick={() => channels[0] && navigate("channel", { id: channels[0].id })} className="mt-4 flex items-center gap-1.5 text-[12px] text-teal-600 hover:underline disabled:text-slate-300 disabled:no-underline">
+        <ExternalLink className="size-3.5" /> {channels.length > 0 ? "查看某个渠道的运行详情" : "暂无可查看的渠道"}
       </button>
     </SettingsBody>
   );

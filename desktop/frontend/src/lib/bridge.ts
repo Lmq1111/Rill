@@ -3694,12 +3694,21 @@ function makeMockApp(): AppBindings {
         async BotRuntimeStatus() {
           const qqRunning = settings.bot.qq.enabled && settings.bot.qq.appId.trim() && settings.bot.qq.secretSet;
           const runningConnections = (qqRunning ? 1 : 0) + settings.bot.connections.filter((connection) => connection.enabled && connection.status === "connected").length;
+          const adapters = settings.bot.connections.map((connection) => ({
+            id: connection.id,
+            status: connection.enabled && connection.status === "connected" ? "running" : connection.status === "error" ? "error" : "disabled",
+            startedAt: connection.enabled && connection.status === "connected" ? new Date(t0).toISOString() : "",
+            lastSyncAt: connection.updatedAt,
+            lastErrorAt: connection.lastError ? connection.updatedAt : "",
+            lastError: connection.lastError,
+          }));
           return {
             running: settings.bot.enabled && runningConnections > 0,
             status: settings.bot.enabled && runningConnections > 0 ? "running" : "stopped",
             message: settings.bot.enabled && runningConnections > 0 ? `${runningConnections} bot connection(s) running` : "bot runtime is not started",
             connections: runningConnections,
             startedAt: settings.bot.enabled && runningConnections > 0 ? new Date(t0).toISOString() : "",
+            adapters,
           };
         },
         async StartBotConnectionInstall(provider: string, domain: string) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -13,6 +14,10 @@ import (
 	"reasonix/internal/botruntime"
 	"reasonix/internal/config"
 )
+
+type botRuntimeFailingAdapter struct{ *desktopForwardTestAdapter }
+
+func (a *botRuntimeFailingAdapter) Start(context.Context) error { return errors.New("dial refused") }
 
 func TestDesktopBotRuntimePlanStartsSavedConnections(t *testing.T) {
 	cfg := config.Default()
@@ -500,5 +505,27 @@ func TestSummarizeBotRuntimeErrorsCapsOutput(t *testing.T) {
 	}
 	if strings.Contains(got, "fourth") {
 		t.Fatalf("summary = %q, should cap extra errors", got)
+	}
+}
+
+func TestBotRuntimeConnectionStatusesExposePerAdapterHealth(t *testing.T) {
+	adapter := newDesktopForwardTestAdapter()
+	failing := &botRuntimeFailingAdapter{desktopForwardTestAdapter: newDesktopForwardTestAdapter()}
+	gw := bot.NewGatewayWithAdapterBindings(bot.GatewayConfig{Enabled: map[bot.Platform]bool{bot.PlatformFeishu: true}}, []bot.AdapterBinding{
+		{ID: "feishu-lark", Domain: "lark", Platform: bot.PlatformFeishu, Adapter: adapter},
+		{ID: "feishu-failed", Domain: "feishu", Platform: bot.PlatformFeishu, Adapter: failing},
+	}, slog.Default())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := gw.Start(ctx); err != nil {
+		t.Fatalf("start gateway: %v", err)
+	}
+	defer gw.Stop()
+	got := botRuntimeConnectionStatuses(gw)
+	if len(got) != 2 || got[1].ID != "feishu-lark" || got[1].Status != "running" || got[1].StartedAt == "" {
+		t.Fatalf("adapter status = %+v, want running feishu-lark with a start timestamp", got)
+	}
+	if got[0].ID != "feishu-failed" || got[0].Status != "error" || !strings.Contains(got[0].LastError, "dial refused") || got[0].LastErrorAt == "" {
+		t.Fatalf("adapter status = %+v, want the failed connection's current error", got)
 	}
 }
