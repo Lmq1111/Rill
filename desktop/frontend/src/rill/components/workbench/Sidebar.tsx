@@ -62,7 +62,7 @@ function SessionRow({ session }: { session: Session }) {
         </div>
         {session.unread ? <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-teal-600 text-[10px] text-white">{session.unread}</span> : null}
       </button>
-      <div className="absolute right-1.5 top-1.5 hidden items-center gap-0.5 rounded-md bg-white/95 pl-0.5 shadow-sm group-hover:flex">
+      <div style={{ gridAutoFlow: "column" }} className="absolute right-1.5 top-1.5 hidden items-center gap-0.5 rounded-md bg-white/95 pl-0.5 shadow-sm group-hover:grid">
         {renaming ? (
           <button onClick={() => void renameSession(session.id, title).then((ok) => ok && setRenaming(false))} title="保存会话名称" className="grid size-6 place-items-center rounded-md text-teal-600 hover:bg-teal-50"><Check className="size-3.5" /></button>
         ) : (
@@ -136,7 +136,7 @@ export function Sidebar() {
           const list = filtered(project);
           if (query !== "" && list.length === 0) return null;
           return (
-            <div key={project.id} className={`group/project ${i > 0 ? "mt-2" : ""}`}>
+            <div key={project.id} className={`group ${i > 0 ? "mt-2" : ""}`}>
               <button onClick={() => toggleProject(project.id)} className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left">
                 {project.expanded ? <ChevronDown className="size-3.5 text-slate-400" /> : <ChevronRight className="size-3.5 text-slate-400" />}
                 <FolderGit2 className="size-3.5 text-slate-400" />
@@ -151,7 +151,7 @@ export function Sidebar() {
                     aria-label={`为${project.name}创建隔离工作区`}
                     onClick={(event) => { event.stopPropagation(); void createIsolatedWorkspace(project.id); }}
                     onKeyDown={(event) => { if (event.key === "Enter") { event.stopPropagation(); void createIsolatedWorkspace(project.id); } }}
-                    className="hidden size-5 place-items-center rounded text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 group-hover/project:grid"
+                    className="hidden size-5 place-items-center rounded text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 group-hover:grid"
                   ><GitFork className="size-3.5" /></span>
                 )}
                 <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] text-slate-500">{list.length}</span>

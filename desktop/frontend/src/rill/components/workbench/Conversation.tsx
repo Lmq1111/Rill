@@ -36,8 +36,8 @@ function UserMessage({ m, s }: { m: Message; s: Session }) {
     );
   }
   return (
-    <div className="group/message flex justify-end gap-3">
-      {actionable && <div className="hidden items-center gap-1 self-center group-hover/message:flex"><button title="编辑并重新执行" onClick={() => setEditing(true)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><Pencil className="size-3.5" /></button><button title="回滚到此消息" onClick={() => void rewindTo(s.id, m.id)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><RotateCcw className="size-3.5" /></button></div>}
+    <div className="group flex justify-end gap-3">
+      {actionable && <div style={{ gridAutoFlow: "column" }} className="hidden items-center gap-1 self-center group-hover:grid"><button title="编辑并重新执行" onClick={() => setEditing(true)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><Pencil className="size-3.5" /></button><button title="回滚到此消息" onClick={() => void rewindTo(s.id, m.id)} className="grid size-7 place-items-center rounded text-slate-400 hover:bg-slate-100"><RotateCcw className="size-3.5" /></button></div>}
       <div className="max-w-[76%] rounded-2xl rounded-tr-sm bg-teal-600 px-4 py-2.5 text-[13.5px] leading-relaxed text-white whitespace-pre-wrap">
         {m.text}
         {m.refs && m.refs.length > 0 && (
