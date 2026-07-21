@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
+import type { CommandInfo } from "../../lib/types";
 
 /* ============================================================
    Rill / Rillagent —— 统一数据状态
@@ -352,6 +353,8 @@ export interface Store {
   recycled: Recycled[];
   channels: Channel[];
   tasks: AutomationTask[];
+  slashCommands: CommandInfo[];
+  refreshSlashCommands: () => Promise<void>;
 
   activeSessionId: string;
   active: Session;
@@ -426,6 +429,7 @@ export interface RillSessionRuntime {
   createIsolated?: (project: Project) => Promise<{ project: Project; session: Session }>;
   rename?: (session: Session, title: string) => Promise<void>;
   close?: (session: Session) => Promise<void>;
+  commands?: () => Promise<CommandInfo[]>;
   cancel?: (session: Session) => Promise<void>;
   approve?: (session: Session, allow: boolean) => Promise<void>;
   answer?: (session: Session, answer: string) => Promise<void>;
@@ -475,6 +479,7 @@ export function StoreProvider({
   const [recycled, setRecycled] = useState<Recycled[]>(R);
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
+  const [slashCommands, setSlashCommands] = useState<CommandInfo[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, FileNode[]>>(filesByProject);
   const [workspaceDiffs, setWorkspaceDiffs] = useState<Record<string, DiffFile[]>>(diffsByProject);
   const [activeSessionId, setActiveSessionId] = useState(seed.activeSessionId ?? "s1");
@@ -543,6 +548,15 @@ export function StoreProvider({
       toggleProject: (id) => setProjectList((ps) => ps.map((p) => p.id === id ? { ...p, expanded: !p.expanded } : p)),
 
       sessions, recycled, channels, tasks,
+      slashCommands,
+      refreshSlashCommands: async () => {
+        if (!runtime?.commands) return;
+        try {
+          setSlashCommands(await runtime.commands());
+        } catch (error) {
+          toast.error("斜杠命令读取失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+        }
+      },
       activeSessionId, active,
       setActiveSession: (id) => {
         const target = sessions.find((session) => session.id === id);
@@ -904,7 +918,7 @@ export function StoreProvider({
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, recycled, channels, tasks, workspaceFiles, workspaceDiffs, activeSessionId, runtime]);
+  }, [nav, projectList, sessions, recycled, channels, tasks, slashCommands, workspaceFiles, workspaceDiffs, activeSessionId, runtime]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

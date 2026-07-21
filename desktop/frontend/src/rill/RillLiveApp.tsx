@@ -159,6 +159,7 @@ export function RillLiveApp() {
       await controller.syncActiveTab(false);
       await refresh();
     },
+    commands: async () => app.Commands(),
     cancel: async (session) => {
       await app.CancelTab(session.id);
       await refresh();

@@ -40,11 +40,15 @@ function Control({ icon: Icon, label, k, value }: { icon: typeof Cpu; label: str
 const refIcon = { file: FileCode2, snippet: FileCode2, path: AtSign, diff: FileCode2, diffSnippet: FileCode2 };
 
 export function Composer() {
-  const { active, setDraft, sendMessage, stopRun, removeRef, addAttachment, removeAttachment, navigate } = useStore();
+  const { active, setDraft, sendMessage, stopRun, removeRef, addAttachment, removeAttachment, navigate, slashCommands, refreshSlashCommands } = useStore();
   const s = active;
   const readonly = s.runState === "readonly";
   const running = s.runState === "aiRunning";
   const blocked = s.runState === "awaitingConfirm" || s.runState === "awaitingAnswer";
+  const slashMatch = s.draft.match(/^\/([^\s]*)$/);
+  const visibleCommands = slashMatch
+    ? slashCommands.filter((command) => command.name.toLocaleLowerCase().includes(slashMatch[1].toLocaleLowerCase()))
+    : [];
 
   if (readonly) {
     return (
@@ -66,7 +70,24 @@ export function Composer() {
         {running && <div className="mb-2 flex items-center gap-2 text-[11.5px] text-teal-600"><span className="size-1.5 rounded-full bg-teal-500 animate-pulse" />{brand.productName}正在运行 —— 你可以补充指令，或点击停止</div>}
         {blocked && <div className="mb-2 flex items-center gap-2 text-[11.5px] text-amber-600"><ShieldCheck className="size-3.5" />请先在对话中回应待确认 / 待回答项，再继续发送</div>}
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100">
+        <div className="relative rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100">
+          {slashMatch && (
+            <div className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg" role="listbox" aria-label="斜杠命令">
+              {visibleCommands.map((command) => (
+                <button
+                  key={`${command.kind}:${command.name}`}
+                  type="button"
+                  onClick={() => setDraft(s.id, `/${command.name} `)}
+                  className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                >
+                  <span className="min-w-24 font-mono text-[12.5px] text-teal-700">/{command.name}</span>
+                  <span className="text-[12px] text-slate-500">{command.description}</span>
+                  <span className="ml-auto rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">{command.kind}</span>
+                </button>
+              ))}
+              {visibleCommands.length === 0 && <div className="px-3 py-2 text-[12px] text-slate-400">没有匹配的命令</div>}
+            </div>
+          )}
           {(s.refs.length > 0 || s.attachments.length > 0) && (
             <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
               {s.refs.map((r) => {
@@ -89,7 +110,10 @@ export function Composer() {
 
           <textarea
             value={s.draft}
-            onChange={(e) => setDraft(s.id, e.target.value)}
+            onChange={(e) => {
+              setDraft(s.id, e.target.value);
+              if (e.target.value.startsWith("/")) void refreshSlashCommands();
+            }}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendMessage(s.id); } }}
             rows={2}
             placeholder="输入消息，粘贴长文本，/ 唤起命令，@ 引用文件…（⌘/Ctrl + Enter 发送）"
@@ -99,7 +123,7 @@ export function Composer() {
           <div className="flex items-center gap-1 border-t border-slate-100 px-2.5 py-2">
             <button onClick={() => addAttachment(s.id, { id: `at${Date.now()}`, name: `附件-${s.attachments.length + 1}.txt`, kind: "file", size: "12 KB" })} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" title="附件"><Paperclip className="size-4" /></button>
             <button onClick={() => addAttachment(s.id, { id: `im${Date.now()}`, name: `截图-${s.attachments.length + 1}.png`, kind: "image", size: "88 KB" })} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" title="图片"><ImageIcon className="size-4" /></button>
-            <button onClick={() => setDraft(s.id, s.draft + "/")} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" title="斜杠命令"><Slash className="size-4" /></button>
+            <button onClick={() => { setDraft(s.id, "/"); void refreshSlashCommands(); }} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" title="斜杠命令"><Slash className="size-4" /></button>
             <button onClick={() => navigate("files")} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" title="引用文件"><AtSign className="size-4" /></button>
 
             <div className="ml-auto flex items-center gap-2">
