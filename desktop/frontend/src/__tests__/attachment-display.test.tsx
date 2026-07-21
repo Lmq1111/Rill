@@ -1,4 +1,4 @@
-// Run: tsx src/__tests__/attachment-display.test.ts
+// Run: tsx src/__tests__/attachment-display.test.tsx
 
 import { baseName, formatAttachmentRefForDisplay, formatAttachmentRefForSubmit, parseAttachmentRefsForDisplay, replaceAttachmentRefsForDisplay, restoreAttachmentRefsForSubmit, sortDisplayAttachments } from "../lib/attachmentDisplay";
 
