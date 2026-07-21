@@ -3,12 +3,11 @@ import type { RillDisplayAdapter } from "./adapters/types";
 import { RillVisualShell } from "./layouts/RillVisualShell";
 import { CorePages } from "./pages/core";
 import { StoreProvider, type Route, type Session, type VisualStoreSeed } from "./state/visualStore";
-import figmaCss from "./rill.css?inline";
-import tokensCss from "./tokens.css?inline";
+import { rillCss } from "./styles";
 
 // The frozen Figma Make bundle is injected into a ShadowRoot so its preflight
 // and utility selectors cannot mutate the production application stylesheet.
-export const rillVisualCss = `${figmaCss}\n${tokensCss}`;
+export const rillVisualCss = rillCss;
 
 const coreRoute = new Set(Object.keys(CorePages));
 const settingsTabByPage: Record<string, string> = {

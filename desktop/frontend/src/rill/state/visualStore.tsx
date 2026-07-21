@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -354,7 +355,7 @@ export interface Store {
   setActiveSession: (id: string) => void;
 
   // 会话
-  createSession: (projectId: string) => string | null;
+  createSession: (projectId: string) => Promise<string | null>;
   renameSession: (id: string, title: string) => void;
   closeSession: (id: string) => void;
   deleteSession: (id: string) => void; // 移入回收站
@@ -403,6 +404,8 @@ const Ctx = createContext<Store | null>(null);
 export interface VisualStoreSeed {
   readonly route?: Route;
   readonly params?: Record<string, string>;
+  readonly projects?: readonly Project[];
+  readonly sessions?: readonly Session[];
   readonly activeSessionId?: string;
   readonly activeSessionPatch?: Partial<Session>;
 }
@@ -410,6 +413,31 @@ export interface VisualStoreSeed {
 export interface RillSessionRuntime {
   submit: (session: Session, input: string) => Promise<void>;
   steer: (session: Session, input: string) => Promise<void>;
+  activate?: (session: Session) => Promise<void>;
+  create?: (projectId: string) => Promise<Session | null>;
+  cancel?: (session: Session) => Promise<void>;
+  approve?: (session: Session, allow: boolean) => Promise<void>;
+  answer?: (session: Session, answer: string) => Promise<void>;
+}
+
+function sessionsFromSeed(seed: VisualStoreSeed): Session[] {
+  const source = seed.sessions ? [...seed.sessions] : S;
+  if (!seed.activeSessionPatch || !seed.activeSessionId) return source;
+  return source.map((session) => session.id === seed.activeSessionId ? { ...session, ...seed.activeSessionPatch } : session);
+}
+
+function mergeLiveSessions(current: readonly Session[], incoming: readonly Session[]) {
+  return incoming.map((session) => {
+    const local = current.find((candidate) => candidate.id === session.id);
+    if (!local) return session;
+    return {
+      ...session,
+      draft: local.draft,
+      attachments: local.attachments,
+      refs: local.refs,
+      modelContextClearedAt: session.modelContextClearedAt ?? local.modelContextClearedAt,
+    };
+  });
 }
 
 export function StoreProvider({
@@ -425,18 +453,34 @@ export function StoreProvider({
     route: seed.route ?? "workbench",
     params: seed.params ?? {},
   });
-  const [projectList, setProjectList] = useState<Project[]>(initialProjects);
-  const [sessions, setSessions] = useState<Session[]>(() =>
-    seed.activeSessionPatch && seed.activeSessionId
-      ? S.map((session) => session.id === seed.activeSessionId ? { ...session, ...seed.activeSessionPatch } : session)
-      : S,
-  );
+  const [projectList, setProjectList] = useState<Project[]>(() => seed.projects ? [...seed.projects] : initialProjects);
+  const [sessions, setSessions] = useState<Session[]>(() => sessionsFromSeed(seed));
   const [recycled, setRecycled] = useState<Recycled[]>(R);
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
   const [activeSessionId, setActiveSessionId] = useState(seed.activeSessionId ?? "s1");
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
+
+  useEffect(() => {
+    if (!seed.projects) return;
+    setProjectList((current) => seed.projects!.map((project) => ({
+      ...project,
+      expanded: current.find((candidate) => candidate.id === project.id)?.expanded ?? project.expanded,
+    })));
+  }, [seed.projects]);
+
+  useEffect(() => {
+    if (!seed.sessions) return;
+    setSessions((current) => mergeLiveSessions(current, seed.sessions!));
+    const next = seed.activeSessionId;
+    if (next && seed.sessions.some((session) => session.id === next)) setActiveSessionId(next);
+  }, [seed.sessions]);
+
+  useEffect(() => {
+    const next = seed.activeSessionId;
+    if (next && sessions.some((session) => session.id === next)) setActiveSessionId(next);
+  }, [seed.activeSessionId]);
 
   const patch = (id: string, p: Partial<Session>) => setSessions((ss) => ss.map((s) => s.id === id ? { ...s, ...p } : s));
 
@@ -460,15 +504,39 @@ export function StoreProvider({
 
       sessions, recycled, channels, tasks,
       activeSessionId, active,
-      setActiveSession: (id) => setActiveSessionId(id),
+      setActiveSession: (id) => {
+        const target = sessions.find((session) => session.id === id);
+        if (!target) return;
+        const previous = activeSessionId;
+        setActiveSessionId(id);
+        if (runtime?.activate) {
+          void runtime.activate(target).catch((error) => {
+            setActiveSessionId(previous);
+            toast.error("无法切换会话", { description: error instanceof Error ? error.message : "请稍后重试" });
+          });
+        }
+      },
 
-      createSession: (projectId) => {
+      createSession: async (projectId) => {
         const project = projectList.find((candidate) => candidate.id === projectId);
         if (!project || project.status !== "ok") {
           toast.error("无法新建会话", {
             description: project ? `项目「${project.name}」当前不可用` : "当前项目已不存在",
           });
           return null;
+        }
+        if (runtime?.create) {
+          try {
+            const created = await runtime.create(projectId);
+            if (!created) return null;
+            setSessions((current) => [created, ...current.filter((session) => session.id !== created.id)]);
+            setActiveSessionId(created.id);
+            setNav({ route: "workbench", params: {} });
+            return created.id;
+          } catch (error) {
+            toast.error("无法新建会话", { description: error instanceof Error ? error.message : "请稍后重试" });
+            return null;
+          }
         }
         const id = `s${Date.now()}`;
         const ns: Session = {
@@ -564,10 +632,26 @@ export function StoreProvider({
         setTimeout(() => patch(id, { runState: "idle" }), 1200);
         return true;
       },
-      stopRun: (id) => { patch(id, { runState: "idle" }); toast("已停止运行"); },
+      stopRun: (id) => {
+        const session = sessions.find((candidate) => candidate.id === id);
+        if (session && runtime?.cancel) {
+          void runtime.cancel(session).catch((error) => {
+            toast.error("停止运行失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          });
+          return;
+        }
+        patch(id, { runState: "idle" });
+        toast("已停止运行");
+      },
       resolveConfirm: (id, allow) => {
         const s = sessions.find((x) => x.id === id);
         if (!s?.pendingConfirm) return;
+        if (runtime?.approve) {
+          void runtime.approve(s, allow).catch((error) => {
+            toast.error("确认操作失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          });
+          return;
+        }
         const note: Message = { id: `cf${Date.now()}`, type: allow ? "notice" : "error", tone: allow ? "bg-emerald-50 text-emerald-600" : undefined, text: allow ? `已允许并执行：${s.pendingConfirm.op}` : `已拒绝执行：${s.pendingConfirm.op}，任务已停止。` };
         patch(id, { pendingConfirm: undefined, runState: allow ? "success" : "idle", messages: [...s.messages, note] });
         toast[allow ? "success" : "message"](allow ? "已允许执行" : "已拒绝执行");
@@ -575,6 +659,12 @@ export function StoreProvider({
       answerQuestion: (id, answer) => {
         const s = sessions.find((x) => x.id === id);
         if (!s?.pendingQuestion) return;
+        if (runtime?.answer) {
+          void runtime.answer(s, answer).catch((error) => {
+            toast.error("回答发送失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          });
+          return;
+        }
         const um: Message = { id: `qa${Date.now()}`, type: "answered", text: answer };
         patch(id, { pendingQuestion: undefined, runState: "aiRunning", messages: [...s.messages, um] });
         setTimeout(() => patch(id, { runState: "idle" }), 1000);

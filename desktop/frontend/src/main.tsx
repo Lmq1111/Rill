@@ -1,13 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installGlobalCrashHandlers, installPerformancePressureMonitor } from "./lib/crash";
 import { installWailsNonFileDragErrorSuppression } from "./lib/bridge";
 import { installBreadcrumbConsoleHook } from "./lib/breadcrumbs";
 import { installMessageSelectionCopy } from "./lib/messageSelectionCopy";
-import { LocaleProvider } from "./lib/i18n";
-import { ToastProvider } from "./lib/toast";
 import { initFontFamily } from "./lib/fontFamily";
 import { initTextSize } from "./lib/textSize";
 import { initTheme } from "./lib/theme";
@@ -99,15 +96,21 @@ if (visualRequest) {
     },
   );
 } else {
-  createRoot(root).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <LocaleProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </LocaleProvider>
-      </ErrorBoundary>
-    </StrictMode>,
+  Promise.all([import("./rill/RillLiveApp"), import("./rill/styles")]).then(
+    ([{ RillLiveApp }, { rillCss }]) => {
+      const shadow = root.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = rillCss;
+      const mount = document.createElement("div");
+      shadow.replaceChildren(style, mount);
+
+      createRoot(mount).render(
+        <StrictMode>
+          <ErrorBoundary>
+            <RillLiveApp />
+          </ErrorBoundary>
+        </StrictMode>,
+      );
+    },
   );
 }

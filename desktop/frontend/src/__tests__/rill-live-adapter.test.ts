@@ -1,8 +1,21 @@
 // Run: tsx src/__tests__/rill-live-adapter.test.ts
 
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { adaptLiveProjects, adaptLiveSession } from "../rill/adapters/live";
+import { RillLiveApp } from "../rill/RillLiveApp";
 import type { ProjectNode, TabMeta } from "../lib/types";
+import {
+  StoreProvider,
+  useStore,
+  type Project,
+  type RillSessionRuntime,
+  type Session,
+  type Store,
+} from "../rill/state/visualStore";
 
 const tree: ProjectNode[] = [
   { key: "project-a", kind: "project", label: "动态项目 A", root: "/repo/a", children: [] },
@@ -46,5 +59,123 @@ assert.deepEqual(session.messages.map((message) => [message.type, message.text])
 assert.equal(session.context.used, 1200);
 assert.equal(session.context.rounds, 1);
 assert.equal(session.pendingConfirm?.command, "git status");
+
+const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
+  pretendToBeVisual: true,
+  url: "http://localhost/",
+});
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.window = dom.window as unknown as Window & typeof globalThis;
+globalThis.document = dom.window.document;
+globalThis.Node = dom.window.Node;
+globalThis.HTMLElement = dom.window.HTMLElement;
+Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
+
+const liveProjects: Project[] = [
+  { id: "/repo/a", name: "动态项目 A", path: "/repo/a", branch: "main", status: "ok", expanded: true },
+];
+const liveSession = (id: string, title: string): Session => ({
+  ...session,
+  id,
+  title,
+  projectId: "/repo/a",
+  runState: "idle",
+  draft: "",
+  messages: [],
+});
+let store: Store | null = null;
+function Probe() {
+  store = useStore();
+  return null;
+}
+function currentStore(): Store {
+  if (!store) throw new Error("store probe has not rendered");
+  return store;
+}
+
+const runtimeCalls: string[] = [];
+const runtime: RillSessionRuntime = {
+  submit: async () => {},
+  steer: async () => {},
+  activate: async (target) => { runtimeCalls.push(`activate:${target.id}`); },
+  create: async (projectId) => {
+    runtimeCalls.push(`create:${projectId}`);
+    return liveSession("live-created", "真实新会话");
+  },
+  cancel: async (target) => { runtimeCalls.push(`cancel:${target.id}`); },
+  approve: async (target, allow) => { runtimeCalls.push(`approve:${target.id}:${allow}`); },
+  answer: async (target, answer) => { runtimeCalls.push(`answer:${target.id}:${answer}`); },
+};
+
+const root = createRoot(document.getElementById("root")!);
+await act(async () => {
+  root.render(createElement(StoreProvider, {
+    seed: { projects: liveProjects, sessions: [liveSession("live-a", "真实会话 A")], activeSessionId: "live-a" },
+    runtime,
+    children: createElement(Probe),
+  }));
+});
+assert.deepEqual(currentStore().projects.map((project) => project.id), ["/repo/a"]);
+assert.deepEqual(currentStore().sessions.map((candidate) => candidate.id), ["live-a"]);
+
+await act(async () => {
+  root.render(createElement(StoreProvider, {
+    seed: {
+      projects: liveProjects,
+      sessions: [liveSession("live-a", "真实会话 A"), liveSession("live-b", "真实会话 B")],
+      activeSessionId: "live-b",
+    },
+    runtime,
+    children: createElement(Probe),
+  }));
+});
+assert.equal(currentStore().activeSessionId, "live-b");
+assert.equal(currentStore().active.title, "真实会话 B");
+
+await act(async () => {
+  currentStore().setActiveSession("live-a");
+  await Promise.resolve();
+});
+assert.equal(runtimeCalls[runtimeCalls.length - 1], "activate:live-a");
+
+await act(async () => {
+  currentStore().updateSession("live-a", {
+    pendingConfirm: { op: "执行命令", command: "git status", scope: "动态项目 A", workdir: "/repo/a", risk: "需要确认" },
+    pendingQuestion: { q: "继续吗？", options: ["继续", "停止"] },
+  });
+});
+await act(async () => {
+  currentStore().resolveConfirm("live-a", true);
+  currentStore().answerQuestion("live-a", "继续");
+  await Promise.resolve();
+});
+assert.ok(runtimeCalls.includes("approve:live-a:true"));
+assert.ok(runtimeCalls.includes("answer:live-a:继续"));
+
+await act(async () => {
+  await currentStore().createSession("/repo/a");
+});
+assert.equal(runtimeCalls[runtimeCalls.length - 1], "create:/repo/a");
+assert.equal(currentStore().activeSessionId, "live-created");
+
+await act(async () => {
+  currentStore().stopRun("live-created");
+  await Promise.resolve();
+});
+assert.equal(runtimeCalls[runtimeCalls.length - 1], "cancel:live-created");
+
+await act(async () => root.unmount());
+
+const liveRoot = createRoot(document.getElementById("root")!);
+await act(async () => {
+  liveRoot.render(createElement(RillLiveApp));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+});
+assert.ok(document.querySelector('[data-testid="rill-live-shell"]'));
+await act(async () => liveRoot.unmount());
+
+const mainSource = readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
+assert.match(mainSource, /RillLiveApp/);
+assert.doesNotMatch(mainSource, /<App\s*\/>/);
 
 process.stdout.write("rill live adapter tests passed\n");
