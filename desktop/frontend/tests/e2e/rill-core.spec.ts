@@ -60,6 +60,21 @@ test("Rill stage-five core flow uses the controlled desktop backend", async ({ p
   await expect(page.locator("main")).toContainText("阶段五普通消息");
 });
 
+test("Rill registers a project and opens its first backend session", async ({ page }) => {
+  await openLive(page);
+
+  await page.getByRole("button", { name: "添加已有项目" }).click();
+  await page.getByRole("textbox", { name: "项目名称" }).fill("阶段五真实项目");
+  await page.getByRole("textbox", { name: "本地 Git 目录" }).fill("/mock/stage-five-project");
+  await page.getByRole("button", { name: "添加", exact: true }).click();
+
+  const sidebar = page.locator("aside");
+  await expect(sidebar.getByText("阶段五真实项目", { exact: true })).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: /^New session / })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("阶段五真实项目");
+  await expect(page.getByRole("main").getByText("/mock/stage-five-project", { exact: true })).toBeVisible();
+});
+
 test("Rill workbench extensions call the controlled desktop backend", async ({ page }) => {
   await openLive(page);
   const sidebar = page.locator("aside");

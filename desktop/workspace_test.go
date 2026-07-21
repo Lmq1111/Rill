@@ -320,6 +320,42 @@ func TestSwitchWorkspaceReaddsRemovedProject(t *testing.T) {
 	}
 }
 
+func TestCreateWorkspaceCreatesDirectoryAndRegistersDefaultTopic(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	root := filepath.Join(t.TempDir(), "new-project")
+	app := NewApp()
+	installNoopRuntimeEvents(app)
+
+	got, err := app.CreateWorkspace(root)
+	if err != nil {
+		t.Fatalf("CreateWorkspace: %v", err)
+	}
+	if got != normalizeProjectRoot(root) {
+		t.Fatalf("CreateWorkspace root = %q, want %q", got, normalizeProjectRoot(root))
+	}
+	if info, err := os.Stat(root); err != nil || !info.IsDir() {
+		t.Fatalf("created workspace stat = %+v, %v", info, err)
+	}
+	projects := loadProjectsFile().Projects
+	if len(projects) != 1 || projects[0].Root != normalizeProjectRoot(root) || len(projects[0].Topics) != 1 {
+		t.Fatalf("registered projects = %+v", projects)
+	}
+}
+
+func TestCreateWorkspaceRejectsExistingPath(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	root := t.TempDir()
+	app := NewApp()
+	installNoopRuntimeEvents(app)
+
+	if _, err := app.CreateWorkspace(root); err == nil {
+		t.Fatal("CreateWorkspace succeeded for an existing path")
+	}
+	if got := loadProjectsFile().Projects; len(got) != 0 {
+		t.Fatalf("existing path was registered: %+v", got)
+	}
+}
+
 // flipPathASCIICase returns the path with the case of every ASCII letter
 // swapped — on Windows an equivalent spelling of the same folder that
 // normalizeProjectRoot cannot fold away.

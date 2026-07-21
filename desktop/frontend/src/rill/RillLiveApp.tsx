@@ -135,6 +135,27 @@ export function RillLiveApp() {
         meta: controller.state.meta,
       });
     },
+    addProject: async (project, create) => {
+      const workspaceRoot = create ? await app.CreateWorkspace(project.path) : await app.SwitchWorkspace(project.path);
+      if (!workspaceRoot) throw new Error("未选择可用的项目目录");
+      if (project.name.trim()) await app.RenameProject(workspaceRoot, project.name.trim());
+      const tab = await controller.ensureBlankTab("project", workspaceRoot);
+      const [nextTabs, nextTree] = await Promise.all([app.ListTabs(), app.ListProjectTree()]);
+      setTabs(nextTabs);
+      setTree(nextTree);
+      const createdProject = adaptLiveProjects(nextTree, nextTabs).find((candidate) => candidate.id === workspaceRoot);
+      if (!createdProject) throw new Error("项目已注册，但无法从项目树读取结果");
+      return {
+        project: createdProject,
+        session: adaptLiveSession(tab, {
+          items: [],
+          running: false,
+          hydrating: false,
+          context: { used: 0, window: 0, sessionTokens: 0 },
+          meta: controller.state.meta,
+        }),
+      };
+    },
     createIsolated: async (project) => {
       const result = await controller.createDeliveryWorktree(project.path);
       const nextProject = {

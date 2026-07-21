@@ -4290,6 +4290,34 @@ func tabWorkspaceNameForScope(scope, cwd string) string {
 	return workspaceName(cwd)
 }
 
+// CreateWorkspace creates a new empty project directory and opens its first
+// persisted topic. Existing paths are rejected so the action cannot silently
+// adopt or overwrite an unrelated directory.
+func (a *App) CreateWorkspace(dir string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return "", fmt.Errorf("workspace path is required")
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(abs); err == nil {
+		return "", fmt.Errorf("workspace path already exists: %s", abs)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := os.Mkdir(abs, 0o755); err != nil {
+		return "", err
+	}
+	root, err := a.SwitchWorkspace(abs)
+	if err != nil {
+		_ = os.Remove(abs)
+		return "", err
+	}
+	return root, nil
+}
+
 func (a *App) SwitchWorkspace(dir string) (string, error) {
 	if dir == "" {
 		home, err := os.UserHomeDir()

@@ -70,6 +70,11 @@ const calls: string[] = [];
 const runtime: RillSessionRuntime = {
   submit: async () => {},
   steer: async () => {},
+  addProject: async (project, create) => {
+    calls.push(`add:${create ? "blank" : "existing"}:${project.path}`);
+    const addedProject: Project = { id: project.path, name: project.name, path: project.path, branch: "main", status: "ok", expanded: true };
+    return { project: addedProject, session: { ...baseSession, id: "tab-added", topicId: "topic-added", projectId: addedProject.id, title: "新项目会话" } };
+  },
   createIsolated: async (project) => {
     calls.push(`isolate:${project.id}`);
     const isolatedProject: Project = { id: "/managed/a", name: "动态项目 Alpha·隔离", path: "/managed/a", branch: "rill/delivery-a", status: "ok", expanded: true, isolated: { from: project.id } };
@@ -88,6 +93,13 @@ await act(async () => {
     </StoreProvider>,
   );
 });
+
+await act(async () => {
+  await currentStore().addProject({ name: "真实新增项目", path: "/repo/new", branch: "main" });
+});
+assert.ok(calls.includes("add:existing:/repo/new"), "project registration delegates to the live backend");
+assert.equal(currentStore().activeSessionId, "tab-added", "the backend-created first project session becomes active");
+assert.ok(currentStore().projects.some((project) => project.id === "/repo/new"), "the registered backend project result is visible");
 
 await act(async () => {
   await currentStore().createIsolatedWorkspace("/repo/a");

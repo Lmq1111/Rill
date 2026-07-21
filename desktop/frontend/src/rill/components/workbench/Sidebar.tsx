@@ -87,7 +87,7 @@ function AddProjectDialog({ mode, onClose }: { mode: "existing" | "blank"; onClo
         <label className="mt-3 block"><span className="text-[12px] text-slate-500">{mode === "existing" ? "本地 Git 目录" : "新建目录"}</span><input value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/work/rill/…" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-teal-300" /></label>
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg bg-white px-3 py-1.5 text-[13px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">取消</button>
-          <button disabled={!name.trim() || !path.trim()} onClick={() => { addProject({ name: name.trim(), path: path.trim(), branch: mode === "existing" ? "main" : "main" }); onClose(); }} className="rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700 disabled:opacity-40">{mode === "existing" ? "添加" : "创建"}</button>
+          <button disabled={!name.trim() || !path.trim()} onClick={() => void addProject({ name: name.trim(), path: path.trim(), branch: "main" }, { create: mode === "blank" }).then((ok) => ok && onClose())} className="rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] text-white hover:bg-teal-700 disabled:opacity-40">{mode === "existing" ? "添加" : "创建"}</button>
         </div>
       </div>
     </div>

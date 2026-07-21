@@ -345,7 +345,7 @@ export interface Store {
   navigate: (route: Route, params?: Record<string, string>) => void;
 
   projects: Project[];
-  addProject: (p: Omit<Project, "id" | "expanded" | "status">) => void;
+  addProject: (p: Omit<Project, "id" | "expanded" | "status">, options?: { create?: boolean }) => Promise<boolean>;
   renameProject: (id: string, name: string) => void;
   addIsolatedWorkspace: (fromId: string, branch: string, dir: string) => void;
   createIsolatedWorkspace: (projectId: string) => Promise<boolean>;
@@ -430,6 +430,7 @@ export interface RillSessionRuntime {
   steer: (session: Session, input: string) => Promise<void>;
   activate?: (session: Session) => Promise<void>;
   create?: (projectId: string) => Promise<Session | null>;
+  addProject?: (project: Omit<Project, "id" | "expanded" | "status">, create: boolean) => Promise<{ project: Project; session: Session }>;
   createIsolated?: (project: Project) => Promise<{ project: Project; session: Session }>;
   rename?: (session: Session, title: string) => Promise<void>;
   close?: (session: Session) => Promise<void>;
@@ -524,7 +525,26 @@ export function StoreProvider({
       navigate: (route, params = {}) => setNav({ route, params }),
 
       projects: projectList,
-      addProject: (p) => { const id = `p${Date.now()}`; setProjectList((ps) => [...ps, { ...p, id, status: "ok", expanded: true }]); toast.success(`已添加项目「${p.name}」`); },
+      addProject: async (p, options = {}) => {
+        if (!runtime?.addProject) {
+          const id = `p${Date.now()}`;
+          setProjectList((ps) => [...ps, { ...p, id, status: "ok", expanded: true }]);
+          toast.success(`已添加项目「${p.name}」`);
+          return true;
+        }
+        try {
+          const created = await runtime.addProject(p, options.create === true);
+          setProjectList((current) => [created.project, ...current.filter((candidate) => candidate.id !== created.project.id)]);
+          setSessions((current) => [created.session, ...current.filter((candidate) => candidate.id !== created.session.id)]);
+          setActiveSessionId(created.session.id);
+          setNav({ route: "workbench", params: {} });
+          toast.success(options.create ? `已创建项目「${created.project.name}」` : `已添加项目「${created.project.name}」`);
+          return true;
+        } catch (error) {
+          toast.error(options.create ? "创建项目失败" : "添加项目失败", { description: error instanceof Error ? error.message : "请检查目录后重试" });
+          return false;
+        }
+      },
       renameProject: (id, name) => setProjectList((ps) => ps.map((project) => project.id === id ? { ...project, name } : project)),
       addIsolatedWorkspace: (fromId, branch, dir) => {
         const src = projectList.find((p) => p.id === fromId);
