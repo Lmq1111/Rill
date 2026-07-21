@@ -77,6 +77,8 @@ export function adaptLiveSession(tab: TabMeta, snapshot?: RillLiveControllerSnap
 
   return {
     id: tab.id,
+    topicId: tab.topicId,
+    sessionPath: tab.sessionPath,
     title: tab.topicTitle || tab.label || "新会话",
     summary: lastText || "空会话，尚未开始对话。",
     projectId: tab.scope === "global" ? "global" : tab.workspaceRoot,

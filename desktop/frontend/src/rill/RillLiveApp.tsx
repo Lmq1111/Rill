@@ -125,6 +125,40 @@ export function RillLiveApp() {
         meta: controller.state.meta,
       });
     },
+    createIsolated: async (project) => {
+      const result = await controller.createDeliveryWorktree(project.path);
+      const nextProject = {
+        id: result.workspaceRoot,
+        name: `${project.name}·隔离`,
+        path: result.workspaceRoot,
+        branch: result.branch,
+        status: "ok" as const,
+        expanded: true,
+        isolated: { from: project.id },
+      };
+      setTabs((current) => [...current.filter((candidate) => candidate.id !== result.tab.id), result.tab]);
+      void refresh();
+      return {
+        project: nextProject,
+        session: adaptLiveSession(result.tab, {
+          items: [],
+          running: false,
+          hydrating: false,
+          context: { used: 0, window: 0, sessionTokens: 0 },
+          meta: controller.state.meta,
+        }),
+      };
+    },
+    rename: async (session, title) => {
+      if (!session.topicId) throw new Error("会话主题标识不可用");
+      await app.RenameTopic(session.topicId, title);
+      await refresh();
+    },
+    close: async (session) => {
+      await app.CloseTab(session.id);
+      await controller.syncActiveTab(false);
+      await refresh();
+    },
     cancel: async (session) => {
       await app.CancelTab(session.id);
       await refresh();

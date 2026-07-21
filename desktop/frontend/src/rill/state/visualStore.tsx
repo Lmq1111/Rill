@@ -95,6 +95,8 @@ export interface SessionSettings {
 
 export interface Session {
   id: string;
+  topicId?: string;
+  sessionPath?: string;
   title: string;
   summary: string;
   projectId: string;
@@ -343,6 +345,7 @@ export interface Store {
   addProject: (p: Omit<Project, "id" | "expanded" | "status">) => void;
   renameProject: (id: string, name: string) => void;
   addIsolatedWorkspace: (fromId: string, branch: string, dir: string) => void;
+  createIsolatedWorkspace: (projectId: string) => Promise<boolean>;
   toggleProject: (id: string) => void;
 
   sessions: Session[];
@@ -356,8 +359,8 @@ export interface Store {
 
   // 会话
   createSession: (projectId: string) => Promise<string | null>;
-  renameSession: (id: string, title: string) => void;
-  closeSession: (id: string) => void;
+  renameSession: (id: string, title: string) => Promise<boolean>;
+  closeSession: (id: string) => Promise<boolean>;
   deleteSession: (id: string) => void; // 移入回收站
   openSession: (id: string) => void;
 
@@ -420,6 +423,9 @@ export interface RillSessionRuntime {
   steer: (session: Session, input: string) => Promise<void>;
   activate?: (session: Session) => Promise<void>;
   create?: (projectId: string) => Promise<Session | null>;
+  createIsolated?: (project: Project) => Promise<{ project: Project; session: Session }>;
+  rename?: (session: Session, title: string) => Promise<void>;
+  close?: (session: Session) => Promise<void>;
   cancel?: (session: Session) => Promise<void>;
   approve?: (session: Session, allow: boolean) => Promise<void>;
   answer?: (session: Session, answer: string) => Promise<void>;
@@ -515,6 +521,25 @@ export function StoreProvider({
         setProjectList((ps) => [...ps, { id, name: `${src?.name ?? "项目"}·隔离`, path: dir, branch, status: "ok", expanded: true, isolated: { from: fromId } }]);
         toast.success("已创建隔离交付工作区", { description: `来源 ${src?.name} · 分支 ${branch}` });
       },
+      createIsolatedWorkspace: async (projectId) => {
+        const project = projectList.find((candidate) => candidate.id === projectId);
+        if (!project || project.status !== "ok" || !runtime?.createIsolated) {
+          toast.error("无法创建隔离工作区", { description: project ? "当前环境不支持隔离创建" : "项目已不可用" });
+          return false;
+        }
+        try {
+          const created = await runtime.createIsolated(project);
+          setProjectList((current) => [created.project, ...current.filter((candidate) => candidate.id !== created.project.id)]);
+          setSessions((current) => [created.session, ...current.filter((candidate) => candidate.id !== created.session.id)]);
+          setActiveSessionId(created.session.id);
+          setNav({ route: "workbench", params: {} });
+          toast.success("已创建隔离交付工作区", { description: `${created.project.name} · ${created.project.branch}` });
+          return true;
+        } catch (error) {
+          toast.error("隔离工作区创建失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
       toggleProject: (id) => setProjectList((ps) => ps.map((p) => p.id === id ? { ...p, expanded: !p.expanded } : p)),
 
       sessions, recycled, channels, tasks,
@@ -564,13 +589,34 @@ export function StoreProvider({
         setNav({ route: "workbench", params: {} });
         return id;
       },
-      renameSession: (id, title) => { patch(id, { title }); toast.success("已重命名会话"); },
-      closeSession: (id) => {
-        // 关闭仅从打开态移除：这里以切换到相邻会话表示
-        const idx = sessions.findIndex((s) => s.id === id);
-        const next = sessions[idx + 1] ?? sessions[idx - 1];
-        if (next) setActiveSessionId(next.id);
-        toast("已关闭会话", { description: "会话仍保留在列表中" });
+      renameSession: async (id, title) => {
+        const session = sessions.find((candidate) => candidate.id === id);
+        const trimmed = title.trim();
+        if (!session || !trimmed) return false;
+        try {
+          if (runtime?.rename) await runtime.rename(session, trimmed);
+          patch(id, { title: trimmed });
+          toast.success("已重命名会话");
+          return true;
+        } catch (error) {
+          toast.error("会话重命名失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
+      },
+      closeSession: async (id) => {
+        const session = sessions.find((candidate) => candidate.id === id);
+        if (!session) return false;
+        try {
+          if (runtime?.close) await runtime.close(session);
+          const remaining = sessions.filter((candidate) => candidate.id !== id);
+          setSessions(remaining);
+          if (activeSessionId === id && remaining[0]) setActiveSessionId(remaining[0].id);
+          toast("已关闭会话", { description: "历史记录仍保留" });
+          return true;
+        } catch (error) {
+          toast.error("会话关闭失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return false;
+        }
       },
       deleteSession: (id) => {
         const s = sessions.find((x) => x.id === id);

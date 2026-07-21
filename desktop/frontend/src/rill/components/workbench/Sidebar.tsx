@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Search, Plus, FolderPlus, FolderGit2, ChevronDown, ChevronRight, Bot, Clock3, Circle,
-  Boxes, History, Trash2, Workflow, Settings, Lock, X,
+  Boxes, History, Trash2, Workflow, Settings, Lock, X, Pencil, Check, GitFork,
 } from "lucide-react";
 import { useStore, type Session, type Route, type Project } from "../../state/visualStore";
 import { brand } from "../../../lib/brand";
@@ -12,8 +12,21 @@ const sourceMeta = {
   schedule: { icon: Clock3, tone: "text-amber-500" },
 } as const;
 
+export function sessionsForProjectSearch(project: Project, sessions: readonly Session[], query: string) {
+  const normalized = query.trim().toLocaleLowerCase();
+  const projectMatches = normalized !== "" && project.name.toLocaleLowerCase().includes(normalized);
+  return sessions.filter((session) => session.projectId === project.id && (
+    normalized === ""
+    || projectMatches
+    || session.title.toLocaleLowerCase().includes(normalized)
+    || session.summary.toLocaleLowerCase().includes(normalized)
+  ));
+}
+
 function SessionRow({ session }: { session: Session }) {
-  const { activeSessionId, setActiveSession, deleteSession } = useStore();
+  const { activeSessionId, setActiveSession, deleteSession, closeSession, renameSession } = useStore();
+  const [renaming, setRenaming] = useState(false);
+  const [title, setTitle] = useState(session.title);
   const active = session.id === activeSessionId;
   const meta = sourceMeta[session.source];
   const SourceIcon = meta.icon;
@@ -25,7 +38,19 @@ function SessionRow({ session }: { session: Session }) {
         <SourceIcon className={["mt-0.5 shrink-0", session.source === "local" ? "size-2.5 fill-current" : "size-4", active ? "text-teal-600" : meta.tone].join(" ")} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className={["truncate text-[13px]", active ? "text-slate-900" : "text-slate-700"].join(" ")}>{session.title}</span>
+            {renaming ? (
+              <input
+                aria-label="会话名称"
+                value={title}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => setTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void renameSession(session.id, title).then((ok) => ok && setRenaming(false));
+                  if (event.key === "Escape") { setTitle(session.title); setRenaming(false); }
+                }}
+                className="min-w-0 flex-1 rounded border border-teal-200 bg-white px-1 text-[12px] outline-none"
+              />
+            ) : <span className={["truncate text-[13px]", active ? "text-slate-900" : "text-slate-700"].join(" ")}>{session.title}</span>}
             {readonly && <Lock className="size-3 shrink-0 text-slate-400" />}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400">
@@ -37,9 +62,15 @@ function SessionRow({ session }: { session: Session }) {
         </div>
         {session.unread ? <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-teal-600 text-[10px] text-white">{session.unread}</span> : null}
       </button>
-      <button onClick={() => deleteSession(session.id)} title="移入回收站" className="absolute right-1.5 top-1.5 hidden size-6 place-items-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500 group-hover:grid">
-        <Trash2 className="size-3.5" />
-      </button>
+      <div className="absolute right-1.5 top-1.5 hidden items-center gap-0.5 rounded-md bg-white/95 pl-0.5 shadow-sm group-hover:flex">
+        {renaming ? (
+          <button onClick={() => void renameSession(session.id, title).then((ok) => ok && setRenaming(false))} title="保存会话名称" className="grid size-6 place-items-center rounded-md text-teal-600 hover:bg-teal-50"><Check className="size-3.5" /></button>
+        ) : (
+          <button onClick={() => setRenaming(true)} title="重命名会话" className="grid size-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-teal-600"><Pencil className="size-3.5" /></button>
+        )}
+        <button onClick={() => void closeSession(session.id)} title="关闭会话" className="grid size-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="size-3.5" /></button>
+        <button onClick={() => deleteSession(session.id)} title="移入回收站" className="grid size-6 place-items-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 className="size-3.5" /></button>
+      </div>
     </div>
   );
 }
@@ -64,14 +95,13 @@ function AddProjectDialog({ mode, onClose }: { mode: "existing" | "blank"; onClo
 }
 
 export function Sidebar() {
-  const { navigate, params, sessions, active, projects, toggleProject, createSession, recycled, tasks } = useStore();
+  const { navigate, params, sessions, active, projects, toggleProject, createSession, createIsolatedWorkspace, recycled, tasks } = useStore();
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<null | "existing" | "blank">(
     params.rillVisualState === "add-project-dialog" ? "existing" : null,
   );
 
-  const filtered = (p: Project) =>
-    sessions.filter((s) => s.projectId === p.id && (query === "" || s.title.includes(query) || s.summary.includes(query)));
+  const filtered = (project: Project) => sessionsForProjectSearch(project, sessions, query);
 
   const navEntries: { id: Route; label: string; icon: typeof History; badge?: number }[] = [
     { id: "history", label: "历史记录", icon: History },
@@ -106,13 +136,24 @@ export function Sidebar() {
           const list = filtered(project);
           if (query !== "" && list.length === 0) return null;
           return (
-            <div key={project.id} className={i > 0 ? "mt-2" : ""}>
+            <div key={project.id} className={`group/project ${i > 0 ? "mt-2" : ""}`}>
               <button onClick={() => toggleProject(project.id)} className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left">
                 {project.expanded ? <ChevronDown className="size-3.5 text-slate-400" /> : <ChevronRight className="size-3.5 text-slate-400" />}
                 <FolderGit2 className="size-3.5 text-slate-400" />
                 <span className="truncate text-[12px] font-medium text-slate-500">{project.name}</span>
                 {project.isolated && <span className="rounded bg-cyan-50 px-1 py-0.5 text-[9px] text-cyan-600">隔离</span>}
                 {project.status === "unavailable" && <span className="rounded bg-rose-50 px-1 py-0.5 text-[9px] text-rose-500">不可用</span>}
+                {!project.isolated && project.id !== "global" && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="创建隔离工作区"
+                    aria-label={`为${project.name}创建隔离工作区`}
+                    onClick={(event) => { event.stopPropagation(); void createIsolatedWorkspace(project.id); }}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.stopPropagation(); void createIsolatedWorkspace(project.id); } }}
+                    className="hidden size-5 place-items-center rounded text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 group-hover/project:grid"
+                  ><GitFork className="size-3.5" /></span>
+                )}
                 <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] text-slate-500">{list.length}</span>
               </button>
               {(project.expanded || query !== "") && (
