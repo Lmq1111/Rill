@@ -394,6 +394,11 @@ export interface Store {
   // 文件 / 改动（当前项目）
   filesOf: (projectId: string) => FileNode[];
   diffsOf: (projectId: string) => DiffFile[];
+  refreshFiles: (projectId: string) => Promise<void>;
+  readFile: (projectId: string, path: string) => Promise<FileNode | null>;
+  refreshDiffs: (projectId: string) => Promise<void>;
+  readDiff: (projectId: string, path: string) => Promise<DiffFile | null>;
+  refreshContext: (sessionId: string) => Promise<void>;
 
   // 把内容加入某会话输入区引用
   addRefToActive: (ref: Ref) => void;
@@ -418,6 +423,12 @@ export interface RillSessionRuntime {
   cancel?: (session: Session) => Promise<void>;
   approve?: (session: Session, allow: boolean) => Promise<void>;
   answer?: (session: Session, answer: string) => Promise<void>;
+  clearContext?: (session: Session) => Promise<void>;
+  listFiles?: (session: Session) => Promise<FileNode[]>;
+  readFile?: (session: Session, path: string) => Promise<FileNode>;
+  listDiffs?: (session: Session) => Promise<DiffFile[]>;
+  readDiff?: (session: Session, file: DiffFile) => Promise<DiffFile>;
+  refreshContext?: (session: Session) => Promise<SessionContext>;
 }
 
 function sessionsFromSeed(seed: VisualStoreSeed): Session[] {
@@ -458,6 +469,8 @@ export function StoreProvider({
   const [recycled, setRecycled] = useState<Recycled[]>(R);
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [tasks, setTasks] = useState<AutomationTask[]>(initialTasks);
+  const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, FileNode[]>>(filesByProject);
+  const [workspaceDiffs, setWorkspaceDiffs] = useState<Record<string, DiffFile[]>>(diffsByProject);
   const [activeSessionId, setActiveSessionId] = useState(seed.activeSessionId ?? "s1");
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
@@ -486,6 +499,8 @@ export function StoreProvider({
 
   const value = useMemo<Store>(() => {
     const active = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
+    const sessionForProject = (projectId: string) =>
+      (active?.projectId === projectId ? active : sessions.find((session) => session.projectId === projectId));
     return {
       route: nav.route,
       params: nav.params,
@@ -681,6 +696,15 @@ export function StoreProvider({
       clearContext: (id) => {
         const s = sessions.find((x) => x.id === id);
         if (!s) return;
+        if (runtime?.clearContext) {
+          void runtime.clearContext(s).then(() => {
+            patch(id, { context: { ...s.context, used: 0, rounds: 0, roundTokens: 0 }, modelContextClearedAt: "刚刚" });
+            toast.success("已清空当前上下文", { description: "历史记录中的原始会话仍然保留" });
+          }).catch((error) => {
+            toast.error("清空上下文失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          });
+          return;
+        }
         patch(id, { context: { ...s.context, used: 0, rounds: 0, roundTokens: 0 }, modelContextClearedAt: "刚刚" });
         toast.success("已清空当前上下文", { description: "历史记录中的原始会话仍然保留" });
       },
@@ -764,8 +788,69 @@ export function StoreProvider({
         toast("已开始立即运行", { description: "不改变原计划时间" });
       },
 
-      filesOf: (pid) => filesByProject[pid] ?? [],
-      diffsOf: (pid) => diffsByProject[pid] ?? [],
+      filesOf: (pid) => workspaceFiles[pid] ?? [],
+      diffsOf: (pid) => workspaceDiffs[pid] ?? [],
+      refreshFiles: async (projectId) => {
+        const session = sessionForProject(projectId);
+        if (!session || !runtime?.listFiles) return;
+        try {
+          const files = await runtime.listFiles(session);
+          setWorkspaceFiles((current) => ({ ...current, [projectId]: files }));
+        } catch (error) {
+          toast.error("文件树刷新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+        }
+      },
+      readFile: async (projectId, path) => {
+        const session = sessionForProject(projectId);
+        if (!session || !runtime?.readFile) return workspaceFiles[projectId]?.find((file) => file.path === path) ?? null;
+        try {
+          const file = await runtime.readFile(session, path);
+          setWorkspaceFiles((current) => ({
+            ...current,
+            [projectId]: (current[projectId] ?? []).map((candidate) => candidate.path === path ? file : candidate),
+          }));
+          return file;
+        } catch (error) {
+          toast.error("文件读取失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return null;
+        }
+      },
+      refreshDiffs: async (projectId) => {
+        const session = sessionForProject(projectId);
+        if (!session || !runtime?.listDiffs) return;
+        try {
+          const diffs = await runtime.listDiffs(session);
+          setWorkspaceDiffs((current) => ({ ...current, [projectId]: diffs }));
+        } catch (error) {
+          toast.error("改动状态刷新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+        }
+      },
+      readDiff: async (projectId, path) => {
+        const session = sessionForProject(projectId);
+        const currentFile = workspaceDiffs[projectId]?.find((file) => file.path === path);
+        if (!session || !currentFile || !runtime?.readDiff) return currentFile ?? null;
+        try {
+          const file = await runtime.readDiff(session, currentFile);
+          setWorkspaceDiffs((current) => ({
+            ...current,
+            [projectId]: (current[projectId] ?? []).map((candidate) => candidate.path === path ? file : candidate),
+          }));
+          return file;
+        } catch (error) {
+          toast.error("差异读取失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+          return null;
+        }
+      },
+      refreshContext: async (sessionId) => {
+        const session = sessions.find((candidate) => candidate.id === sessionId);
+        if (!session || !runtime?.refreshContext) return;
+        try {
+          const context = await runtime.refreshContext(session);
+          patch(session.id, { context });
+        } catch (error) {
+          toast.error("上下文刷新失败", { description: error instanceof Error ? error.message : "请稍后重试" });
+        }
+      },
 
       addRefToActive: (ref) => {
         setSessions((ss) => ss.map((s) => s.id === activeSessionId ? { ...s, refs: [...s.refs.filter((r) => r.label !== ref.label || r.kind !== ref.kind), ref] } : s));
@@ -773,7 +858,7 @@ export function StoreProvider({
         toast.success("已加入当前会话输入区", { description: ref.label });
       },
     };
-  }, [nav, projectList, sessions, recycled, channels, tasks, activeSessionId, runtime]);
+  }, [nav, projectList, sessions, recycled, channels, tasks, workspaceFiles, workspaceDiffs, activeSessionId, runtime]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

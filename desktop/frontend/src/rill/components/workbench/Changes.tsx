@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FileDiff, GitBranch, RefreshCw, FilePlus2, FileX2, FileSymlink,
   FileQuestion, FileEdit, AtSign, ScanText, GitCompare, Binary, AlertTriangle, Info,
@@ -18,7 +18,7 @@ const kindMeta: Record<DiffStatus, { icon: typeof FilePlus2; label: string; tone
 };
 
 export function Changes() {
-  const { active: session, projects, diffsOf, params, addRefToActive } = useStore();
+  const { active: session, projects, diffsOf, params, addRefToActive, refreshDiffs, readDiff } = useStore();
   const project = projects.find((p) => p.id === session.projectId) ?? projects[0];
   const diffs = diffsOf(project.id);
   const [loading, setLoading] = useState(false);
@@ -32,11 +32,26 @@ export function Changes() {
   const noRepo = project.status === "unavailable";
   const flat = cur?.hunks?.flatMap((h) => h.lines) ?? [];
 
-  const refresh = () => { setLoading(true); toast("刷新改动状态…"); setTimeout(() => setLoading(false), 700); };
+  useEffect(() => {
+    void refreshDiffs(project.id);
+  }, [project.id]);
+
+  const openDiff = async (file: DiffFile) => {
+    setActive(file);
+    setSel(null);
+    const loaded = await readDiff(project.id, file.path);
+    if (loaded) setActive(loaded);
+  };
+  const refresh = async () => {
+    setLoading(true);
+    toast("刷新改动状态…");
+    await refreshDiffs(project.id);
+    setLoading(false);
+  };
 
   return (
     <PageShell icon={FileDiff} title="改动" subtitle={`${project.name} · 查看 Git 工作区改动与差异（仅查看与引用）`}
-      actions={<button onClick={refresh} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> 刷新</button>}>
+      actions={<button onClick={() => void refresh()} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> 刷新</button>}>
       {noRepo ? (
         <div className="grid h-full place-items-center text-center text-slate-400"><div><GitBranch className="mx-auto size-8 text-slate-300" /><p className="mt-2 text-[13px]">当前工作区不是 Git 仓库</p></div></div>
       ) : diffs.length === 0 ? (
@@ -56,7 +71,7 @@ export function Changes() {
                 const m = kindMeta[c.status];
                 const Icon = m.icon;
                 return (
-                  <button key={c.path} onClick={() => { setActive(c); setSel(null); }} className={["mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left", cur?.path === c.path ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50"].join(" ")}>
+                  <button key={c.path} onClick={() => void openDiff(c)} className={["mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left", cur?.path === c.path ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50"].join(" ")}>
                     <Icon className={`size-4 shrink-0 ${m.tone}`} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-mono text-[12px] text-slate-700">{c.path.split("/").pop()}</div>
@@ -110,10 +125,16 @@ export function Changes() {
 
                 {cur.status !== "binary" && cur.status !== "deleted" && (
                   <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white p-3">
-                    <button onClick={() => addRefToActive({ id: `df${Date.now()}`, kind: "diff", label: `diff:${cur.path.split("/").pop()}`, detail: "整个文件差异" })} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700"><FilePlus2 className="size-3.5" />差异加入对话</button>
-                    <button disabled={!sel} onClick={() => addRefToActive({ id: `ds${Date.now()}`, kind: "diffSnippet", label: `diff:${cur.path.split("/").pop()}:${sel!.from}-${sel!.to}`, detail: "选中差异片段" })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"><ScanText className="size-3.5" />选中片段加入</button>
-                    <button onClick={() => addRefToActive({ id: `dp${Date.now()}`, kind: "path", label: `path:${cur.path}`, detail: "路径引用" })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />路径引用</button>
+                    <button onClick={() => addRefToActive({ id: `df${Date.now()}`, kind: "diff", label: `diff:${cur.path}`, detail: `路径：${cur.path}\n\n${flat.map((line) => line.t).join("\n")}` })} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700"><FilePlus2 className="size-3.5" />差异加入对话</button>
+                    <button disabled={!sel} onClick={() => addRefToActive({ id: `ds${Date.now()}`, kind: "diffSnippet", label: `diff:${cur.path}:${sel!.from}-${sel!.to}`, detail: `路径：${cur.path}\n差异行：${sel!.from}-${sel!.to}\n\n${flat.slice(sel!.from - 1, sel!.to).map((line) => line.t).join("\n")}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"><ScanText className="size-3.5" />选中片段加入</button>
+                    <button onClick={() => addRefToActive({ id: `dp${Date.now()}`, kind: "path", label: `path:${cur.path}`, detail: `路径：${cur.path}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />路径引用</button>
                     <span className="ml-auto flex items-center gap-1 text-[11px] text-slate-400"><AlertTriangle className="size-3.5" />仅提供查看与引用，不提供提交 / 推送 / 丢弃 / 重置</span>
+                  </div>
+                )}
+                {(cur.status === "binary" || cur.status === "deleted") && (
+                  <div className="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
+                    <button onClick={() => addRefToActive({ id: `dp${Date.now()}`, kind: "path", label: `path:${cur.path}`, detail: `路径：${cur.path}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />路径引用</button>
+                    <span className="text-[11px] text-slate-400">该文件仅加入路径，不注入不可用内容。</span>
                   </div>
                 )}
               </>

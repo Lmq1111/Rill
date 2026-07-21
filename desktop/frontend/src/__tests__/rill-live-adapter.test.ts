@@ -6,6 +6,7 @@ import { JSDOM } from "jsdom";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { adaptLiveProjects, adaptLiveSession } from "../rill/adapters/live";
+import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "../rill/adapters/workspace";
 import { RillLiveApp } from "../rill/RillLiveApp";
 import type { ProjectNode, TabMeta } from "../lib/types";
 import {
@@ -49,7 +50,7 @@ const session = adaptLiveSession(tab, {
   running: true,
   hydrating: false,
   approval: { id: "approval-1", tool: "run_shell", subject: "git status", reason: "需要确认" },
-  context: { used: 1200, window: 200000, sessionTokens: 1800, cacheHitTokens: 700, cacheMissTokens: 500 },
+  context: { used: 1200, window: 200000, sessionTokens: 1800, cacheHitTokens: 700, cacheMissTokens: 500, modelContextCleared: true, modelContextStart: 3 },
   meta: { label: "model-a", ready: true, eventChannel: "events", cwd: "/repo/a", workspaceRoot: "/repo/a", gitBranch: "main" },
 });
 
@@ -58,7 +59,31 @@ assert.equal(session.runState, "awaitingConfirm");
 assert.deepEqual(session.messages.map((message) => [message.type, message.text]), [["user", "真实问题"], ["ai", "真实回答"]]);
 assert.equal(session.context.used, 1200);
 assert.equal(session.context.rounds, 1);
+assert.equal(session.modelContextClearedAt, "已清空");
 assert.equal(session.pendingConfirm?.command, "git status");
+
+const preview = adaptFilePreview({ path: "src/live.ts", body: "line 1\nline 2", size: 13, truncated: false, binary: false });
+assert.equal(preview.content, "line 1\nline 2");
+assert.equal(preview.kind, "text");
+const changes = adaptWorkspaceChanges({
+  gitAvailable: true,
+  gitBranch: "main",
+  files: [{ path: "src/live.ts", sources: ["git"], gitStatus: "M" }],
+});
+assert.equal(changes[0]?.status, "modified");
+const changed = attachWorkspaceDiff(changes[0]!, {
+  path: "src/live.ts",
+  diff: "@@ -1 +1 @@\n-line 1\n+line one",
+  added: 1,
+  removed: 1,
+  binary: false,
+  truncated: false,
+});
+assert.deepEqual(changed.hunks?.[0]?.lines.map((line) => [line.kind, line.t]), [["ctx", "@@ -1 +1 @@"], ["del", "-line 1"], ["add", "+line one"]]);
+const referencedSession = { ...session, refs: [{ id: "ref-live", kind: "snippet" as const, label: "src/live.ts:1-2", detail: "路径：src/live.ts\n行号：1-2\n\nline 1\nline 2" }] };
+const submitWithReference = buildRillSubmitText(referencedSession, "检查这段代码");
+assert.match(submitWithReference, /src\/live\.ts:1-2/);
+assert.match(submitWithReference, /line 1\nline 2/);
 
 const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
   pretendToBeVisual: true,
@@ -105,6 +130,7 @@ const runtime: RillSessionRuntime = {
   cancel: async (target) => { runtimeCalls.push(`cancel:${target.id}`); },
   approve: async (target, allow) => { runtimeCalls.push(`approve:${target.id}:${allow}`); },
   answer: async (target, answer) => { runtimeCalls.push(`answer:${target.id}:${answer}`); },
+  clearContext: async (target) => { runtimeCalls.push(`clear-context:${target.id}`); },
 };
 
 const root = createRoot(document.getElementById("root")!);
@@ -151,6 +177,14 @@ await act(async () => {
 });
 assert.ok(runtimeCalls.includes("approve:live-a:true"));
 assert.ok(runtimeCalls.includes("answer:live-a:继续"));
+
+await act(async () => {
+  currentStore().clearContext("live-a");
+  await Promise.resolve();
+});
+assert.ok(runtimeCalls.includes("clear-context:live-a"));
+assert.equal(currentStore().sessions.find((candidate) => candidate.id === "live-a")?.messages.length, 0);
+assert.ok(currentStore().sessions.find((candidate) => candidate.id === "live-a")?.modelContextClearedAt);
 
 await act(async () => {
   await currentStore().createSession("/repo/a");

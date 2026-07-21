@@ -108,6 +108,7 @@ export function adaptLiveSession(tab: TabMeta, snapshot?: RillLiveControllerSnap
       balance: null,
       refreshedAt: "刚刚",
     },
+    modelContextClearedAt: context?.modelContextCleared ? "已清空" : undefined,
     pendingConfirm: approval ? {
       op: approval.tool,
       command: approval.subject,

@@ -1151,6 +1151,7 @@ func loadSessionUnlocked(path string) (*Session, error) {
 			revision := int64(0)
 			if ok {
 				revision = meta.Revision
+				s.SetModelContextStart(meta.ModelContextStart)
 			}
 			s.markPersisted(path, digest, s.version, revision, s.rewriteVersion)
 		}

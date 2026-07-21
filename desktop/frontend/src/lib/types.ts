@@ -488,6 +488,8 @@ export interface ContextInfo {
   used: number;
   window: number;
   sessionTokens: number;
+  modelContextCleared?: boolean;
+  modelContextStart?: number;
   compactRatio?: number;
   sessionCost?: number;
   sessionCurrency?: string;
@@ -686,6 +688,16 @@ export interface WorkspaceChangesView {
   gitAvailable: boolean;
   gitErr?: string;
   gitBranch?: string;
+}
+
+export interface WorkspaceFileDiffView {
+  path: string;
+  diff: string;
+  added: number;
+  removed: number;
+  binary: boolean;
+  truncated: boolean;
+  err?: string;
 }
 
 export interface GitCommitView {

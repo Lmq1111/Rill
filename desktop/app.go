@@ -1832,6 +1832,37 @@ func (a *App) ClearSessionForTab(tabID string) error {
 	return nil
 }
 
+// ClearModelContext preserves the immutable transcript and clears only the
+// provider-facing context for the active tab.
+func (a *App) ClearModelContext() error {
+	return a.ClearModelContextForTab("")
+}
+
+// ClearModelContextForTab targets the requested tab even if focus changes while
+// the Wails call is in flight. Unlike ClearSessionForTab it does not rotate the
+// session path, delete history, or reset cumulative session telemetry.
+func (a *App) ClearModelContextForTab(tabID string) error {
+	tab, ctrl := a.tabAndCtrlByID(tabID)
+	if a.tabIsReadOnly(tab) {
+		return readOnlyChannelErr()
+	}
+	if ctrl == nil {
+		return a.workspaceNotReadyErr(tab)
+	}
+	if err := a.ensureTabControllerWorkspace(tab); err != nil {
+		return err
+	}
+	ctrl = a.controllerForTab(tab)
+	if ctrl == nil {
+		return a.workspaceNotReadyErr(tab)
+	}
+	clearer, ok := ctrl.(interface{ ClearModelContext() error })
+	if !ok {
+		return fmt.Errorf("model context clearing is unavailable")
+	}
+	return clearer.ClearModelContext()
+}
+
 // clearTabGoal drops the tab's persisted goal copy so rebuilds and restarts
 // cannot re-seed a goal the controller has already cleared on session rotation.
 func (a *App) clearTabGoal(tab *WorkspaceTab) {
@@ -5282,15 +5313,17 @@ func firstNonEmpty(values ...string) string {
 // ContextInfo is the prompt-vs-window gauge payload plus session totals. Used
 // and Window both zero means no context-window data yet.
 type ContextInfo struct {
-	Used            int                         `json:"used"`
-	Window          int                         `json:"window"`
-	SessionTokens   int                         `json:"sessionTokens"`
-	CompactRatio    float64                     `json:"compactRatio,omitempty"`
-	SessionCost     float64                     `json:"sessionCost,omitempty"`
-	SessionCurrency string                      `json:"sessionCurrency,omitempty"`
-	CacheHitTokens  int                         `json:"cacheHitTokens,omitempty"`
-	CacheMissTokens int                         `json:"cacheMissTokens,omitempty"`
-	Sources         map[string]usageSourceStats `json:"sources,omitempty"`
+	Used                int                         `json:"used"`
+	Window              int                         `json:"window"`
+	SessionTokens       int                         `json:"sessionTokens"`
+	ModelContextCleared bool                        `json:"modelContextCleared,omitempty"`
+	ModelContextStart   int                         `json:"modelContextStart,omitempty"`
+	CompactRatio        float64                     `json:"compactRatio,omitempty"`
+	SessionCost         float64                     `json:"sessionCost,omitempty"`
+	SessionCurrency     string                      `json:"sessionCurrency,omitempty"`
+	CacheHitTokens      int                         `json:"cacheHitTokens,omitempty"`
+	CacheMissTokens     int                         `json:"cacheMissTokens,omitempty"`
+	Sources             map[string]usageSourceStats `json:"sources,omitempty"`
 }
 
 // ContextUsage returns the latest context-window gauge numbers.
@@ -5332,6 +5365,10 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 	used, window := ctrl.ContextSnapshot()
 	info.Used = used
 	info.Window = window
+	if contextState, ok := ctrl.(interface{ ModelContextStart() int }); ok {
+		info.ModelContextStart = contextState.ModelContextStart()
+		info.ModelContextCleared = info.ModelContextStart > 0
+	}
 	info.CompactRatio = ctrl.CompactRatio()
 	return info
 }
@@ -8551,6 +8588,16 @@ type WorkspaceChangesView struct {
 	GitAvailable bool                  `json:"gitAvailable"`
 	GitErr       string                `json:"gitErr,omitempty"`
 	GitBranch    string                `json:"gitBranch,omitempty"`
+}
+
+type WorkspaceFileDiffView struct {
+	Path      string `json:"path"`
+	Diff      string `json:"diff"`
+	Added     int    `json:"added"`
+	Removed   int    `json:"removed"`
+	Binary    bool   `json:"binary"`
+	Truncated bool   `json:"truncated"`
+	Err       string `json:"err,omitempty"`
 }
 
 // workspaceNoiseNames are local cache/vendor entries hidden from the file tree

@@ -83,6 +83,7 @@ import type {
   UpdateProgress,
   WireEvent,
   WorkspaceChangesView,
+  WorkspaceFileDiffView,
   GitCommitView,
   GitCommitDetailView,
   WorkspaceView,
@@ -182,6 +183,8 @@ export interface AppBindings {
   NewSessionForTab(tabID: string): Promise<void>;
   ClearSession(): Promise<void>;
   ClearSessionForTab(tabID: string): Promise<void>;
+  ClearModelContext(): Promise<void>;
+  ClearModelContextForTab(tabID: string): Promise<void>;
   History(): Promise<HistoryMessage[]>;
   HistoryForTab(tabID: string): Promise<HistoryMessage[]>;
   HistoryPage(beforeTurn: number, limit: number): Promise<HistoryPage>;
@@ -277,6 +280,7 @@ export interface AppBindings {
   ReadFile(rel: string): Promise<FilePreview>;
   ReadFileForTab(tabID: string, rel: string): Promise<FilePreview>;
   WorkspaceChanges(tabID: string): Promise<WorkspaceChangesView>;
+  WorkspaceFileDiff(tabID: string, path: string): Promise<WorkspaceFileDiffView>;
   GitBranches(): Promise<string[]>;
   GitCheckout(branch: string): Promise<void>;
   WorkspaceGitHistory(tabID: string, path: string): Promise<GitCommitView[]>;
@@ -2321,6 +2325,8 @@ function makeMockApp(): AppBindings {
         async NewSessionForTab() {},
         async ClearSession() {},
         async ClearSessionForTab() {},
+        async ClearModelContext() {},
+        async ClearModelContextForTab() {},
     async Checkpoints() {
       return [
         { turn: 0, prompt: "你好呀", files: ["src/App.tsx"], fileCount: 1, turnFileCount: 1, time: Date.now() - 30_000, canCode: true, canConversation: true },
@@ -3135,6 +3141,12 @@ function makeMockApp(): AppBindings {
           { path: "internal/control/controller.go", sources: ["session"], turns: [1], latestTime: Date.now() - 120_000 },
         ],
       };
+    },
+    async WorkspaceFileDiff(_tabID: string, path: string) {
+      const diff = path === "README.md"
+        ? "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,2 @@\n # Rill\n+Let intelligence flow."
+        : `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new`;
+      return { path, diff, added: 1, removed: path === "README.md" ? 0 : 1, binary: false, truncated: false };
     },
     async GitBranches() {
       return ["main", "dev", "feature/branch-switcher"];

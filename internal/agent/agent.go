@@ -839,6 +839,23 @@ func (a *Agent) SetSession(s *Session) {
 	a.clearClassifierCache()
 }
 
+// ClearModelContext advances the provider-facing boundary to the end of the
+// immutable transcript. Subsequent messages keep appending to the same Session,
+// while the next provider request sees only the system contract and new tail.
+func (a *Agent) ClearModelContext() int {
+	if a == nil {
+		return 0
+	}
+	s := a.Session()
+	if s == nil {
+		return 0
+	}
+	start := s.Len()
+	s.SetModelContextStart(start)
+	a.lastUsage.Store(nil)
+	return start
+}
+
 // LastUsage returns the most recent per-turn token telemetry the provider
 // reported (nil if no turn has run yet). The TUI uses it to show a context
 // gauge alongside the prompt; the actual cache decisions still live inside
@@ -2469,7 +2486,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 	// CreatedAt is durable UI metadata, not model input. Strip it from the
 	// transport copy so wall-clock differences never invalidate the provider's
 	// prompt-cache prefix (and custom providers cannot accidentally send it).
-	requestMessages := append([]provider.Message(nil), a.session.Messages...)
+	requestMessages := a.session.ModelContextSnapshot()
 	for i := range requestMessages {
 		requestMessages[i].CreatedAt = 0
 	}

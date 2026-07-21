@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FileCode2, Folder, FolderOpen, Search, RefreshCw, X, AtSign, FilePlus2,
   ScanText, AlertTriangle, Binary, FileWarning, ShieldCheck,
@@ -57,18 +57,34 @@ function StatusBox({ icon: Icon, text, tone = "slate" }: { icon: typeof Binary; 
 }
 
 export function Files() {
-  const { active: session, projects, filesOf, addRefToActive } = useStore();
+  const { active: session, projects, filesOf, addRefToActive, refreshFiles, readFile } = useStore();
   const project = projects.find((p) => p.id === session.projectId) ?? projects[0];
   const [query, setQuery] = useState("");
   const [file, setFile] = useState<FileNode | null>(null);
   const [sel, setSel] = useState<{ from: number; to: number } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const files = filesOf(project.id);
   const shown = query ? files.filter((f) => f.path.toLowerCase().includes(query.toLowerCase())) : files;
   const tree = useMemo(() => buildTree(shown), [shown]);
   const lines = file?.content?.split("\n") ?? [];
 
-  const open = (n: FileNode) => { setFile(n); setSel(null); };
+  useEffect(() => {
+    void refreshFiles(project.id);
+  }, [project.id]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await refreshFiles(project.id);
+    setRefreshing(false);
+    toast.success("已刷新文件树");
+  };
+  const open = async (n: FileNode) => {
+    setFile(n);
+    setSel(null);
+    const loaded = await readFile(project.id, n.path);
+    if (loaded) setFile(loaded);
+  };
   const toggleLine = (i: number) => {
     setSel((prev) => {
       if (!prev) return { from: i, to: i };
@@ -79,7 +95,7 @@ export function Files() {
 
   return (
     <PageShell icon={FileCode2} title="文件" subtitle={`${project.name} · ${project.path}`}
-      actions={<button onClick={() => toast.success("已刷新文件树", { description: "文件内容如有变化将标记为已更新" })} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className="size-4" /> 刷新</button>}>
+      actions={<button onClick={() => void refresh()} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> 刷新</button>}>
       <div className="flex h-full">
         <div className="flex w-[300px] shrink-0 flex-col border-r border-slate-200 bg-white">
           <div className="border-b border-slate-200 p-3">
@@ -132,14 +148,14 @@ export function Files() {
               {file.kind === "text" && !file.large && (
                 <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white p-3">
                   <span className="text-[11.5px] text-slate-400">加入对话时请明确加入内容：</span>
-                  <button disabled={!sel} onClick={() => { addRefToActive({ id: `sn${Date.now()}`, kind: "snippet", label: `${file.name}:${sel!.from}-${sel!.to}`, detail: "选中片段" }); }} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700 disabled:opacity-40"><ScanText className="size-3.5" />加入选中片段</button>
-                  <button onClick={() => addRefToActive({ id: `fl${Date.now()}`, kind: "file", label: file.name, detail: "完整文件" })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><FilePlus2 className="size-3.5" />加入完整文件</button>
-                  <button onClick={() => addRefToActive({ id: `pt${Date.now()}`, kind: "path", label: `path:${file.path}`, detail: "路径引用" })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />加入路径引用</button>
+                  <button disabled={!sel} onClick={() => { const content = lines.slice(sel!.from - 1, sel!.to).join("\n"); addRefToActive({ id: `sn${Date.now()}`, kind: "snippet", label: `${file.path}:${sel!.from}-${sel!.to}`, detail: `路径：${file.path}\n行号：${sel!.from}-${sel!.to}\n\n${content}` }); }} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[12px] text-white hover:bg-teal-700 disabled:opacity-40"><ScanText className="size-3.5" />加入选中片段</button>
+                  <button onClick={() => addRefToActive({ id: `fl${Date.now()}`, kind: "file", label: file.path, detail: `路径：${file.path}\n\n${file.content ?? ""}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><FilePlus2 className="size-3.5" />加入完整文件</button>
+                  <button onClick={() => addRefToActive({ id: `pt${Date.now()}`, kind: "path", label: `path:${file.path}`, detail: `路径：${file.path}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />加入路径引用</button>
                 </div>
               )}
               {(file.large || file.kind === "binary") && (
                 <div className="border-t border-slate-200 bg-white p-3">
-                  <button onClick={() => addRefToActive({ id: `pt${Date.now()}`, kind: "path", label: `path:${file.path}`, detail: "路径引用" })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />仅加入路径引用</button>
+                  <button onClick={() => addRefToActive({ id: `pt${Date.now()}`, kind: "path", label: `path:${file.path}`, detail: `路径：${file.path}` })} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><AtSign className="size-3.5" />仅加入路径引用</button>
                 </div>
               )}
             </>

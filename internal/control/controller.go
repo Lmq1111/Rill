@@ -2596,6 +2596,39 @@ func (c *Controller) Compact(ctx context.Context, instructions string) error {
 	return c.executor.CompactNow(ctx, instructions)
 }
 
+// ClearModelContext clears only the provider-facing conversation context. The
+// immutable Session.Messages transcript and its session path remain unchanged;
+// the durable boundary is stored in branch metadata so a restart preserves the
+// separation.
+func (c *Controller) ClearModelContext() error {
+	if c.executor == nil {
+		return nil
+	}
+	if err := c.beginRotation(); err != nil {
+		if errors.Is(err, errTurnRunningRotation) {
+			return fmt.Errorf("cannot clear model context while a turn is running")
+		}
+		return err
+	}
+	defer c.endRotation()
+
+	// Persist the transcript first. The boundary must never point beyond what a
+	// restarted process can reload from disk.
+	if err := c.Snapshot(); err != nil {
+		return err
+	}
+	session := c.executor.Session()
+	start := session.Len()
+	path := c.SessionPath()
+	if path != "" {
+		if err := agent.SaveModelContextStart(path, start); err != nil {
+			return err
+		}
+	}
+	c.executor.ClearModelContext()
+	return nil
+}
+
 // maybeSessionStart fires the SessionStart hook exactly once per session, lazily
 // on the first turn — by then the sink/notify is wired, and a resumed session
 // fires it too (its first post-resume turn).
@@ -3964,6 +3997,15 @@ func (c *Controller) ContextSnapshot() (int, int) {
 		return 0, c.executor.ContextWindow()
 	}
 	return u.PromptTokens + u.CompletionTokens, c.executor.ContextWindow()
+}
+
+// ModelContextStart exposes the provider-facing history boundary to host
+// surfaces without exposing or mutating the transcript itself.
+func (c *Controller) ModelContextStart() int {
+	if c.executor == nil || c.executor.Session() == nil {
+		return 0
+	}
+	return c.executor.Session().ModelContextStart()
 }
 
 // CompactRatio returns the auto-compaction threshold as a fraction of the window

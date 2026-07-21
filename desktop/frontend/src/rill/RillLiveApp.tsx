@@ -4,6 +4,7 @@ import { app, onProjectTreeChanged, onReady, onRuntimeRebuilt } from "../lib/bri
 import type { ProjectNode, TabMeta } from "../lib/types";
 import { useController } from "../lib/useController";
 import { adaptLiveProjects, adaptLiveSession } from "./adapters/live";
+import { adaptFilePreview, adaptWorkspaceChanges, attachWorkspaceDiff, buildRillSubmitText } from "./adapters/workspace";
 import { CorePages } from "./pages/core";
 import {
   StoreProvider,
@@ -12,6 +13,27 @@ import {
   type Route,
   type VisualStoreSeed,
 } from "./state/visualStore";
+
+const MAX_WORKSPACE_FILES = 2000;
+
+async function listWorkspaceFiles(tabId: string) {
+  const files: import("./state/visualStore").FileNode[] = [];
+  const directories = [""];
+  while (directories.length > 0 && files.length < MAX_WORKSPACE_FILES) {
+    const directory = directories.shift()!;
+    const entries = await app.ListDirForTab(tabId, directory);
+    for (const entry of entries) {
+      const path = entry.path || `${directory}${entry.name}`;
+      if (entry.isDir) {
+        if (directories.length + files.length < MAX_WORKSPACE_FILES) directories.push(path.endsWith("/") ? path : `${path}/`);
+      } else {
+        files.push({ path, name: entry.displayName || entry.name, type: "file", kind: "text" });
+      }
+      if (files.length >= MAX_WORKSPACE_FILES) break;
+    }
+  }
+  return files;
+}
 
 function RillRouteOutlet() {
   const { route } = useStore();
@@ -77,7 +99,7 @@ export function RillLiveApp() {
 
   const runtime = useMemo<RillSessionRuntime>(() => ({
     submit: async (session, input) => {
-      await controller.sendToTab(session.id, input);
+      await controller.sendToTab(session.id, input, buildRillSubmitText(session, input));
     },
     steer: async (session, input) => {
       await controller.steerForTab(session.id, input);
@@ -117,6 +139,30 @@ export function RillLiveApp() {
       const question = ask?.questions[0];
       if (!ask || !question) throw new Error("提问请求已失效");
       controller.answerQuestion(ask.id, [{ questionId: question.id, selected: [answer] }]);
+    },
+    clearContext: async (session) => {
+      await app.ClearModelContextForTab(session.id);
+    },
+    listFiles: async (session) => listWorkspaceFiles(session.id),
+    readFile: async (session, path) => adaptFilePreview(await app.ReadFileForTab(session.id, path)),
+    listDiffs: async (session) => {
+      const view = await app.WorkspaceChanges(session.id);
+      if (!view.gitAvailable) throw new Error(view.gitErr || "当前工作区不是 Git 仓库");
+      return adaptWorkspaceChanges(view);
+    },
+    readDiff: async (session, file) => attachWorkspaceDiff(file, await app.WorkspaceFileDiff(session.id, file.path)),
+    refreshContext: async (session) => {
+      const context = await app.ContextUsageForTab(session.id);
+      return {
+        ...session.context,
+        used: context.used,
+        limit: context.window,
+        cacheHit: context.cacheHitTokens ?? null,
+        cacheMiss: context.cacheMissTokens ?? null,
+        totalCost: context.sessionCost ?? null,
+        currency: context.sessionCurrency ?? session.context.currency,
+        refreshedAt: "刚刚",
+      };
     },
   }), [controller, projects, refresh, tabs]);
 

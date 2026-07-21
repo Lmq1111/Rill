@@ -22,23 +22,28 @@ function Metric({ icon: Icon, label, value, sub, unavailable }: { icon: typeof C
 }
 
 export function ContextOverview() {
-  const { active, projects, params, clearContext, createSession } = useStore();
+  const { active, projects, params, clearContext, createSession, refreshContext } = useStore();
   const c = active.context;
   const [confirmClear, setConfirmClear] = useState(params.rillVisualState === "clear-context-confirmation");
   const [refreshing, setRefreshing] = useState(false);
 
-  const pct = Math.round((c.used / c.limit) * 100);
+  const pct = c.limit > 0 ? Math.round((c.used / c.limit) * 100) : 0;
   const usedK = Math.round(c.used / 1000);
   const limitK = Math.round(c.limit / 1000);
   const readonly = active.runState === "readonly";
   const money = (v: number | null) => v === null ? "" : `$${v.toFixed(2)}`;
   const hitRate = c.cacheHit !== null && c.cacheMiss !== null && (c.cacheHit + c.cacheMiss) > 0 ? Math.round((c.cacheHit / (c.cacheHit + c.cacheMiss)) * 100) : null;
 
-  const refresh = () => { setRefreshing(true); toast("正在刷新上下文数据…"); setTimeout(() => { setRefreshing(false); toast.success("已刷新"); }, 800); };
+  const refresh = async () => {
+    setRefreshing(true);
+    toast("正在刷新上下文数据…");
+    await refreshContext(active.id);
+    setRefreshing(false);
+  };
 
   return (
     <PageShell icon={Gauge} title="上下文概览" subtitle={`当前会话：${active.title} · ${projectName(projects, active.projectId)}`}
-      actions={<button onClick={refresh} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> 刷新</button>}>
+      actions={<button onClick={() => void refresh()} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> 刷新</button>}>
       <div className="mx-auto h-full max-w-3xl overflow-y-auto p-6">
         {active.modelContextClearedAt && (
           <div className="mb-4 rounded-lg bg-cyan-50 px-3 py-2 text-[12.5px] text-cyan-700 ring-1 ring-cyan-200">
