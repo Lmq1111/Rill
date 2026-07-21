@@ -54,12 +54,7 @@ export function NetworkSettings() {
     if (live) {
       setTest("testing"); setStage("建立连接…");
       try {
-        if (target.includes("GitHub")) {
-          if (!live.backend.CheckUpdate) throw new Error("更新检查绑定不可用");
-          const info = await live.backend.CheckUpdate();
-          if (!info) throw new Error("GitHub Releases 检查未返回结果");
-          if (info.err) throw new Error(info.err);
-        } else if (target.includes("MCP")) {
+        if (target.includes("MCP")) {
           const server = live.snapshot?.servers[0];
           if (!server || !live.backend.ReconnectMCPServer) throw new Error("没有可测试的 MCP Server");
           await live.backend.ReconnectMCPServer(server.name);
@@ -104,7 +99,7 @@ export function NetworkSettings() {
   };
 
   return (
-    <SettingsBody title="网络" desc="管理访问模型服务、MCP Server 与 GitHub Releases 的网络与代理配置，并验证连接可用性">
+    <SettingsBody title="网络" desc={live ? "管理访问模型服务与 MCP Server 的网络和代理配置，并验证连接可用性" : "管理访问模型服务、MCP Server 与 GitHub Releases 的网络与代理配置，并验证连接可用性"}>
       {!live && <StateSwitcherLocal mode={mode} onMode={(m) => { setMode(m); d(); }} />}
       {live?.error && <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{live.error}</div>}
 
@@ -146,7 +141,7 @@ export function NetworkSettings() {
           {[
             { k: "模型服务请求", v: mode === "手动配置" ? `${proto} ${host}:${port}` : mode },
             { k: "MCP Server 请求", v: mode === "手动配置" ? `${proto} ${host}:${port}` : mode },
-            { k: "GitHub Releases", v: mode === "关闭代理" ? "直连" : mode === "手动配置" ? `${proto} ${host}:${port}` : "跟随系统" },
+            ...(!live ? [{ k: "GitHub Releases", v: mode === "关闭代理" ? "直连" : mode === "手动配置" ? `${proto} ${host}:${port}` : "跟随系统" }] : []),
           ].map((r) => <Row key={r.k} label={r.k}><span className="font-mono text-[12px] text-slate-600">{r.v}</span></Row>)}
         </Section>
       </div>
@@ -155,7 +150,7 @@ export function NetworkSettings() {
         <Section title="连接测试" desc="仅验证所选目标，不代表所有服务均可访问；测试结果不会发送给上游服务">
           <div className="flex flex-wrap items-end gap-2">
             <label className="block flex-1"><span className="text-[12px] text-slate-500">测试目标</span>
-              <Select value={target} onChange={setTarget} options={[`${brand.productName}官方预设（模型服务）`, "本地 vLLM（模型服务）", "postgres-mcp（MCP Server）", "GitHub Releases"]} />
+              <Select value={target} onChange={setTarget} options={[`${brand.productName}官方预设（模型服务）`, "本地 vLLM（模型服务）", "postgres-mcp（MCP Server）", ...(!live ? ["GitHub Releases"] : [])]} />
             </label>
             <button onClick={() => void runTest("ok")} className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-2 text-[12px] text-white hover:bg-teal-700"><Wifi className="size-4" />测试连接</button>
             {!live && <Select value="模拟成功" onChange={(v) => void runTest(v === "模拟成功" ? "ok" : "failed")} options={["模拟成功", "模拟失败"]} />}

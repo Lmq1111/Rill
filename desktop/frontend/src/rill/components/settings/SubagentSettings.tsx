@@ -34,7 +34,7 @@ export function SubagentSettings() {
     color: skill.color || "#10b981",
   })) : agents, [agents, live?.snapshot]);
   const list = authoritativeAgents.filter((a) => !query || a.name.includes(query) || a.desc.includes(query));
-  const busy = active.runState === "aiRunning" || active.runState === "awaitingConfirm" || active.runState === "awaitingAnswer";
+  const busy = Boolean(live) && (active.runState === "aiRunning" || active.runState === "awaitingConfirm" || active.runState === "awaitingAnswer");
 
   const runTrial = async (id: string, result: Trial) => {
     const profile = authoritativeAgents.find((agent) => agent.id === id);

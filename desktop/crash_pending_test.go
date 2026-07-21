@@ -147,10 +147,10 @@ func TestWritePendingCrashScrubsSensitiveText(t *testing.T) {
 	}
 }
 
-func TestFlushPendingCrashSendsAndClears(t *testing.T) {
-	oldVersion, oldEndpoint := version, crashEndpoint
+func TestFlushPendingCrashRetainsLocalRecordWithoutSending(t *testing.T) {
+	oldVersion := version
 	t.Cleanup(func() {
-		version, crashEndpoint = oldVersion, oldEndpoint
+		version = oldVersion
 		os.Remove(pendingCrashPath())
 	})
 	version = "v9.9.9"
@@ -161,16 +161,14 @@ func TestFlushPendingCrashSendsAndClears(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	defer srv.Close()
-	crashEndpoint = srv.URL
-
 	writePendingCrash("flush", "boom", []byte("stack"))
 	NewApp().flushPendingCrash()
 
-	if hits.Load() != 1 {
-		t.Errorf("server hits = %d, want 1", hits.Load())
+	if hits.Load() != 0 {
+		t.Errorf("server hits = %d, want 0", hits.Load())
 	}
-	if _, ok := readPending(t); ok {
-		t.Error("pending file should be cleared after a successful send")
+	if _, ok := readPending(t); !ok {
+		t.Error("pending file should remain available for local diagnostics")
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -91,12 +90,12 @@ func TestEvaluate(t *testing.T) {
 	if full.Latest != "v1.1.0" || full.Notes != "notes" || full.AssetSize != 999 {
 		t.Errorf("metadata not carried: %+v", full)
 	}
-	if full.CanSelfUpdate != (runtime.GOOS != "darwin") {
-		t.Errorf("CanSelfUpdate = %v on %s", full.CanSelfUpdate, runtime.GOOS)
+	if full.CanSelfUpdate || !full.ManualOnly || full.DownloadURL != downloadPage() {
+		t.Errorf("evaluate did not preserve manual-only Rill policy: %+v", full)
 	}
 }
 
-func TestChannelSelectsDistinctPointers(t *testing.T) {
+func TestManifestEndpointsRemainDisabledForEveryChannel(t *testing.T) {
 	orig := channel
 	t.Cleanup(func() { channel = orig })
 
@@ -104,40 +103,8 @@ func TestChannelSelectsDistinctPointers(t *testing.T) {
 	stable := manifestEndpoints()
 	channel = "canary"
 	canary := manifestEndpoints()
-
-	for _, u := range stable {
-		if strings.Contains(u, "canary") {
-			t.Errorf("stable endpoint leaks into canary: %q", u)
-		}
-	}
-	if !strings.Contains(stable[0], "/latest/latest.json") {
-		t.Errorf("stable primary = %q, want the latest/ pointer", stable[0])
-	}
-	if stable[1] != releaseGatewayBase+"/stable/latest.json" {
-		t.Errorf("stable fallback = %q, want the release gateway", stable[1])
-	}
-	// GitHub is stable's explicit last resort only (#6005: both first-party
-	// endpoints share one Cloudflare zone). Stable desktop releases own the
-	// repo-wide latest release and carry latest.json directly; no other slot may
-	// lean on repository-wide latest.
-	if len(stable) != 3 || stable[2] != githubManifestFallback {
-		t.Errorf("stable endpoints = %q, want the GitHub compatibility manifest last", stable)
-	}
-	for _, u := range append(stable[:2:2], canary...) {
-		if strings.Contains(u, "/releases/latest") {
-			t.Errorf("manifest endpoint uses GitHub's repository-wide latest release: %q", u)
-		}
-	}
-	for _, u := range canary {
-		if strings.Contains(u, "/latest/") {
-			t.Errorf("canary endpoint hits the stable latest/ pointer: %q", u)
-		}
-	}
-	if !strings.Contains(canary[0], "/canary/latest.json") {
-		t.Errorf("canary primary = %q, want the canary/ pointer", canary[0])
-	}
-	if canary[1] != releaseGatewayBase+"/canary/latest.json" {
-		t.Errorf("canary fallback = %q, want the release gateway", canary[1])
+	if len(stable) != 0 || len(canary) != 0 {
+		t.Fatalf("manifest endpoints re-enabled: stable=%q canary=%q", stable, canary)
 	}
 	if strings.Contains(downloadPage(), "/releases/latest") {
 		t.Errorf("download page should not use GitHub's repository-wide latest release: %q", downloadPage())

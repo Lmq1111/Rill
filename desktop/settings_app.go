@@ -776,7 +776,7 @@ func desktopStartupSettingsFromConfig(cfg *config.Config) DesktopStartupSettings
 			DisplayMode:        "standard",
 			StatusBarStyle:     "text",
 			StatusBarItems:     config.DefaultDesktopStatusBarItems(),
-			CheckUpdates:       true,
+			CheckUpdates:       false,
 		}
 	}
 	return DesktopStartupSettingsView{
@@ -835,9 +835,9 @@ func (a *App) Settings() SettingsView {
 			StatusBarStyle:          "text",
 			StatusBarItems:          config.DefaultDesktopStatusBarItems(),
 			DefaultToolApprovalMode: "auto",
-			CheckUpdates:            true,
-			Telemetry:               true,
-			Metrics:                 true,
+			CheckUpdates:            false,
+			Telemetry:               false,
+			Metrics:                 false,
 			MemoryCompiler:          true,
 			ExpandThinking:          false,
 			DesktopShortcuts:        map[string]string{},
@@ -3173,32 +3173,23 @@ func (a *App) SetDesktopLayoutStyle(style string) error {
 	return nil
 }
 
-// SetDesktopCheckUpdates updates only the desktop startup update-check
-// preference. Manual checks in Settings are unaffected.
+// SetDesktopCheckUpdates keeps legacy bindings compatible while persisting the
+// permanent Rill privacy policy.
 func (a *App) SetDesktopCheckUpdates(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCheckUpdates(enabled) })
 }
 
-// SetDesktopTelemetry sets whether the desktop sends the anonymous launch ping.
+// SetDesktopTelemetry keeps legacy bindings compatible while telemetry stays off.
 func (a *App) SetDesktopTelemetry(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopTelemetry(enabled) })
 }
 
-// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics,
-// starting or stopping the live aggregator so the toggle takes effect immediately.
+// SetDesktopMetrics keeps legacy bindings compatible while upstream metrics stay off.
 func (a *App) SetDesktopMetrics(enabled bool) error {
 	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopMetrics(enabled) }); err != nil {
 		return err
 	}
-	switch {
-	case enabled && a.metrics.Load() == nil && version != "dev":
-		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
-		if cfg, err := config.Load(); err == nil {
-			a.recordSettingsMetricsSnapshot(cfg)
-		}
-	case !enabled:
-		a.metrics.Store(nil)
-	}
+	a.metrics.Store(nil)
 	return nil
 }
 

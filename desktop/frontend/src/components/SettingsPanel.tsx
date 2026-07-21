@@ -2,11 +2,10 @@ import { lazy, memo, Suspense, useCallback, useEffect, useId, useMemo, useRef, u
 import { Bot as BotIcon, Check, CheckCircle2, ChevronDown, ChevronUp, Clipboard, ExternalLink, GripVertical, KeyRound, Loader2, MessageCircle, Minus, Play, Plus, QrCode, RefreshCw, RotateCcw, Send } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
-import { app, openExternal } from "../lib/bridge";
+import { app } from "../lib/bridge";
 import { brand } from "../lib/brand";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { apiKeyEnvFromProviderName, inferredVisionModels, mergedFetchedProviderModels, providerApiKeyEnvForSave, providerDefaultModel, providerIsConfigured, providerModelCandidates, providerRequiresKey } from "../lib/providerModels";
-import { useUpdater } from "../lib/useUpdater";
 import {
   THEME_STYLES,
   applyTheme,
@@ -326,11 +325,6 @@ export function SettingsPanel({
                   <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}>
                     <UpdatesSection
                       configPath={s.configPath}
-                      checkUpdates={s.checkUpdates}
-                      telemetry={s.telemetry !== false}
-                      metrics={s.metrics !== false}
-                      settingsBusy={busy}
-                      applySettings={apply}
                     />
                   </SettingsPageShell>
                 )}
@@ -6858,113 +6852,32 @@ function monoFontFamilyName(font: MonoFontFamily, t: ReturnType<typeof useT>): s
   }
 }
 
-const MB = 1024 * 1024;
-const mb = (n: number) => (n / MB).toFixed(1);
-
-// UpdatesSection is the manual side of the auto-updater: it shows the startup
-// check preference, running version, and a Check button, then the same state
-// machine the top banner uses (useUpdater) — available → download → install, with
-// progress and errors inline.
+// UpdatesSection exposes only Rill's explicit public Releases link. Background
+// checks, telemetry, metrics, downloads, and installs are permanently disabled.
 function UpdatesSection({
   configPath,
-  checkUpdates,
-  telemetry,
-  metrics,
-  settingsBusy,
-  applySettings,
 }: {
   configPath: string;
-  checkUpdates: boolean;
-  telemetry: boolean;
-  metrics: boolean;
-  settingsBusy: boolean;
-  applySettings: (fn: () => Promise<void>) => Promise<void>;
 }) {
   const t = useT();
-  const { status, check, download: downloadUpdate, install: installUpdate } = useUpdater();
   const [version, setVersion] = useState("");
   useEffect(() => {
     app.Version().then(setVersion).catch(() => {});
   }, []);
-
-  const updaterBusy =
-    status.kind === "checking" || status.kind === "downloading" || status.kind === "verifying" || status.kind === "installing";
 
   return (
     <SettingsSection title={t("updater.title")}>
       <div className="mem-hint">{brand.productName} · {brand.slogan}</div>
       <SettingsField
         className="settings-field--wide-copy"
-        label={t("updater.autoCheckLabel")}
-        hint={t("updater.autoCheckHint")}
+        label={t("updater.privacyDisabledLabel")}
+        hint={t("updater.privacyDisabledHint")}
       >
-        <ToggleSegment
-          value={checkUpdates}
-          disabled={settingsBusy}
-          onChange={(enabled) => void applySettings(() => app.SetDesktopCheckUpdates(enabled))}
-        />
-      </SettingsField>
-      <SettingsField
-        className="settings-field--wide-copy"
-        label={t("settings.telemetryLabel")}
-        hint={t("settings.telemetryHint")}
-      >
-        <ToggleSegment
-          value={telemetry}
-          disabled={settingsBusy}
-          onChange={(enabled) => void applySettings(() => app.SetDesktopTelemetry(enabled))}
-        />
-      </SettingsField>
-      <SettingsField
-        className="settings-field--wide-copy"
-        label={t("settings.metricsLabel")}
-        hint={t("settings.metricsHint")}
-      >
-        <ToggleSegment
-          value={metrics}
-          disabled={settingsBusy}
-          onChange={(enabled) => void applySettings(() => app.SetDesktopMetrics(enabled))}
-        />
+        <span className="mem-hint">{t("updater.disabledStatus")}</span>
       </SettingsField>
       <SettingsField label={t("updater.currentVersion", { v: version || "…" })}>
-        <button className="btn btn--small" disabled={updaterBusy} onClick={() => void check()}>
-          {status.kind === "checking" ? t("updater.checking") : t("updater.checkButton")}
-        </button>
+        <span className="mem-hint">{t("updater.manualOnlyStatus")}</span>
       </SettingsField>
-      {status.kind === "available" && (
-        <div className="mem-hint">{t("updater.channelLabel", { channel: status.info.channel || "stable" })}</div>
-      )}
-      {status.kind === "upToDate" && <div className="mem-hint">{t("updater.upToDate")}</div>}
-      {status.kind === "available" && (
-        <>
-          <SettingsField label={t("updater.available", { v: status.info.latest })}>
-            <button className="btn btn--primary btn--small" onClick={() => downloadUpdate(status.info)}>
-              {status.info.canSelfUpdate ? t("updater.downloadUpdate") : t("updater.goToDownload")}
-            </button>
-          </SettingsField>
-          {!status.info.canSelfUpdate && <div className="mem-hint">{status.info.manualReason || t("updater.macHint")}</div>}
-        </>
-      )}
-      {status.kind === "downloading" && (
-        <div className="mem-hint">
-          {t("updater.downloading", {
-            done: mb(status.received),
-            total: mb(status.total),
-            pct: status.total > 0 ? Math.round((status.received / status.total) * 100) : 0,
-          })}
-        </div>
-      )}
-      {status.kind === "verifying" && <div className="mem-hint">{t("updater.verifying")}</div>}
-      {status.kind === "downloaded" && (
-        <SettingsField label={t("updater.downloaded", { v: status.info.latest })}>
-          <button className="btn btn--primary btn--small" onClick={installUpdate}>
-            {t("updater.restartInstall")}
-          </button>
-        </SettingsField>
-      )}
-      {status.kind === "installing" && <div className="mem-hint">{t("updater.installing")}</div>}
-      {status.kind === "done" && <div className="mem-hint">{t("updater.done")}</div>}
-      {status.kind === "error" && <div className="banner banner--error">{t("updater.failed", { msg: status.message })}</div>}
       {configPath && (
         <Tooltip label={configPath} fill block className="mem-hint settings-config-path">
           {t("settings.config", { path: configPath })}
@@ -6975,7 +6888,7 @@ function UpdatesSection({
         label={t("changelog.title")}
         hint={t("changelog.subtitle")}
       >
-        <button className="btn btn--small" onClick={() => void openExternal("https://github.com/Lmq1111/Rill/releases")}>
+        <button className="btn btn--small" onClick={() => void app.OpenRillReleases()}>
           {t("changelog.openWeb")}
           <ExternalLink size={14} aria-hidden="true" />
         </button>

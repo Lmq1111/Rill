@@ -3,11 +3,7 @@ import { ChevronRight, ExternalLink, FolderOpen, Lock, ShieldCheck } from "lucid
 import type { RillSettingsContextValue } from "../../../settings/runtime";
 import { brand } from "../../../../lib/brand";
 import { SettingsBody, type GoTo } from "../Settings";
-import { Row, Section, Toggle } from "../kit";
-
-function status(enabled: boolean) {
-  return enabled ? "已开启" : "已关闭";
-}
+import { Row, Section } from "../kit";
 
 export function LiveAboutSettings({ live, goTo }: { live: RillSettingsContextValue; goTo: GoTo }) {
   const settings = live.snapshot?.settings;
@@ -23,14 +19,6 @@ export function LiveAboutSettings({ live, goTo }: { live: RillSettingsContextVal
   if (!settings) {
     return <SettingsBody title="版本与隐私" desc={`查看${brand.productName}与 ${brand.cliBrand} 的版本、更新方式、数据边界与开源归属`}><div className="rounded-xl border border-slate-200 bg-white p-5 text-[13px] text-slate-500">{live.loading ? "正在读取版本与隐私状态…" : live.error || "版本与隐私状态不可用"}</div></SettingsBody>;
   }
-
-  const applyToggle = (label: string, method: "SetDesktopCheckUpdates" | "SetDesktopTelemetry" | "SetDesktopMetrics", enabled: boolean) => {
-    void live.apply(label, async () => {
-      const binding = live.backend[method];
-      if (!binding) throw new Error(`当前桌面后端缺少 ${method} 绑定`);
-      await binding.call(live.backend, enabled);
-    });
-  };
 
   const openReleases = async () => {
     try {
@@ -64,10 +52,8 @@ export function LiveAboutSettings({ live, goTo }: { live: RillSettingsContextVal
 
       <div className="mt-4"><Section title="更新" desc="公开版本入口固定指向 Lmq1111/Rill，不在本页执行下载或安装"><div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-600"><div className="flex items-center gap-1.5 text-slate-700"><ShieldCheck className="size-4 text-emerald-600" />公开 Release 手动入口</div><p className="mt-1">只有点击下方按钮时才会打开浏览器；当前页不会自动下载或安装更新。</p></div><button onClick={() => void openReleases()} className="mt-3 flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[12.5px] text-white"><ExternalLink className="size-4" />打开 Rill Releases</button></Section></div>
 
-      <div className="mt-4"><Section title="当前隐私与后台行为" desc="以下状态直接来自当前后端配置，修改后会重新读取确认">
-        <Row label="启动时检查更新" hint={`当前：${status(settings.checkUpdates)}`}><Toggle checked={settings.checkUpdates} onChange={(enabled) => applyToggle("保存更新检查设置", "SetDesktopCheckUpdates", enabled)} /></Row>
-        <Row label="匿名启动遥测" hint={`当前：${status(settings.telemetry)}`}><Toggle checked={settings.telemetry} onChange={(enabled) => applyToggle("保存遥测设置", "SetDesktopTelemetry", enabled)} /></Row>
-        <Row label="聚合桌面指标" hint={`当前：${status(settings.metrics)}`}><Toggle checked={settings.metrics} onChange={(enabled) => applyToggle("保存指标设置", "SetDesktopMetrics", enabled)} /></Row>
+      <div className="mt-4"><Section title="当前隐私与后台行为" desc="Rill 不提供重新开启上游外联的设置">
+        <Row label="后台更新检查、上游遥测与聚合指标始终关闭"><span className="text-[12px] font-medium text-emerald-700">已强制关闭</span></Row>
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-[12px] text-slate-500"><div className="flex items-center gap-1.5 text-slate-700"><Lock className="size-3.5" />敏感凭据不在本页显示</div><p className="mt-1">模型密钥、机器人 Token 和代理密码只显示是否已配置，不回传原文。</p></div>
       </Section></div>
 

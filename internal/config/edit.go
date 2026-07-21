@@ -406,10 +406,11 @@ func (c *Config) SetDesktopStatusBarItems(items []string) error {
 	return nil
 }
 
-// SetDesktopCheckUpdates sets whether the desktop app checks for updates on
-// startup. Manual checks remain available in Settings regardless of this value.
+// SetDesktopCheckUpdates retains binding compatibility while keeping background
+// update checks permanently disabled.
 func (c *Config) SetDesktopCheckUpdates(enabled bool) error {
-	c.Desktop.CheckUpdates = &enabled
+	disabled := false
+	c.Desktop.CheckUpdates = &disabled
 	return nil
 }
 
@@ -419,15 +420,17 @@ func (c *Config) SetColdResumePrune(enabled bool) error {
 	return nil
 }
 
-// SetDesktopTelemetry sets whether the desktop sends the anonymous launch ping.
+// SetDesktopTelemetry retains binding compatibility while keeping telemetry off.
 func (c *Config) SetDesktopTelemetry(enabled bool) error {
-	c.Desktop.Telemetry = &enabled
+	disabled := false
+	c.Desktop.Telemetry = &disabled
 	return nil
 }
 
-// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics.
+// SetDesktopMetrics retains binding compatibility while keeping metrics off.
 func (c *Config) SetDesktopMetrics(enabled bool) error {
-	c.Desktop.Metrics = &enabled
+	disabled := false
+	c.Desktop.Metrics = &disabled
 	return nil
 }
 

@@ -2255,6 +2255,10 @@ export const en = {
   // software update
   "updater.title": "Software update",
   "updater.autoCheckLabel": "Check for updates on startup",
+  "updater.privacyDisabledLabel": "Background updates and upstream reporting",
+  "updater.privacyDisabledHint": "Background update checks, upstream telemetry, and aggregate metrics are always disabled in Rill.",
+  "updater.disabledStatus": "Always disabled",
+  "updater.manualOnlyStatus": "Manual updates only",
   "updater.autoCheckHint": "When off, Rill won't check automatically when it opens. You can still check manually here.",
   "settings.telemetryLabel": "Anonymous usage ping",
   "settings.telemetryHint": "On launch, send a random install id plus version and OS to count active installs, and — if the app crashed on a previous run — resend that crash report. Never includes conversations, keys, or file contents.",

@@ -10,11 +10,9 @@ import (
 	"reasonix/internal/config"
 )
 
-// crash_pending.go captures Go-side panics to disk and ships them on the next
-// launch. Frontend crashes are click-to-send, but an unrecovered Go panic kills the
-// process before the user can react, so the whole agent/provider/tool layer would
-// otherwise never surface a single report. The resend is gated on the same
-// desktop.telemetry opt-out as the launch ping.
+// crash_pending.go captures Go-side panics to a local, scrubbed file. Rill never
+// uploads or consumes this record automatically; local diagnostics may expose it
+// only through an explicit user action.
 
 const pendingCrashFile = "crash-pending.json"
 
@@ -23,8 +21,7 @@ func pendingCrashPath() string {
 }
 
 // recoverToPending records a panicking goroutine to the pending-crash file and
-// re-raises, so the process still crashes exactly as before — the stack is now
-// shipped next launch instead of lost.
+// re-raises, so the process still crashes exactly as before.
 func (a *App) recoverToPending(site string) {
 	r := recover()
 	if r == nil {
@@ -81,39 +78,8 @@ func (a *App) goSafe(site string, fn func()) {
 	}()
 }
 
-// flushPendingCrash drains a Go panic captured on a prior run and POSTs it, then
-// clears it. Runs at launch alongside the ping; honours the telemetry opt-out by
-// dropping the file unsent.
+// flushPendingCrash is retained for compatibility but deliberately leaves the
+// local record untouched. Rill never uploads crash data during startup.
 func (a *App) flushPendingCrash() {
-	if version == "dev" {
-		return
-	}
-	// Safe Mode boots from built-in defaults and cannot read the user's real
-	// telemetry preference, so it must neither send the pending report nor
-	// consume it: leave the file for the next normal boot to decide.
-	if config.SafeModeRequested() {
-		return
-	}
-	path := pendingCrashPath()
-	body, err := readFileUTF8(path)
-	if err != nil {
-		return
-	}
-	cfg, err := config.Load()
-	if err != nil || !cfg.DesktopTelemetry() {
-		_ = os.Remove(path)
-		return
-	}
-	var r crashReport
-	if json.Unmarshal(body, &r) != nil {
-		_ = os.Remove(path)
-		return
-	}
-	c, err := httpClient()
-	if err != nil {
-		return
-	}
-	if postCrashReport(a.bootContext(), c, crashEndpoint, r) == nil {
-		_ = os.Remove(path)
-	}
+	// Local-only by design.
 }

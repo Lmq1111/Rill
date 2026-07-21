@@ -1,20 +1,15 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"runtime"
 	"strings"
 )
 
-// crash_app.go is the crash/feedback/performance reporting surface. Reports are
-// sent only on an explicit user click in the frontend UI — never automatically.
-
-var crashEndpoint = "https://crash.reasonix.io/v1/report"
+// crash_app.go builds scrubbed local crash/feedback/performance records. Rill
+// never uploads these records; users may inspect or export diagnostics locally.
 
 const maxCrashDetailBytes = 16 << 10
 const maxCrashStackBytes = 8 << 10
@@ -246,30 +241,8 @@ func (a *App) ReportCrash(kind, detail string) error {
 	if err != nil {
 		return err
 	}
-	c, err := httpClient()
-	if err != nil {
-		return err
-	}
-	return postCrashReport(a.reqCtx(), c, crashEndpoint, r)
-}
-
-func postCrashReport(ctx context.Context, c *http.Client, endpoint string, r crashReport) error {
-	body, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("crash endpoint returned %s", resp.Status)
+	if !writePendingReport(r, true) {
+		return fmt.Errorf("write local crash report")
 	}
 	return nil
 }

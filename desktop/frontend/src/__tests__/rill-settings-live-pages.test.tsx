@@ -147,6 +147,8 @@ assert.deepEqual(settings.desktopShortcuts, {});
 container = await render(<AboutSettings goTo={() => {}} />);
 await waitFor("version", () => (container.textContent || "").includes("v0.1.0-live"));
 assert.doesNotMatch(container.textContent || "", /演示状态|模拟导出失败/);
+assert.doesNotMatch(container.textContent || "", /启动时检查更新|匿名启动遥测|聚合桌面指标/);
+assert.match(container.textContent || "", /后台更新检查、上游遥测与聚合指标始终关闭/);
 await act(async () => { button(container, "打开 Rill Releases").click(); await flush(); });
 assert.ok(calls.includes("open-releases"));
 

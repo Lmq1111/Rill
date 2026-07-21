@@ -2,75 +2,37 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"runtime"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"reasonix/desktop/internal/update"
-	"reasonix/internal/repair"
 )
 
-// updater_app.go is the auto-updater's bound command surface — the App methods the
-// frontend calls — mirroring settings_app.go's "one file per concern" split. The
-// transport-free logic lives in updater.go; this file is the Wails glue: it streams
-// download progress as "updater:progress" events and routes macOS to the manual
-// download path unless the macOS build was Developer ID signed and notarized.
+// updater_app.go retains the legacy binding surface while enforcing Rill's
+// manual-only update policy. No bound method checks, downloads, or installs an
+// update; only an explicit browser action opens the public Rill Releases page.
 
 // Version returns the build version injected via -ldflags (see main.go). The
 // frontend displays it; CheckUpdate compares against it.
 func (a *App) Version() string { return version }
 
-// CheckUpdate fetches the manifest (R2, then GitHub) and reports whether a newer
-// build is available for this platform. Safe to call on startup: a network error
-// surfaces in UpdateInfo.Err rather than failing, so the UI can stay quiet.
+// CheckUpdate returns the local manual-only policy without network access.
 func (a *App) CheckUpdate() (*UpdateInfo, error) {
-	c, err := httpClient()
-	if err != nil {
-		a.recordUpdateError(err)
-		return &UpdateInfo{
-			Current:       version,
-			Channel:       channel,
-			CanSelfUpdate: canSelfUpdate(),
-			ManualOnly:    !canSelfUpdate(),
-			ManualReason:  manualUpdateReason(),
-			DownloadURL:   downloadPage(),
-			Err:           err.Error(),
-		}, nil
-	}
-	ctx, cancel := context.WithTimeout(a.reqCtx(), httpTimeout)
-	defer cancel()
-	m, err := fetchManifest(ctx, c)
-	if err != nil {
-		a.recordUpdateError(err)
-		return &UpdateInfo{
-			Current:       version,
-			Channel:       channel,
-			CanSelfUpdate: canSelfUpdate(),
-			ManualOnly:    !canSelfUpdate(),
-			ManualReason:  manualUpdateReason(),
-			DownloadURL:   downloadPage(),
-			Err:           err.Error(),
-		}, nil
-	}
-	info := evaluate(version, m)
-	return &info, nil
+	return &UpdateInfo{
+		Current:       version,
+		Channel:       channel,
+		CanSelfUpdate: false,
+		ManualOnly:    true,
+		ManualReason:  manualUpdateReason(),
+		DownloadURL:   downloadPage(),
+	}, nil
 }
 
 // OpenDownloadPage opens the install page in the browser — the macOS manual-update
 // path and a fallback link elsewhere.
 func (a *App) OpenDownloadPage() {
-	page := downloadPage()
-	if c, err := httpClient(); err == nil {
-		ctx, cancel := context.WithTimeout(a.reqCtx(), httpTimeout)
-		defer cancel()
-		if m, err := fetchManifest(ctx, c); err == nil && m.DownloadPage != "" {
-			page = m.DownloadPage
-		}
-	}
 	if a.ctx != nil {
-		wruntime.BrowserOpenURL(a.ctx, page)
+		wruntime.BrowserOpenURL(a.ctx, downloadPage())
 	}
 }
 
@@ -83,116 +45,20 @@ func (a *App) OpenRillReleases() {
 	}
 }
 
-// DownloadUpdate downloads, verifies, and caches the latest build. Installation is
-// deliberately a separate user action so the UI can show "downloaded" before the
-// app quits to finish the update.
+// DownloadUpdate is disabled. Users explicitly open Rill Releases instead.
 func (a *App) DownloadUpdate() (*UpdateDownloadResult, error) {
-	if !canSelfUpdate() {
-		a.OpenDownloadPage()
-		return nil, nil
-	}
-	c, err := httpClient()
-	if err != nil {
-		return nil, a.failUpdate(err)
-	}
-	ctx, cancel := context.WithTimeout(a.reqCtx(), httpTimeout)
-	defer cancel()
-	m, err := fetchManifest(ctx, c)
-	if err != nil {
-		return nil, a.failUpdate(err)
-	}
-	asset, ok := m.Asset()
-	if !ok {
-		return nil, a.failUpdate(fmt.Errorf("no update artifact for %s", update.CurrentPlatform()))
-	}
-
-	data, err := a.downloadVerify(asset)
-	if err != nil {
-		return nil, a.failUpdate(err)
-	}
-	meta, err := saveCachedUpdate(m.Version, asset, data)
-	if err != nil {
-		return nil, a.failUpdate(err)
-	}
-	a.emitProgress("downloaded", meta.Size, meta.Size, "")
-	return &UpdateDownloadResult{
-		Version: meta.Version,
-		Channel: meta.Channel,
-		Path:    meta.Path,
-		Size:    meta.Size,
-		SHA256:  meta.SHA256,
-	}, nil
+	return nil, nil
 }
 
-// InstallUpdate applies the cached, verified update and then exits/relaunches.
+// InstallUpdate is disabled.
 func (a *App) InstallUpdate() error {
-	if !canSelfUpdate() {
-		a.OpenDownloadPage()
-		return nil
-	}
-	meta, data, err := readVerifiedCachedUpdate()
-	if err != nil {
-		return a.failUpdate(err)
-	}
-	a.emitProgress("installing", meta.Size, meta.Size, "")
-	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
-		// Back up the complete release unit (main binary + Guard/launcher
-		// siblings the installer also replaces) so rollback never leaves a
-		// mixed-version install.
-		if _, err := repair.PrepareFileUpdate(version, meta.Version, currentExecutablePath(), updateSiblingArtifacts()...); err != nil {
-			return a.failUpdate(err)
-		}
-	}
-	switch runtime.GOOS {
-	case "windows":
-		err = applyWindowsFile(meta.Path, meta.Version)
-	case "darwin":
-		err = applyMac(meta.Path, meta.Version)
-	case "linux":
-		err = applyLinux(data)
-	default:
-		err = fmt.Errorf("self-update unsupported on %s", runtime.GOOS)
-	}
-	if err != nil {
-		if runtime.GOOS == "linux" {
-			// applyLinux replaces the Guard binary before the main-binary
-			// swap, so a failure here can already have produced a mixed
-			// install. Restore the recorded release unit instead of
-			// discarding the rollback metadata; if the restore itself fails,
-			// keep the pending transaction so Guard can retry the rollback on
-			// the next launch.
-			if _, rollbackErr := repair.RollbackPendingUpdate(); rollbackErr != nil {
-				a.recordUpdateError(rollbackErr)
-			}
-		} else {
-			// Windows hands off to an installer process and macOS cancels its
-			// own transaction inside applyMac: a failure here means nothing
-			// was replaced yet, so just drop the pending transaction.
-			_ = repair.CancelPendingUpdate(meta.Version)
-		}
-		return a.failUpdate(err)
-	}
-
-	a.emitProgress("done", meta.Size, meta.Size, "")
-
-	// Persist the conversation and stop subprocesses before handing off (same as
-	// shutdown). On Linux the binary is now replaced, so relaunch it; on Windows and
-	// macOS the installer/helper we launched takes over once we exit.
-	a.shutdown(a.ctx)
-	if runtime.GOOS == "linux" {
-		_ = relaunchThroughGuard()
-	}
-	os.Exit(0)
 	return nil
 }
 
 // ApplyUpdate is kept for older frontend bindings and tests. New UI code uses the
 // explicit download → install split.
 func (a *App) ApplyUpdate() error {
-	if _, err := a.DownloadUpdate(); err != nil {
-		return err
-	}
-	return a.InstallUpdate()
+	return nil
 }
 
 // downloadVerify downloads the asset (streaming progress), verifies its minisign

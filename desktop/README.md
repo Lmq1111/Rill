@@ -113,14 +113,12 @@ Fedora deps: `sudo dnf install webkit2gtk4.1-devel gtk3-devel`.
 `.gitkeep` that keeps the Go `//go:embed all:frontend/dist` compilable on a fresh
 checkout). A bare `go build` without a prior `pnpm build` produces a blank window.
 
-## Releases & auto-update
+## Releases & manual updates
 
-Stage three does not create a tag, release, DMG, or distribution workflow.
-Release packaging belongs to stage eight. The inherited updater implementation
-is still present and still points at the upstream `dl.reasonix.io` and
-`crash.reasonix.io` services; it is explicitly deferred to the stage-seven
-privacy work and must not be described as a Rill service. Do not use the current
-source state as a privacy-hardened Rill release.
+Stage seven disables the inherited background updater and all upstream reporting.
+Rill does not poll manifests, download updates, or install them automatically.
+The only update action explicitly opens the public Rill Releases page. Creating
+tags, releases, DMGs, or distribution workflows remains stage-eight work.
 
 ## Editor seam (Monaco / CodeMirror)
 
@@ -204,17 +202,12 @@ desktop/
         editors/  PlainCode, PlainDiff   ← editor seam impls (swap targets)
 ```
 
-## Deferred network and privacy work
+## Network and privacy boundary
 
-The stage-three source still contains inherited network transports:
+- launch telemetry and aggregate metrics are permanently disabled;
+- scrubbed crash reports remain local for user-initiated diagnostics;
+- automatic update checks, downloads, and installs are disabled;
+- the only update action opens `https://github.com/Lmq1111/Rill/releases`.
 
-- launch telemetry posts to `https://crash.reasonix.io/v1/ping`;
-- aggregate metrics post to `https://crash.reasonix.io/v1/metrics`;
-- crash reports post to `https://crash.reasonix.io/v1/report`;
-- the updater reads from `dl.reasonix.io` and the upstream release gateway.
-
-Those endpoints are recorded here as known stage-seven work, not as approved
-Rill services. Stage three does not claim that telemetry, crash upload, metrics,
-or automatic updates are disabled. The separately documented, minisign-verified
-read-only MCP catalog is the only upstream runtime dependency intended to remain
-after stage seven.
+The separately documented, minisign-verified read-only MCP catalog is the only
+upstream runtime dependency intended to remain after stage seven.

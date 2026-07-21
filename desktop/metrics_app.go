@@ -1,33 +1,23 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"reasonix/internal/config"
 	"reasonix/internal/event"
 )
 
-// metrics_app.go is the aggregate desktop-metrics flush: anonymous (signal,
-// bucket) counters observed from the event stream and safe desktop preference
-// snapshots, POSTed once per launch. Never carries content, keys, prompts, paths,
-// or base URLs; custom provider/model identifiers are normalized into bounded
-// buckets. Gated on config desktop.metrics (default on), dev-skipped.
-
-var metricsEndpoint = "https://crash.reasonix.io/v1/metrics"
+// metrics_app.go retains local aggregation helpers for compatibility and local
+// diagnostics. Rill never initializes or uploads the upstream metrics stream.
 
 const metricsPendingFile = "metrics-pending.json"
-const metricsPostTimeout = 8 * time.Second
 
 var statusCodePattern = regexp.MustCompile(`status (\d{3})`)
 
@@ -492,56 +482,8 @@ func flatten(c counters) []metricCounter {
 	return out
 }
 
-// flushMetrics drains the pending file from prior sessions and POSTs it, then
-// clears it on success or folds it back to retry next launch. Runs at launch
-// (mirroring the ping) so the current session's counts ship next time.
+// flushMetrics is retained for compatibility but deliberately leaves any legacy
+// local record untouched. Rill never uploads aggregate metrics.
 func (a *App) flushMetrics() {
-	if version == "dev" {
-		return
-	}
-	cfg, err := config.Load()
-	if err != nil || !cfg.DesktopMetrics() {
-		return
-	}
-	path := filepath.Join(config.MemoryUserDir(), metricsPendingFile)
-	temp := path + ".sending"
-	if os.Rename(path, temp) != nil {
-		return // nothing pending
-	}
-	flat := flatten(readCounters(temp))
-	payload := metricsPayload{Version: version, OS: runtime.GOOS, Counters: flat}
-	if id, err := installID(); err == nil {
-		payload.InstallID = id
-	}
-	if len(flat) == 0 || a.postMetrics(payload) {
-		_ = os.Remove(temp)
-		return
-	}
-	pending := readCounters(path)
-	pending.merge(readCounters(temp))
-	writeCounters(path, pending)
-	_ = os.Remove(temp)
-}
-
-func (a *App) postMetrics(p metricsPayload) bool {
-	body, err := json.Marshal(p)
-	if err != nil {
-		return false
-	}
-	c, err := httpClient()
-	if err != nil {
-		return false
-	}
-	c.Timeout = metricsPostTimeout
-	req, err := http.NewRequestWithContext(a.bootContext(), http.MethodPost, metricsEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return false
-	}
-	resp.Body.Close()
-	return resp.StatusCode < 300
+	// Local-only by design.
 }

@@ -2257,6 +2257,10 @@ export const zh: Record<DictKey, string> = {
   // 软件更新
   "updater.title": "软件更新",
   "updater.autoCheckLabel": "启动时检测新版本",
+  "updater.privacyDisabledLabel": "后台更新与上游报告",
+  "updater.privacyDisabledHint": "Rill 始终关闭后台更新检查、上游遥测与聚合指标。",
+  "updater.disabledStatus": "始终关闭",
+  "updater.manualOnlyStatus": "仅支持手动更新",
   "updater.autoCheckHint": "关闭后，Rill 打开时不会自动检查更新；你仍可在此页手动检查。",
   "settings.telemetryLabel": "匿名启动统计",
   "settings.telemetryHint": "启动时发送随机安装 ID、版本号和操作系统用于统计活跃安装量；若上次运行发生崩溃，则在本次启动补发该崩溃报告。绝不包含对话、密钥或文件内容。",

@@ -1069,14 +1069,14 @@ func TestSetReasoningLanguageRejectsBackgroundJobsBeforeSavingConfig(t *testing.
 	}
 }
 
-func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
+func TestSetDesktopCheckUpdatesCannotReenableBackgroundChecks(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
-	if !app.Settings().CheckUpdates {
-		t.Fatal("Settings().CheckUpdates default = false, want true")
+	if app.Settings().CheckUpdates {
+		t.Fatal("Settings().CheckUpdates default = true, want false")
 	}
-	if err := app.SetDesktopCheckUpdates(false); err != nil {
+	if err := app.SetDesktopCheckUpdates(true); err != nil {
 		t.Fatalf("SetDesktopCheckUpdates: %v", err)
 	}
 	view := app.Settings()
@@ -1115,14 +1115,14 @@ func TestSetDefaultToolApprovalModePersistsToUserConfig(t *testing.T) {
 	}
 }
 
-func TestSetDesktopMetricsDefaultsOnAndPersistsOff(t *testing.T) {
+func TestSetDesktopMetricsCannotReenableUpstreamMetrics(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
-	if !app.Settings().Metrics {
-		t.Fatal("Settings().Metrics default = false, want true")
+	if app.Settings().Metrics {
+		t.Fatal("Settings().Metrics default = true, want false")
 	}
-	if err := app.SetDesktopMetrics(false); err != nil {
+	if err := app.SetDesktopMetrics(true); err != nil {
 		t.Fatalf("SetDesktopMetrics: %v", err)
 	}
 	view := app.Settings()

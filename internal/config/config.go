@@ -145,9 +145,9 @@ type DesktopConfig struct {
 	StatusBarStyle          string            `toml:"status_bar_style"`           // icon|text; desktop status bar metric labels
 	StatusBarItems          []string          `toml:"status_bar_items"`           // ordered visible desktop status bar items
 	DefaultToolApprovalMode string            `toml:"default_tool_approval_mode"` // ask|auto|yolo; defaults to auto for newly-created desktop sessions
-	CheckUpdates            *bool             `toml:"check_updates"`              // startup update checks; nil keeps the default enabled
-	Telemetry               *bool             `toml:"telemetry"`                  // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics                 *bool             `toml:"metrics"`                    // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
+	CheckUpdates            *bool             `toml:"check_updates"`              // legacy compatibility field; Rill keeps background checks disabled
+	Telemetry               *bool             `toml:"telemetry"`                  // legacy compatibility field; Rill never sends upstream telemetry
+	Metrics                 *bool             `toml:"metrics"`                    // legacy compatibility field; Rill never sends upstream metrics
 	ProviderAccess          []string          `toml:"provider_access"`            // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking          bool              `toml:"expand_thinking"`            // true = show reasoning text expanded by default; false = collapsed
 	Shortcuts               map[string]string `toml:"shortcuts"`                  // desktop action -> normalized ShortcutCombo JSON
@@ -478,13 +478,11 @@ func normalizeDesktopStatusBarItems(items []string) []string {
 	return out
 }
 
-// DesktopCheckUpdates reports whether the desktop should check for updates on
-// startup. Missing configs default to true so existing users keep update notices.
+// DesktopCheckUpdates is permanently false in Rill. The legacy field remains
+// readable so existing configuration files still parse without restoring the
+// removed background updater.
 func (c *Config) DesktopCheckUpdates() bool {
-	if c == nil || c.Desktop.CheckUpdates == nil {
-		return true
-	}
-	return *c.Desktop.CheckUpdates
+	return false
 }
 
 // ColdResumePruneEnabled reports whether stale tool results are elided when a
@@ -544,22 +542,14 @@ func NormalizeReasoningLanguage(lang string) string {
 	}
 }
 
-// DesktopTelemetry reports whether the desktop sends the anonymous launch ping.
-// It carries no conversation, key, or file data — see desktop/README.md.
+// DesktopTelemetry is permanently false in Rill.
 func (c *Config) DesktopTelemetry() bool {
-	if c == nil || c.Desktop.Telemetry == nil {
-		return true
-	}
-	return *c.Desktop.Telemetry
+	return false
 }
 
-// DesktopMetrics reports whether the desktop sends aggregate desktop metrics —
-// anonymous (signal, bucket) counters, never content. Default on.
+// DesktopMetrics is permanently false in Rill.
 func (c *Config) DesktopMetrics() bool {
-	if c == nil || c.Desktop.Metrics == nil {
-		return true
-	}
-	return *c.Desktop.Metrics
+	return false
 }
 
 // LSPConfig governs the optional Language Server Protocol tools (lsp_definition,

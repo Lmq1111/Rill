@@ -39,7 +39,7 @@ import { useWailsResizeFix } from "./lib/useWailsResizeFix";
 import { asArray } from "./lib/array";
 import { clearLegacyLangPref, normalizeLangPref, readLegacyLangPref, t, useI18n, useT, type Translator } from "./lib/i18n";
 import { localizedNoticeText, useController, type Item, type LiveStream } from "./lib/useController";
-import { app, onEvent, onProjectTreeChanged, onReady, onRuntimeRebuilt, onSessionRecovered, openExternal } from "./lib/bridge";
+import { app, onEvent, onProjectTreeChanged, onReady, onRuntimeRebuilt, onSessionRecovered } from "./lib/bridge";
 import { generativeMusic, isGenerativeMusicEnabled } from "./lib/generative-music";
 import { clearAttentionChimeKeys, playAttentionChime, playSuccessChime, shouldPlayAttentionChimeForEvent } from "./lib/sound";
 import { NoticeCard, Transcript } from "./components/Transcript";
@@ -55,7 +55,6 @@ import { ClearContextCard } from "./components/ClearContextCard";
 type DecisionSurfaceKind = "tool_approval" | "plan_approval" | "ask" | "clear_context";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette, type PaletteItem } from "./components/CommandPalette";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { ContextPanel } from "./components/ContextPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { Tooltip } from "./components/Tooltip";
@@ -1071,7 +1070,6 @@ export default function App() {
   const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>("workbench");
   const [safeMode, setSafeMode] = useState(false);
   const singleSurfaceLayout = desktopLayoutStyle === "workbench" || desktopLayoutStyle === "creation";
-  const [startupUpdateChecksEnabled, setStartupUpdateChecksEnabled] = useState<boolean | null>(null);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
   const paletteOpen = useOverlayStore((s) => s.paletteOpen);
   const setPaletteOpen = useOverlayStore((s) => s.setPaletteOpen);
@@ -1311,7 +1309,7 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLayoutStyle" | "desktopLanguage" | "checkUpdates" | "statusBarStyle" | "statusBarItems">) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLayoutStyle" | "desktopLanguage" | "statusBarStyle" | "statusBarItems">) => {
       const nextTheme = normalizeThemePreference(settings.desktopTheme);
       const nextStyle = normalizeThemeStyleForTheme(settings.desktopThemeStyle, nextTheme);
       applyTheme(nextTheme, nextStyle, { persist: false });
@@ -1319,7 +1317,6 @@ export default function App() {
       setDesktopLayoutStyle(nextLayoutStyle);
       applyLayoutStyleDefaults(nextLayoutStyle);
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
-      setStartupUpdateChecksEnabled(settings.checkUpdates !== false);
       setStatusBarStyle(settings.statusBarStyle === "text" ? "text" : "icon");
       setStatusBarItems(normalizeStatusBarItems(settings.statusBarItems));
     },
@@ -1349,7 +1346,6 @@ export default function App() {
     };
     void syncDesktopPreferences().catch((e) => {
       console.warn("desktop preferences sync failed", e);
-      setStartupUpdateChecksEnabled(true);
     });
     return () => {
       cancelled = true;
@@ -3801,14 +3797,6 @@ export default function App() {
           {safeMode && (
             <div className="banner banner--warning">{t("guard.safeMode")}</div>
           )}
-
-          <UpdateBanner
-            enabled={startupUpdateChecksEnabled === true}
-            onShowReleaseNotes={(latest) => {
-              const version = latest.replace(/^(?:desktop-)?v/, "");
-              void openExternal(`https://github.com/Lmq1111/Rill/releases/tag/rill-v${version}`);
-            }}
-          />
 
           <main className="main">
             {sidebarImDetailConnection ? (
