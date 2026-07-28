@@ -6,8 +6,20 @@ available from the upstream
 
 ## Unreleased
 
+No user-facing changes have been recorded after v0.1.0.
+
+## 0.1.0 - 2026-07-28
+
 ### Added
 
+- Added the Rill macOS ARM64 desktop workbench and Rillagent CLI under an
+  independent product identity and local data namespace.
+- Added the frozen 24-page desktop surface, live project/session/file/Git
+  integrations, seven P0 regressions, and secondary history, channel,
+  automation, and settings workflows.
+- Added local redacted diagnostics, zero-egress checks for retired reporting
+  and update endpoints, complete engineering/E2E/visual regression gates, and
+  an ad-hoc-signed macOS release pipeline.
 - Added Claude Code-style searchable CLI pickers for models, providers, and
   sessions, with arrow, Vim, and `Ctrl+P` / `Ctrl+N` navigation.
 - Added `-p` / `--print`, `text`, `json`, and `stream-json` output modes for

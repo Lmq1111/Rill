@@ -30,13 +30,49 @@
 
 <br/>
 
-<h3 align="center">A DeepSeek-native AI coding agent for your terminal.</h3>
-<p align="center">A config- and plugin-driven harness — a single static Go binary, tuned around DeepSeek's prefix cache so token costs stay low across long sessions.</p>
+<h3 align="center">Rill — Let intelligence flow.</h3>
+<p align="center">A local-first AI coding workbench for macOS and the terminal, with live projects, sessions, files, Git diffs, approvals, automation, and configurable model providers.</p>
 
 <br/>
 
+## Download Rill v0.1.0
+
+Rill v0.1.0 is available for **macOS ARM64** (Apple silicon). Download
+`Rill-darwin-arm64.dmg` and its checksum from
+**[GitHub Releases](https://github.com/Lmq1111/Rill/releases)**, then verify the
+download from the directory containing both files:
+
+```sh
+shasum -a 256 -c Rill-darwin-arm64.dmg.sha256
+```
+
+Open the DMG and drag `Rill.app` to `/Applications`. The first release is
+**ad-hoc signed** and **not notarized** by Apple. If macOS reports that the
+download cannot be opened, remove quarantine from this exact installed app and
+launch it again:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Rill.app
+open /Applications/Rill.app
+```
+
+The desktop app, CLI, and local history use `~/.rillagent` by default;
+`RILLAGENT_HOME` selects an isolated root. Provider API keys saved by Rill are
+written to the restricted-permission `<Rillagent home>/.env`, not the macOS Keychain.
+Treat that file as a credential. Rill does not import another
+product's local configuration, credentials, or conversation data.
+
+The release includes the MIT [LICENSE](./LICENSE) and upstream attribution in
+[NOTICE](./NOTICE).
+
 ## Features
 
+- **Desktop workbench.** Manage local projects and sessions, inspect real files
+  and Git diffs, attach exact selections, approve protected actions, answer
+  model questions, and resume history after restart.
+- **Local-first privacy boundary.** Rill keeps its own data namespace, disables
+  inherited reporting and automatic-update traffic, and exports diagnostics
+  locally with credential and private-path redaction.
 - **Config-driven.** Providers, the agent, enabled tools, and plugins are all
   declared in `rillagent.toml`. No hardcoded models.
 - **Multi-model & composable.** DeepSeek ships as a preset; any

@@ -75,6 +75,81 @@ func TestRillReleasePackagingContract(t *testing.T) {
 	}
 }
 
+func TestRillReleaseDocumentationContract(t *testing.T) {
+	files := map[string][]string{
+		"README.md": {
+			"Let intelligence flow.",
+			"macOS ARM64",
+			"https://github.com/Lmq1111/Rill/releases",
+			"Rill-darwin-arm64.dmg",
+			"shasum -a 256 -c Rill-darwin-arm64.dmg.sha256",
+			"xattr -dr com.apple.quarantine /Applications/Rill.app",
+			"ad-hoc signed",
+			"not notarized",
+			"~/.rillagent",
+			"RILLAGENT_HOME",
+			"not the macOS Keychain",
+			"[LICENSE](./LICENSE)",
+			"[NOTICE](./NOTICE)",
+		},
+		"README.zh-CN.md": {
+			"Let intelligence flow.",
+			"macOS ARM64",
+			"https://github.com/Lmq1111/Rill/releases",
+			"Rill-darwin-arm64.dmg",
+			"shasum -a 256 -c Rill-darwin-arm64.dmg.sha256",
+			"xattr -dr com.apple.quarantine /Applications/Rill.app",
+			"ad-hoc",
+			"未经过 Apple 公证",
+			"~/.rillagent",
+			"RILLAGENT_HOME",
+			"不写入 macOS Keychain",
+			"[LICENSE](./LICENSE)",
+			"[NOTICE](./NOTICE)",
+		},
+		"CHANGELOG.md": {
+			"## 0.1.0 - 2026-07-28",
+			"24-page",
+			"seven P0",
+			"macOS ARM64",
+		},
+		filepath.Join("docs", "releases", "rill-v0.1.0.md"): {
+			"# Rill v0.1.0",
+			"Let intelligence flow.",
+			"Rill-darwin-arm64.dmg",
+			"Rillagent-darwin-arm64.tar.gz",
+			"shasum -a 256 -c",
+			"macOS ARM64",
+			"ad-hoc signed",
+			"not notarized",
+			"restricted-permission `.env`",
+			"not macOS Keychain",
+			"24-page",
+			"seven P0",
+		},
+		filepath.Join("docs", "releases", "rill-v0.1.0-cli-readme.md"): {
+			"# Rillagent v0.1.0",
+			"Rillagent-darwin-arm64.tar.gz",
+			"./rillagent version",
+			"Rillagent v0.1.0",
+			"macOS ARM64",
+			"RILLAGENT_HOME",
+			"restricted-permission `.env`",
+			"not macOS Keychain",
+			"LICENSE",
+			"NOTICE",
+		},
+	}
+	for name, wants := range files {
+		content := readReleaseRepoFile(t, strings.Split(name, string(filepath.Separator))...)
+		for _, want := range wants {
+			if !strings.Contains(content, want) {
+				t.Errorf("%s missing release documentation contract %q", name, want)
+			}
+		}
+	}
+}
+
 func assertNoUpstreamReleaseReferences(t *testing.T, name, content string) {
 	t.Helper()
 	for _, blocked := range []string{

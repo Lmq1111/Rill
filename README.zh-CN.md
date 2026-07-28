@@ -29,13 +29,43 @@
 
 <br/>
 
-<h3 align="center">面向终端的 DeepSeek 原生 AI coding agent。</h3>
-<p align="center">由配置与插件驱动的极薄 harness——单一静态 Go 二进制，围绕 DeepSeek 的前缀缓存调优，长会话也能把 token 成本压低。</p>
+<h3 align="center">Rill — Let intelligence flow.</h3>
+<p align="center">面向 macOS 与终端的本地优先 AI 编程工作台，覆盖真实项目、会话、文件、Git Diff、审批、自动化和可配置模型。</p>
 
 <br/>
 
+## 下载 Rill v0.1.0
+
+Rill v0.1.0 首期仅提供 **macOS ARM64**（Apple 芯片）版本。请从
+**[GitHub Releases](https://github.com/Lmq1111/Rill/releases)** 下载
+`Rill-darwin-arm64.dmg` 和对应校验文件，并在两个文件所在目录执行：
+
+```sh
+shasum -a 256 -c Rill-darwin-arm64.dmg.sha256
+```
+
+打开 DMG 后，将 `Rill.app` 拖入 `/Applications`。首期版本只做
+**ad-hoc 签名**，**未经过 Apple 公证**。如果 macOS 提示无法打开下载的应用，
+请只对这个已安装应用移除隔离属性后重新启动：
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Rill.app
+open /Applications/Rill.app
+```
+
+桌面端、CLI 和本地历史默认使用 `~/.rillagent`；可通过
+`RILLAGENT_HOME` 指向完全隔离的数据根目录。用户在 Rill 中保存的模型 API Key
+会写入 `<Rillagent home>/.env`，该文件使用受限权限，**不写入 macOS Keychain**。
+请将它视为凭据文件。Rill 不会导入其他产品的本地配置、凭据或对话数据。
+
+本版本使用 MIT [LICENSE](./LICENSE)，上游归因见 [NOTICE](./NOTICE)。
+
 ## 特性
 
+- **桌面工作台**：管理本地项目和真实会话，浏览文件与 Git Diff，引用精确片段，
+  处理安全审批和模型提问，并在重启后恢复历史。
+- **本地优先隐私边界**：Rill 使用独立数据命名空间，关闭继承的报告和自动更新
+  外联，并支持经过凭据与私人路径脱敏的本地诊断导出。
 - **配置驱动**：provider、agent、启用的工具、插件全部在 `rillagent.toml` 中声明，
   内核无硬编码模型。
 - **多模型 · 可组合**：DeepSeek 作为预设内置；任何 OpenAI 兼容
