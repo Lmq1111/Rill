@@ -25,16 +25,22 @@ os="${PLATFORM%/*}"
 arch="${PLATFORM#*/}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="${DESKTOP_BUILD_DIST_DIR:-$ROOT/dist}"
 APPNAME="Rill"             # final user-facing bundle name -> Rill.app
 BINNAME="rill-desktop"     # wails.json outputfilename -> app/binary name
 GUARDNAME="rill-guard"
 LAUNCHERNAME="rill-launcher"
 BUNDLE_ID="io.github.lmq1111.rill"
 windows_resource_tool_dir=""
+wails_json_backup=""
 
 cleanup() {
 	if [ -n "$windows_resource_tool_dir" ]; then
 		rm -rf "$windows_resource_tool_dir"
+	fi
+	if [ -n "$wails_json_backup" ] && [ -f "$wails_json_backup" ]; then
+		cp "$wails_json_backup" "$ROOT/desktop/wails.json"
+		rm -f "$wails_json_backup"
 	fi
 }
 trap cleanup EXIT
@@ -75,6 +81,8 @@ stamp_windows_executable() {
 # leading "v" AND any prerelease suffix (a `-rc1` tag would otherwise abort the
 # installer build). The full tag still rides in ldflags for the in-app version.
 numver="${VERSION#v}"; numver="${numver%%-*}"
+wails_json_backup=$(mktemp)
+cp wails.json "$wails_json_backup"
 node -e 'const fs=require("fs"),f="wails.json",j=JSON.parse(fs.readFileSync(f,"utf8"));j.info.productVersion=process.argv[1];fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n")' "$numver"
 
 # NSIS installer is Windows-only (Wails requires a single windows target for -nsis).
@@ -116,7 +124,7 @@ if [ "$os" != windows ]; then
 	build_guard
 fi
 
-mkdir -p "$ROOT/dist"
+mkdir -p "$DIST_DIR"
 
 case "$os" in
 darwin)
@@ -171,10 +179,10 @@ darwin)
 		# One universal .app covers Intel + Apple Silicon; publish it under both
 		# manifest keys so the updater's darwin-arm64/darwin-amd64 lookup finds it
 		# (avoids a scarce macos-13 Intel runner).
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-arm64.zip"
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-amd64.zip"
+		ditto -c -k --keepParent "$app" "$DIST_DIR/${APPNAME}-darwin-arm64.zip"
+		ditto -c -k --keepParent "$app" "$DIST_DIR/${APPNAME}-darwin-amd64.zip"
 	else
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-${arch}.zip"
+		ditto -c -k --keepParent "$app" "$DIST_DIR/${APPNAME}-darwin-${arch}.zip"
 	fi
 	if [ "${DESKTOP_BUILD_SKIP_DMG:-0}" = "1" ]; then
 		echo "==> skip DMG packaging (DESKTOP_BUILD_SKIP_DMG=1)"
@@ -185,7 +193,11 @@ darwin)
 		# while still writing the image, so gate on the file existing, not the exit code.
 		dmgsrc=$(mktemp -d)
 		cp -R "$app" "$dmgsrc/${APPNAME}.app"
-		dmg="$ROOT/dist/${APPNAME}-darwin-universal.dmg"
+		if [ "$arch" = universal ]; then
+			dmg="$DIST_DIR/${APPNAME}-darwin-universal.dmg"
+		else
+			dmg="$DIST_DIR/${APPNAME}-darwin-${arch}.dmg"
+		fi
 		create-dmg \
 			--volname "$APPNAME" \
 			--window-size 540 380 \
@@ -214,7 +226,7 @@ windows)
 	# varies, so glob for it and copy to a stable, platform-keyed name.
 	installer=$(ls build/bin/*installer*.exe 2>/dev/null | head -n1 || true)
 	[ -n "$installer" ] || { echo "no NSIS installer found in build/bin" >&2; exit 1; }
-	cp "$installer" "$ROOT/dist/${APPNAME}-windows-${arch}-installer.exe"
+	cp "$installer" "$DIST_DIR/${APPNAME}-windows-${arch}-installer.exe"
 	portable=$(find build/bin -maxdepth 1 -type f -name "*.exe" ! -name "*installer*.exe" | head -n1 || true)
 	[ -n "$portable" ] || { echo "no portable Windows exe found in build/bin" >&2; exit 1; }
 	staging=$(mktemp -d)
@@ -227,7 +239,7 @@ windows)
 	cp "$launcher_out" "$staging/$LAUNCHERNAME.exe"
 	cp "$guard_out" "$staging/$GUARDNAME.exe"
 	staging_win=$(cygpath -w "$staging")
-	zip_win=$(cygpath -w "$ROOT/dist/${APPNAME}-windows-${arch}.zip")
+	zip_win=$(cygpath -w "$DIST_DIR/${APPNAME}-windows-${arch}.zip")
 	powershell.exe -NoProfile -Command "Compress-Archive -Force -Path '$staging_win\\*' -DestinationPath '$zip_win'"
 	rm -rf "$staging"
 	;;
@@ -238,14 +250,14 @@ linux)
 		'StartupWMClass=rill-desktop'; do
 		grep -F -x -q "$desktop_contract" build/linux/rill.desktop || { echo "Linux desktop entry missing: $desktop_contract" >&2; exit 1; }
 	done
-	tar -czf "$ROOT/dist/${APPNAME}-linux-${arch}.tar.gz" -C build/bin "$BINNAME" "$GUARDNAME"
+	tar -czf "$DIST_DIR/${APPNAME}-linux-${arch}.tar.gz" -C build/bin "$BINNAME" "$GUARDNAME"
 	# Also build a .deb for Debian/Ubuntu users (goreleaser/nfpm; see
 	# desktop/build/linux/nfpm.yaml). Human-download only: the Linux updater channel
 	# stays the tarball and cmd/sign's manifest skips .deb files. nfpm reads
 	# $DEB_VERSION/$DEB_ARCH — dpkg wants a strict numeric version, so reuse numver.
 	DEB_VERSION="$numver" DEB_ARCH="$arch" \
 		nfpm package --config build/linux/nfpm.yaml --packager deb \
-		--target "$ROOT/dist/${APPNAME}-linux-${arch}.deb"
+		--target "$DIST_DIR/${APPNAME}-linux-${arch}.deb"
 	;;
 *)
 	echo "unsupported os: $os" >&2
@@ -253,5 +265,5 @@ linux)
 	;;
 esac
 
-echo "==> packaged into dist/:"
-ls -la "$ROOT/dist"
+echo "==> packaged into $DIST_DIR:"
+ls -la "$DIST_DIR"
