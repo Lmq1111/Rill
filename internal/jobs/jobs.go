@@ -204,7 +204,7 @@ func NewManager(sink event.Sink, opts ...Option) *Manager {
 		sink = event.Discard
 	}
 	root, cancel := context.WithCancel(context.Background())
-	tempRoot, _ := os.MkdirTemp("", "reasonix-jobs-*")
+	tempRoot, _ := os.MkdirTemp("", "rillagent-jobs-*")
 	m := &Manager{
 		sink:          sink,
 		root:          root,

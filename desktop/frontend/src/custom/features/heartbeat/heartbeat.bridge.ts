@@ -13,8 +13,8 @@ export function heartbeatSaveTasks(tasks: HeartbeatTask[]): Promise<void> {
   return app.HeartbeatSaveTasks(tasks as unknown);
 }
 
-export function heartbeatTriggerNow(id: string): Promise<void> {
-  return app.HeartbeatTriggerNow(id);
+export function heartbeatTriggerNow(id: string): Promise<HeartbeatTask> {
+  return app.HeartbeatTriggerNow(id).then((value) => value as HeartbeatTask);
 }
 
 export function heartbeatGenerateID(): Promise<string> {

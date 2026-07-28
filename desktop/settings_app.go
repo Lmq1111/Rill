@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -25,7 +26,7 @@ import (
 // resolved config and applies edits through internal/config/edit.go (the
 // purpose-built mutation API), then rebuilds the controller so the change takes
 // effect live — the same snapshot→reload→resume pattern as SetModel. Secrets are
-// the exception: they go to Reasonix's global .env (upsertDotEnv), since config
+// the exception: they go to Rill's global .env (upsertDotEnv), since config
 // stores only the env-var name, not the key.
 
 // --- read ---
@@ -113,11 +114,12 @@ type SandboxView struct {
 }
 
 type NetworkProxyView struct {
-	Type     string `json:"type"`
-	Server   string `json:"server"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Type        string `json:"type"`
+	Server      string `json:"server"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	PasswordSet bool   `json:"passwordSet"`
 }
 
 type NetworkView struct {
@@ -247,6 +249,19 @@ type BotSettingsView struct {
 	Connections        []BotConnectionView `json:"connections"`
 }
 
+type GeneralSettingsInput struct {
+	Language                string   `json:"language"`
+	LayoutStyle             string   `json:"layoutStyle"`
+	CloseBehavior           string   `json:"closeBehavior"`
+	DisplayMode             string   `json:"displayMode"`
+	ExpandThinking          bool     `json:"expandThinking"`
+	DefaultToolApprovalMode string   `json:"defaultToolApprovalMode"`
+	AutoPlan                string   `json:"autoPlan"`
+	MemoryCompilerEnabled   bool     `json:"memoryCompilerEnabled"`
+	StatusBarStyle          string   `json:"statusBarStyle"`
+	StatusBarItems          []string `json:"statusBarItems"`
+}
+
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
 	DefaultModel            string               `json:"defaultModel"`
@@ -276,6 +291,11 @@ type SettingsView struct {
 	Metrics                 bool                 `json:"metrics"`
 	MemoryCompiler          bool                 `json:"memoryCompilerEnabled"`
 	ExpandThinking          bool                 `json:"expandThinking"`
+	DesktopShortcuts        map[string]string    `json:"desktopShortcuts"`
+	DesktopFontFamily       string               `json:"desktopFontFamily"`
+	DesktopMonoFontFamily   string               `json:"desktopMonoFontFamily"`
+	DesktopTextSize         string               `json:"desktopTextSize"`
+	DesktopZoomFactor       float64              `json:"desktopZoomFactor"`
 	ConfigPath              string               `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -756,7 +776,7 @@ func desktopStartupSettingsFromConfig(cfg *config.Config) DesktopStartupSettings
 			DisplayMode:        "standard",
 			StatusBarStyle:     "text",
 			StatusBarItems:     config.DefaultDesktopStatusBarItems(),
-			CheckUpdates:       true,
+			CheckUpdates:       false,
 		}
 	}
 	return DesktopStartupSettingsView{
@@ -815,11 +835,16 @@ func (a *App) Settings() SettingsView {
 			StatusBarStyle:          "text",
 			StatusBarItems:          config.DefaultDesktopStatusBarItems(),
 			DefaultToolApprovalMode: "auto",
-			CheckUpdates:            true,
-			Telemetry:               true,
-			Metrics:                 true,
+			CheckUpdates:            false,
+			Telemetry:               false,
+			Metrics:                 false,
 			MemoryCompiler:          true,
 			ExpandThinking:          false,
+			DesktopShortcuts:        map[string]string{},
+			DesktopFontFamily:       "system",
+			DesktopMonoFontFamily:   "system",
+			DesktopTextSize:         "default",
+			DesktopZoomFactor:       1,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -861,11 +886,11 @@ func (a *App) Settings() SettingsView {
 			ProxyURL:  cfg.Network.ProxyURL,
 			NoProxy:   cfg.Network.NoProxy,
 			Proxy: NetworkProxyView{
-				Type:     orDefault(cfg.Network.Proxy.Type, "socks5"),
-				Server:   cfg.Network.Proxy.Server,
-				Port:     cfg.Network.Proxy.Port,
-				Username: cfg.Network.Proxy.Username,
-				Password: cfg.Network.Proxy.Password,
+				Type:        orDefault(cfg.Network.Proxy.Type, "socks5"),
+				Server:      cfg.Network.Proxy.Server,
+				Port:        cfg.Network.Proxy.Port,
+				Username:    cfg.Network.Proxy.Username,
+				PasswordSet: strings.TrimSpace(cfg.Network.Proxy.Password) != "",
 			},
 		},
 		Agent:                   AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, MaxSubagentDepth: desktopMaxSubagentDepth(cfg.Agent.MaxSubagentDepth), SystemPrompt: cfg.Agent.SystemPrompt, ColdResumePrune: cfg.ColdResumePruneEnabled(), ReasoningLanguage: cfg.ReasoningLanguage()},
@@ -884,6 +909,11 @@ func (a *App) Settings() SettingsView {
 		Metrics:                 cfg.DesktopMetrics(),
 		MemoryCompiler:          cfg.MemoryCompilerEnabled(),
 		ExpandThinking:          cfg.Desktop.ExpandThinking,
+		DesktopShortcuts:        cfg.DesktopShortcuts(),
+		DesktopFontFamily:       cfg.DesktopFontFamily(),
+		DesktopMonoFontFamily:   cfg.DesktopMonoFontFamily(),
+		DesktopTextSize:         cfg.DesktopTextSize(),
+		DesktopZoomFactor:       cfg.DesktopZoomFactor(),
 		ConfigPath:              cfgPath,
 		ProviderKinds:           nonNil(provider.Kinds()),
 		AutoApproveTools:        ctrl != nil && ctrl.AutoApproveTools(),
@@ -1087,7 +1117,7 @@ func botDomainOrDefault(domain string) string {
 // applyConfigChange mutates the user-global config and rebuilds the controller so
 // the change takes effect this session. Desktop settings such as providers and
 // keys are account-level, not per-project: writing them to the global config
-// rather than the cwd's reasonix.toml is what lets them survive a workspace switch.
+// rather than the cwd's rillagent.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
 	_, err := a.applyConfigChangeWithWarning("settings", mutate)
 	return err
@@ -1248,7 +1278,7 @@ func (a *App) loadDesktopUserConfigForEdit() (*config.Config, string, error) {
 // config.LockUserConfigEdits(). Legacy migrations (provider-access normalize,
 // legacy bot-config merge) are applied to the returned copy in memory only;
 // the on-disk file migrates the first time a locked write path runs
-// loadDesktopUserConfigForEdit. Credentials (Reasonix global .env) are not
+// loadDesktopUserConfigForEdit. Credentials (Rill global .env) are not
 // loaded; callers that hand the config to a runtime resolving secrets from the
 // process env must use loadDesktopUserConfigForViewWithCredentials.
 func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
@@ -1256,7 +1286,7 @@ func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
 }
 
 // loadDesktopUserConfigForViewWithCredentials is loadDesktopUserConfigForView
-// plus credential resolution: like config.LoadForEdit it loads Reasonix's
+// plus credential resolution: like config.LoadForEdit it loads Rill's
 // global .env into the process env. Use it for read-only loads whose result
 // feeds a runtime that resolves env-based secrets — the bot runtime
 // (app-secret/control-token envs) and MCP server connects. It still never
@@ -1474,9 +1504,9 @@ func providerCredentialSourceNotice(apiKeyEnv, value string) string {
 
 func projectConfigPathForRoot(root string) string {
 	if strings.TrimSpace(root) == "" || root == "." {
-		return "reasonix.toml"
+		return "rillagent.toml"
 	}
-	return filepath.Join(root, "reasonix.toml")
+	return filepath.Join(root, "rillagent.toml")
 }
 
 func sameConfigPath(a, b string) bool {
@@ -1818,6 +1848,61 @@ func (a *App) SetSubagentProfileEffort(name, level string) error {
 		}
 		deleteSubagentOverrideAliases(c.Agent.SubagentEfforts, name)
 		c.Agent.SubagentEfforts[name] = effort
+		return nil
+	})
+}
+
+// SetSubagentProfileOverrides atomically replaces a built-in profile's model
+// and effort overrides so a rejected effort cannot leave only the model changed.
+func (a *App) SetSubagentProfileOverrides(name, ref, level string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("name is required")
+	}
+	return a.applyConfigChange(func(c *config.Config) error {
+		ref = strings.TrimSpace(ref)
+		level = strings.TrimSpace(level)
+		resolved := ""
+		if ref != "" {
+			var err error
+			resolved, err = selectableDesktopModelRef(c, ref)
+			if err != nil {
+				return err
+			}
+		}
+		effort := ""
+		if level != "" && level != "auto" {
+			model := resolved
+			if model == "" {
+				model = strings.TrimSpace(c.Agent.SubagentModel)
+			}
+			if model == "" {
+				model = c.DefaultModel
+			}
+			entry, ok := c.ResolveModel(model)
+			if !ok {
+				return fmt.Errorf("unknown subagent model %q", model)
+			}
+			var err error
+			effort, err = config.NormalizeEffort(entry, level)
+			if err != nil {
+				return err
+			}
+		}
+		deleteSubagentOverrideAliases(c.Agent.SubagentModels, name)
+		deleteSubagentOverrideAliases(c.Agent.SubagentEfforts, name)
+		if resolved != "" {
+			if c.Agent.SubagentModels == nil {
+				c.Agent.SubagentModels = map[string]string{}
+			}
+			c.Agent.SubagentModels[name] = resolved
+		}
+		if effort != "" {
+			if c.Agent.SubagentEfforts == nil {
+				c.Agent.SubagentEfforts = map[string]string{}
+			}
+			c.Agent.SubagentEfforts[name] = effort
+		}
 		return nil
 	})
 }
@@ -2234,7 +2319,7 @@ func (a *App) AddProviderPresetAccess(id, key string) (string, error) {
 
 // ResetProviderPresetAccess intentionally overwrites same-name provider entries
 // with the curated preset template. It only mutates config; provider secrets stay
-// in Reasonix home .env under whichever api_key_env the resulting preset uses.
+// in Rill home .env under whichever api_key_env the resulting preset uses.
 func (a *App) ResetProviderPresetAccess(id string) error {
 	preset, ok := config.CuratedProviderPreset(id)
 	if !ok {
@@ -2621,7 +2706,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	return nil
 }
 
-// SetProviderKey writes a secret to Reasonix's global .env under the given
+// SetProviderKey writes a secret to Rill's global .env under the given
 // env-var name (the one a provider's api_key_env points at) and rebuilds so it
 // resolves immediately.
 func (a *App) SetProviderKey(apiKeyEnv, value string) (string, error) {
@@ -2712,7 +2797,7 @@ func (a *App) ensureProviderAccessForKey(apiKeyEnv string) error {
 	return cfg.SaveTo(path)
 }
 
-// ClearProviderKey removes a provider secret from Reasonix's global .env
+// ClearProviderKey removes a provider secret from Rill's global .env
 // and rebuilds so the provider immediately becomes unauthenticated.
 func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {
@@ -2736,6 +2821,21 @@ func (a *App) ClearProviderKey(apiKeyEnv string) error {
 // SetPermissionMode sets the writer-fallback mode (ask|allow|deny).
 func (a *App) SetPermissionMode(mode string) error {
 	return a.applyConfigChange(func(c *config.Config) error { return c.SetPermissionMode(mode) })
+}
+
+// SetPermissions replaces the complete permission policy in one locked config
+// transaction. Validation happens before assignment so a rejected payload cannot
+// leave a partially-updated mode or rule list on disk.
+func (a *App) SetPermissions(mode string, allow, ask, deny []string) error {
+	return a.applyConfigChange(func(c *config.Config) error {
+		if err := c.SetPermissionMode(mode); err != nil {
+			return err
+		}
+		c.Permissions.Allow = trimList(allow)
+		c.Permissions.Ask = trimList(ask)
+		c.Permissions.Deny = trimList(deny)
+		return nil
+	})
 }
 
 // AddPermissionRule appends a rule to the allow/ask/deny list.
@@ -2783,6 +2883,10 @@ func (a *App) SetSandbox(bash string, network bool, workspaceRoot string, allowW
 // SetNetwork updates ordinary outbound proxy settings.
 func (a *App) SetNetwork(n NetworkView) error {
 	return a.applyConfigChange(func(c *config.Config) error {
+		password := n.Proxy.Password
+		if password == "" && n.Proxy.PasswordSet {
+			password = c.Network.Proxy.Password
+		}
 		return c.SetNetwork(config.NetworkConfig{
 			ProxyMode: n.ProxyMode,
 			ProxyURL:  n.ProxyURL,
@@ -2792,7 +2896,7 @@ func (a *App) SetNetwork(n NetworkView) error {
 				Server:   n.Proxy.Server,
 				Port:     n.Proxy.Port,
 				Username: n.Proxy.Username,
-				Password: n.Proxy.Password,
+				Password: password,
 			},
 		})
 	})
@@ -2938,6 +3042,56 @@ func (a *App) SetCloseBehavior(mode string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCloseBehavior(mode) })
 }
 
+// SetGeneralSettings persists the Rill general page as one authoritative unit.
+// Runtime-only mirrors are updated only after the single config write succeeds.
+func (a *App) SetGeneralSettings(input GeneralSettingsInput) error {
+	responseLanguage := ""
+	normalizedLanguage := ""
+	if err := a.applyConfigChange(func(c *config.Config) error {
+		if err := c.SetDesktopLanguage(input.Language); err != nil {
+			return err
+		}
+		if err := c.SetLanguage(input.Language); err != nil {
+			return err
+		}
+		if err := c.SetDesktopLayoutStyle(input.LayoutStyle); err != nil {
+			return err
+		}
+		if err := c.SetDesktopCloseBehavior(input.CloseBehavior); err != nil {
+			return err
+		}
+		if err := c.SetDesktopDisplayMode(input.DisplayMode); err != nil {
+			return err
+		}
+		if err := c.SetExpandThinking(input.ExpandThinking); err != nil {
+			return err
+		}
+		if err := c.SetDesktopDefaultToolApprovalMode(input.DefaultToolApprovalMode); err != nil {
+			return err
+		}
+		if err := c.SetAutoPlan(input.AutoPlan); err != nil {
+			return err
+		}
+		if err := c.SetMemoryCompilerEnabled(input.MemoryCompilerEnabled); err != nil {
+			return err
+		}
+		if err := c.SetDesktopStatusBarStyle(input.StatusBarStyle); err != nil {
+			return err
+		}
+		if err := c.SetDesktopStatusBarItems(input.StatusBarItems); err != nil {
+			return err
+		}
+		responseLanguage = c.ResponseLanguage()
+		normalizedLanguage = c.DesktopLanguage()
+		return nil
+	}); err != nil {
+		return err
+	}
+	a.updateTrayLocale(normalizedLanguage)
+	a.applyResponseLanguageToLiveControllers(responseLanguage)
+	return nil
+}
+
 // SetDisplayMode updates the transcript display mode. UI-only, no rebuild needed.
 func (a *App) SetDisplayMode(mode string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopDisplayMode(mode) })
@@ -2992,6 +3146,14 @@ func (a *App) SetDesktopAppearance(theme, style string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance(theme, style) })
 }
 
+// SetDesktopVisualPreferences saves theme, typography and restart zoom in one
+// config file transaction so a failure cannot persist only half the page.
+func (a *App) SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize string, zoomFactor float64) error {
+	return a.applyConfigOnly(func(c *config.Config) error {
+		return c.SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize, zoomFactor)
+	})
+}
+
 // SetDesktopLayoutStyle updates only the desktop layout style. It does not
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopLayoutStyle(style string) error {
@@ -3011,33 +3173,50 @@ func (a *App) SetDesktopLayoutStyle(style string) error {
 	return nil
 }
 
-// SetDesktopCheckUpdates updates only the desktop startup update-check
-// preference. Manual checks in Settings are unaffected.
+// SetDesktopCheckUpdates keeps legacy bindings compatible while persisting the
+// permanent Rill privacy policy.
 func (a *App) SetDesktopCheckUpdates(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCheckUpdates(enabled) })
 }
 
-// SetDesktopTelemetry sets whether the desktop sends the anonymous launch ping.
+// SetDesktopTelemetry keeps legacy bindings compatible while telemetry stays off.
 func (a *App) SetDesktopTelemetry(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopTelemetry(enabled) })
 }
 
-// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics,
-// starting or stopping the live aggregator so the toggle takes effect immediately.
+// SetDesktopMetrics keeps legacy bindings compatible while upstream metrics stay off.
 func (a *App) SetDesktopMetrics(enabled bool) error {
 	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopMetrics(enabled) }); err != nil {
 		return err
 	}
-	switch {
-	case enabled && a.metrics.Load() == nil && version != "dev":
-		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
-		if cfg, err := config.Load(); err == nil {
-			a.recordSettingsMetricsSnapshot(cfg)
-		}
-	case !enabled:
-		a.metrics.Store(nil)
-	}
+	a.metrics.Store(nil)
 	return nil
+}
+
+// SetDesktopShortcuts validates and persists the complete desktop shortcut
+// override map. Failed validation happens before the locked write, preserving
+// the previous authoritative snapshot.
+func (a *App) SetDesktopShortcuts(shortcuts map[string]string) error {
+	next := make(map[string]string, len(shortcuts))
+	for action, payload := range shortcuts {
+		action = strings.TrimSpace(action)
+		payload = strings.TrimSpace(payload)
+		if action == "" {
+			return fmt.Errorf("shortcut action is empty")
+		}
+		if payload == "" || !json.Valid([]byte(payload)) {
+			return fmt.Errorf("shortcut %q has invalid payload", action)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(payload), &decoded); err != nil || strings.TrimSpace(fmt.Sprint(decoded["key"])) == "" {
+			return fmt.Errorf("shortcut %q has invalid combo", action)
+		}
+		next[action] = payload
+	}
+	return a.applyConfigOnly(func(c *config.Config) error {
+		c.SetDesktopShortcuts(next)
+		return nil
+	})
 }
 
 // SetExpandThinking sets whether reasoning text is expanded by default on

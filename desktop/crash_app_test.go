@@ -1,12 +1,8 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"reflect"
+	"os"
 	"strings"
 	"testing"
 )
@@ -15,7 +11,7 @@ func TestScrubUserPaths(t *testing.T) {
 	cases := map[string]string{
 		`at C:\Users\yuhua\proj\app.ts:12:3`:      `at C:\Users\_\proj\app.ts:12:3`,
 		`at c:\users\someone\x.go`:                `at c:\users\_\x.go`,
-		`/home/bob/.reasonix/config.toml`:         `/home/_/.reasonix/config.toml`,
+		`/home/bob/.rillagent/config.toml`:        `/home/_/.rillagent/config.toml`,
 		`/Users/alice/Library/Logs`:               `/Users/_/Library/Logs`,
 		`Error: ENOENT open '/home/bob/secret'`:   `Error: ENOENT open '/home/_/secret'`,
 		`no user path here: /usr/lib/node`:        `no user path here: /usr/lib/node`,
@@ -47,41 +43,19 @@ func TestScrubSensitiveText(t *testing.T) {
 	}
 }
 
-func TestPostCrashReport(t *testing.T) {
-	var got crashReport
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("method = %s, want POST", r.Method)
-		}
-		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
-			t.Errorf("content-type = %q", ct)
-		}
-		body, _ := io.ReadAll(r.Body)
-		if err := json.Unmarshal(body, &got); err != nil {
-			t.Errorf("body not JSON: %v", err)
-		}
-		w.WriteHeader(http.StatusAccepted)
-	}))
-	defer srv.Close()
-
-	r := crashReport{Kind: "crash", Version: "v9.9.9", OS: "windows", Arch: "amd64", Message: "[react]\nboom"}
-	if err := postCrashReport(context.Background(), srv.Client(), srv.URL, r); err != nil {
+func TestReportCrashWritesScrubbedLocalRecord(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Cleanup(func() { _ = os.Remove(pendingCrashPath()) })
+	secret := "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"
+	if err := NewApp().ReportCrash("crash", "boom api_key="+secret+" at /Users/alice/private.go"); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, r) {
-		t.Errorf("server received %+v, want %+v", got, r)
+	r, ok := readPending(t)
+	if !ok {
+		t.Fatal("expected local crash record")
 	}
-}
-
-func TestPostCrashReportRejectedStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusTooManyRequests)
-	}))
-	defer srv.Close()
-
-	err := postCrashReport(context.Background(), srv.Client(), srv.URL, crashReport{Kind: "crash"})
-	if err == nil || !strings.Contains(err.Error(), "429") {
-		t.Fatalf("want 429 error, got %v", err)
+	if strings.Contains(r.Message, secret) || strings.Contains(r.Message, "alice") {
+		t.Fatalf("local crash record was not scrubbed: %+v", r)
 	}
 }
 

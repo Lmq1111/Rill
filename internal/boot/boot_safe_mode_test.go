@@ -17,7 +17,7 @@ import (
 func TestBuildSafeModeLeavesDeprecatedStepLimitsUntouched(t *testing.T) {
 	isolateConfigHome(t)
 	project := robustTempDir(t)
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("RILLAGENT_SAFE_MODE", "1")
 	raw := []byte(`default_model = "broken-model"
 
 [agent]
@@ -30,7 +30,7 @@ kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
 `)
-	path := filepath.Join(project, "reasonix.toml")
+	path := filepath.Join(project, "rillagent.toml")
 	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestBuildNormalModeKeepsSourceConnectorAndSkillTools(t *testing.T) {
 	isolateConfigHome(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	t.Setenv("REASONIX_SAFE_MODE", "")
+	t.Setenv("RILLAGENT_SAFE_MODE", "")
 
 	for _, tokenMode := range []string{TokenModeFull, TokenModeEconomy} {
 		ctrl, err := Build(context.Background(), Options{
@@ -134,8 +134,8 @@ func TestBuildSafeModeDropsExtraPlugins(t *testing.T) {
 		isolateConfigHome(t)
 		workspace := robustTempDir(t)
 		t.Chdir(workspace)
-		t.Setenv("REASONIX_SAFE_MODE", "1")
-		marker := filepath.Join(plugin.MCPStateDir(config.ReasonixHomeDir(), workspace, "acp-extra"), "started")
+		t.Setenv("RILLAGENT_SAFE_MODE", "1")
+		marker := filepath.Join(plugin.MCPStateDir(config.RillHomeDir(), workspace, "acp-extra"), "started")
 		build(t, marker)
 		if _, err := os.Stat(marker); !os.IsNotExist(err) {
 			t.Fatalf("safe mode spawned the host-supplied MCP server (stat err=%v)", err)
@@ -146,8 +146,8 @@ func TestBuildSafeModeDropsExtraPlugins(t *testing.T) {
 		isolateConfigHome(t)
 		workspace := robustTempDir(t)
 		t.Chdir(workspace)
-		t.Setenv("REASONIX_SAFE_MODE", "")
-		marker := filepath.Join(plugin.MCPStateDir(config.ReasonixHomeDir(), workspace, "acp-extra"), "started")
+		t.Setenv("RILLAGENT_SAFE_MODE", "")
+		marker := filepath.Join(plugin.MCPStateDir(config.RillHomeDir(), workspace, "acp-extra"), "started")
 		build(t, marker)
 		deadline := time.Now().Add(5 * time.Second)
 		for {

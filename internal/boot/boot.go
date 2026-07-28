@@ -40,7 +40,6 @@ import (
 	"reasonix/internal/mcptrust"
 	"reasonix/internal/memory"
 	"reasonix/internal/memorycompiler"
-	"reasonix/internal/migration"
 	"reasonix/internal/netclient"
 	"reasonix/internal/outputstyle"
 	"reasonix/internal/permission"
@@ -112,7 +111,7 @@ type Options struct {
 	WorkspaceRoot string
 	// ExtraPlugins are session-scoped MCP servers supplied by a host transport
 	// (for example ACP session/new). They are connected eagerly for this
-	// controller but are not persisted to reasonix.toml.
+	// controller but are not persisted to rillagent.toml.
 	ExtraPlugins []plugin.Spec
 	// TokenMode selects the session's runtime profile. Empty/full/balanced preserves
 	// the normal capability surface. "economy" keeps the core coding tools visible
@@ -192,7 +191,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// Arm the credential-protection layers from the user-global [secrets]
 	// section before any tool, hook, or plugin subprocess can spawn. Package
 	// globals are correct here because [secrets] is user-global (project
-	// reasonix.toml cannot override it), so concurrent workspaces agree.
+	// rillagent.toml cannot override it), so concurrent workspaces agree.
 	secrets.SetFilterSubprocessEnv(cfg.Secrets.FilterSubprocessEnv)
 	secrets.SetProtectSensitiveFiles(cfg.Secrets.ProtectSensitiveFiles)
 	secrets.RegisterCredentialEnvKeys(cfg.CredentialEnvNames())
@@ -213,7 +212,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	keepPolicy := agentKeepPolicy(cfg.Agent.Keep)
 	entry, ok := cfg.ResolveModel(modelName)
 	if !ok {
-		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `reasonix setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
+		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `rillagent setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
 	modelRef := entry.Name + "/" + entry.Model
 	if opts.EffortOverride != nil {
@@ -235,14 +234,14 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	sink := event.Sync(opts.Sink)
 
 	if migErr != nil {
-		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Config migration did not complete.", Detail: "config migration from ~/.reasonix failed: " + migErr.Error()})
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Config migration did not complete.", Detail: "config migration from ~/.rillagent failed: " + migErr.Error()})
 	} else if migrated != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: migrated.Notice()})
 	}
 	if stepLimitsMigrated || cfg.IgnoredLegacyAgentStepLimits() {
 		level := event.LevelInfo
 		text := "Deprecated agent step limits were removed."
-		detail := "[agent].max_steps and planner_max_steps are no longer used; Reasonix now manages interactive progress automatically. " +
+		detail := "[agent].max_steps and planner_max_steps are no longer used; Rill now manages interactive progress automatically. " +
 			"Use the CLI --max-steps flag for a one-off run or [bot].max_steps for unattended bot sessions."
 		if stepLimitMigErr != nil {
 			level = event.LevelWarn
@@ -261,7 +260,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if redactToolOutputMigrated || redactToolOutputMigErr != nil {
 		level := event.LevelInfo
 		text := "Deprecated redact_tool_output setting was removed."
-		detail := "[secrets].redact_tool_output no longer has any effect: ordinary model/tool content and local session/job artifacts now preserve their original text. Explicit diagnostics and reasonix doctor redact-sessions still redact credential values."
+		detail := "[secrets].redact_tool_output no longer has any effect: ordinary model/tool content and local session/job artifacts now preserve their original text. Explicit diagnostics and rillagent doctor redact-sessions still redact credential values."
 		if redactToolOutputMigErr != nil {
 			level = event.LevelWarn
 			text = "Deprecated redact_tool_output setting was ignored."
@@ -269,15 +268,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 		sink.Emit(event.Event{Kind: event.Notice, Level: level, Text: text, Detail: detail})
 	}
-	// Safe Mode is a recovery boundary: it must not rewrite memory or session
-	// state that a crash may have corrupted, so the legacy-store imports run
-	// only on normal boots (matching the config migration gate above).
-	if !cfg.SafeMode() {
-		migration.MigrateLegacyMemorySources(sink)
-		migration.MigrateLegacySessionSources(sink)
-	}
 	if ignored := cfg.IgnoredProjectDefaultModel(); ignored != "" {
-		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Ignored the project config's default_model.", Detail: fmt.Sprintf("./reasonix.toml sets default_model = %q but no configured provider serves it; using %q from your user config instead. Edit or remove that default_model line to silence this notice.", ignored, cfg.DefaultModel)})
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Ignored the project config's default_model.", Detail: fmt.Sprintf("./rillagent.toml sets default_model = %q but no configured provider serves it; using %q from your user config instead. Edit or remove that default_model line to silence this notice.", ignored, cfg.DefaultModel)})
 	}
 
 	// A resolvable model whose API key env is unset would otherwise build fine
@@ -379,7 +371,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 
-	// Persistent memory (REASONIX.md / AGENTS.md hierarchy + auto-memory index)
+	// Persistent memory (RILL.md / AGENTS.md hierarchy + auto-memory index)
 	// folds into the system prompt exactly here, once: it becomes part of the
 	// durable, cache-stable prefix every turn reuses, so memory costs nothing per
 	// turn. Mid-session changes never touch this prefix — they ride the
@@ -424,15 +416,15 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	writeRoots := cfg.WriteRootsForRoot(root)
 	writeRoots = appendUniquePaths(writeRoots, additionalDirs...)
 	forbidReadRoots := RuntimeForbidReadRoots(cfg, root)
-	// managedConfig names the Reasonix-owned config FILES (config.toml,
+	// managedConfig names the Rill-owned config FILES (config.toml,
 	// compatibility TOMLs, legacy v0.x config.json) the file-writers may repair
 	// outside the workspace after a fresh per-write human approval. The bash
 	// OS-sandbox write roots deliberately stay unwidened: config repair goes
 	// through the approval-gated file tools, not raw shell writes.
-	managedConfig := builtin.NewManagedConfigPaths(config.ReasonixManagedConfigPaths())
+	managedConfig := builtin.NewManagedConfigPaths(config.RillManagedConfigPaths())
 	bashSpec := sandbox.Spec{Mode: cfg.BashMode(), WriteRoots: writeRoots, ForbidReadRoots: forbidReadRoots, Network: cfg.Sandbox.Network}
 	bashSpec.Shell = shell
-	// The session-data guard blocks agent writes into Reasonix's own session
+	// The session-data guard blocks agent writes into Rill's own session
 	// stores (they race the app's saves and surface as conflict-copy loops);
 	// explicit allow_write entries stay a sanctioned escape hatch.
 	sessionGuard := builtin.NewSessionDataGuard(config.MemoryUserDir(), cfg.AllowWriteRoots())
@@ -468,9 +460,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	pluginSpecOptions := PluginSpecOptions{
 		DefaultCallTimeout:   time.Duration(cfg.MCPCallTimeoutSeconds()) * time.Second,
 		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
-		TrustManager:         mcptrust.ForWorkspace(config.ReasonixHomeDir(), root),
+		TrustManager:         mcptrust.ForWorkspace(config.RillHomeDir(), root),
 		ConfigSource:         "workspace_config",
-		StateHome:            config.ReasonixHomeDir(),
+		StateHome:            config.RillHomeDir(),
 		WriterRoots:          writeRoots,
 		ForbidReadRoots:      forbidReadRoots,
 		Network:              cfg.Sandbox.Network,
@@ -686,11 +678,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 
 	// Permission policy gates every tool call. With no HeadlessApprovalMode
 	// (interactive default), the headless gate resolves ordinary "ask" decisions
-	// to allow — preserving `reasonix run` autonomy — while deny rules and
+	// to allow — preserving `rillagent run` autonomy — while deny rules and
 	// fresh-human approval tools hard-block. Interactive frontends (chat,
 	// desktop) swap in an interactive gate later via
 	// Controller.EnableInteractiveApproval. When the caller selects a headless
-	// approval mode (`reasonix run --permission-mode auto/dontAsk/yolo`), this
+	// approval mode (`rillagent run --permission-mode auto/dontAsk/yolo`), this
 	// gate is built with that mode's contract instead — the same contract
 	// ApplyHeadlessApprovalMode installs on the parent executor — so the
 	// mode-vs-explicit-ask-rule boundary is not weaker for sub-agents than for
@@ -964,7 +956,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		parentSession := agent.ParentSession(sctx)
 		var run *agent.SubagentRun
 		if subagentStore == nil || parentSession == "" {
-			// Headless runs (e.g. `reasonix run`) have no persistent session to
+			// Headless runs (e.g. `rillagent run`) have no persistent session to
 			// own a transcript. Run the skill sub-agent ephemerally, as before
 			// persisted transcripts existed, instead of failing. Continuation needs
 			// a persisted owner, so it errors here.
@@ -1033,7 +1025,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 		return &event.Profile{Model: model, Effort: effort}
 	}
-	// Custom slash commands (.reasonix/commands + user dir). Best-effort: a malformed
+	// Custom slash commands (.rillagent/commands + user dir). Best-effort: a malformed
 	// file is skipped, and a load error never blocks the session.
 	cmds := []command.Command{}
 	if !cfg.SafeMode() {
@@ -1406,7 +1398,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		MaxSubagentDepth:                   maxSubagentDepth,
 		MemoryCompiler:                     memCompiler,
 		MemoryCompilerVerbosity:            cfg.MemoryCompilerVerbosity(),
-		UseMemoryCompilerLLMClassification: strings.TrimSpace(os.Getenv("REASONIX_MEMORY_COMPILER_LLM_CLASSIFICATION")) == "true",
+		UseMemoryCompilerLLMClassification: strings.TrimSpace(os.Getenv("RILLAGENT_MEMORY_COMPILER_LLM_CLASSIFICATION")) == "true",
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -1641,11 +1633,11 @@ func rememberPermissionRule(workspaceRoot, rule string) control.RememberResult {
 func rememberPermissionConfigPath(workspaceRoot string) string {
 	workspaceRoot = strings.TrimSpace(workspaceRoot)
 	if workspaceRoot != "" {
-		return filepath.Join(workspaceRoot, "reasonix.toml")
+		return filepath.Join(workspaceRoot, "rillagent.toml")
 	}
 	path := config.SourcePath()
 	if path == "" {
-		path = "reasonix.toml" // match Config.Save() fallback
+		path = "rillagent.toml" // match Config.Save() fallback
 	}
 	return path
 }
@@ -1878,7 +1870,7 @@ func appendUniquePaths(base []string, extra ...string) []string {
 	return out
 }
 
-// RuntimeForbidReadRoots returns the configured deny roots plus Reasonix's
+// RuntimeForbidReadRoots returns the configured deny roots plus Rill's
 // global credential FILE when it exists. It also registers the corresponding
 // credential environment names for subprocess filtering. Runtime tool
 // assemblers outside Build must use this helper instead of reading the config
@@ -2036,9 +2028,9 @@ func NewProviderWithProxy(e *config.ProviderEntry, proxy netclient.ProxySpec) (p
 // the listed directories.
 // When workDir is non-empty, tools resolve relative paths against it instead of
 // the process cwd, enabling concurrent multi-project sessions.
-// sessionGuard blocks writer-tool targets inside Reasonix's own session stores
+// sessionGuard blocks writer-tool targets inside Rill's own session stores
 // and makes bash warn when a command references them. managedConfig names the
-// Reasonix-owned config files writable outside writeRoots after a fresh
+// Rill-owned config files writable outside writeRoots after a fresh
 // per-write human approval.
 func addBuiltins(reg *tool.Registry, enabled, writeRoots []string, bashSpec sandbox.Spec, bashTimeout time.Duration, searchSpec builtin.SearchSpec, stderr io.Writer, workDir string, proxySpec netclient.ProxySpec, forbidReadRoots []string, readPathResolver *builtin.PathResolver, sessionGuard builtin.SessionDataGuard, managedConfig builtin.ManagedConfigPaths, overlay builtin.FileOverlay, terminal builtin.TerminalRunner) {
 	// If a workspace directory is set, use workspace-bound tools that resolve
@@ -2219,7 +2211,7 @@ func LoadOfficialMCPTrust(ctx context.Context, cfg *config.Config) map[string]Of
 	if cfg == nil {
 		return out
 	}
-	home := config.ReasonixHomeDir()
+	home := config.RillHomeDir()
 	result, err := (mcpcatalog.Loader{CacheDir: config.CacheDir()}).Load(ctx, false)
 	if err != nil {
 		return out

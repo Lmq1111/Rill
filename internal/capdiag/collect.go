@@ -38,12 +38,12 @@ func Collect(opts Options) Report {
 			home = h
 		}
 	}
-	reasonixHome := opts.ReasonixHomeDir
-	if reasonixHome == "" {
+	rillHome := opts.RillHomeDir
+	if rillHome == "" {
 		if opts.HomeDir != "" {
-			reasonixHome = filepath.Join(home, ".reasonix")
+			rillHome = filepath.Join(home, ".rillagent")
 		} else {
-			reasonixHome = config.ReasonixHomeDir()
+			rillHome = config.RillHomeDir()
 		}
 	}
 
@@ -58,17 +58,17 @@ func Collect(opts Options) Report {
 		issues = append(issues, Issue{
 			Severity: "error", Code: "config.load_failed", Subsystem: "config",
 			Message:     "failed to load configuration: " + sanitizeErrTextWithPaths(cfgErr.Error(), root, home),
-			Remediation: "Fix reasonix.toml / config.toml syntax, then re-run doctor capabilities",
+			Remediation: "Fix rillagent.toml / config.toml syntax, then re-run doctor capabilities",
 		})
 	}
 
 	disp := func(p string) string { return displayPath(p, root, home) }
 
 	instr := collectInstructions(root, home, disp)
-	skillsR, skillIssues := collectSkills(root, home, reasonixHome, cfg, disp)
+	skillsR, skillIssues := collectSkills(root, home, rillHome, cfg, disp)
 	cmdsR, cmdIssues := collectCommands(root, disp)
-	hooksR, hookIssues := collectHooks(root, home, reasonixHome, disp)
-	pluginsR, pluginIssues := collectPlugins(reasonixHome, disp)
+	hooksR, hookIssues := collectHooks(root, home, rillHome, disp)
+	pluginsR, pluginIssues := collectPlugins(rillHome, disp)
 	mcpR, mcpIssues := collectMCP(cfg, root, home, disp)
 
 	issues = append(issues, skillIssues...)
@@ -144,8 +144,8 @@ func buildSummary(r Report) Summary {
 func collectInstructions(root, home string, disp func(string) string) InstructionsReport {
 	userDir := config.MemoryUserDir()
 	if home != "" && (userDir == "" || strings.Contains(userDir, home)) {
-		// Prefer explicit test home when Reasonix home is under it.
-		if custom := filepath.Join(home, ".reasonix"); custom != "" {
+		// Prefer explicit test home when Rill home is under it.
+		if custom := filepath.Join(home, ".rillagent"); custom != "" {
 			if userDir == "" {
 				userDir = custom
 			}
@@ -166,17 +166,17 @@ func collectInstructions(root, home string, disp func(string) string) Instructio
 	return out
 }
 
-func collectSkills(root, home, reasonixHome string, cfg *config.Config, disp func(string) string) (AssetReport, []Issue) {
+func collectSkills(root, home, rillHome string, cfg *config.Config, disp func(string) string) (AssetReport, []Issue) {
 	var issues []Issue
 	store := skill.New(skill.Options{
-		HomeDir:         home,
-		ReasonixHomeDir: reasonixHome,
-		ProjectRoot:     root,
-		CustomPaths:     cfg.SkillCustomPaths(),
-		ExcludedPaths:   cfg.SkillExcludedPaths(),
-		DisabledNames:   cfg.DisabledSkillNames(),
-		MaxDepth:        cfg.SkillMaxDepth(),
-		Stderr:          ioDiscard(),
+		HomeDir:       home,
+		RillHomeDir:   rillHome,
+		ProjectRoot:   root,
+		CustomPaths:   cfg.SkillCustomPaths(),
+		ExcludedPaths: cfg.SkillExcludedPaths(),
+		DisabledNames: cfg.DisabledSkillNames(),
+		MaxDepth:      cfg.SkillMaxDepth(),
+		Stderr:        ioDiscard(),
 	})
 	insp := store.Inspect()
 	rep := AssetReport{Roots: []RootInfo{}, Entries: []AssetEntry{}}
@@ -272,12 +272,12 @@ func collectCommands(root string, disp func(string) string) (AssetReport, []Issu
 	return rep, issues
 }
 
-func collectHooks(root, home, reasonixHome string, disp func(string) string) (HookReport, []Issue) {
+func collectHooks(root, home, rillHome string, disp func(string) string) (HookReport, []Issue) {
 	var issues []Issue
 	// Prefer explicit home for trust/settings when tests isolate HOME.
 	homeDir := home
-	if reasonixHome != "" && home == "" {
-		homeDir = filepath.Dir(reasonixHome)
+	if rillHome != "" && home == "" {
+		homeDir = filepath.Dir(rillHome)
 	}
 	trusted := hook.IsTrusted(root, homeDir)
 	insp := hook.Inspect(hook.LoadOptions{
@@ -363,19 +363,19 @@ func collectHooks(root, home, reasonixHome string, disp func(string) string) (Ho
 	return rep, issues
 }
 
-func collectPlugins(reasonixHome string, disp func(string) string) (PluginPackageReport, []Issue) {
+func collectPlugins(rillHome string, disp func(string) string) (PluginPackageReport, []Issue) {
 	var issues []Issue
 	rep := PluginPackageReport{
-		StatePath: disp(filepath.Join(reasonixHome, pluginpkg.StateFilename)),
+		StatePath: disp(filepath.Join(rillHome, pluginpkg.StateFilename)),
 		Packages:  []PluginPackageInfo{},
 	}
-	st, err := pluginpkg.LoadState(reasonixHome)
+	st, err := pluginpkg.LoadState(rillHome)
 	if err != nil {
 		issues = append(issues, Issue{
 			Severity: "error", Code: "plugin.state_read_failed", Subsystem: "plugins",
 			Source:      rep.StatePath,
 			Message:     "failed to read plugin-packages state",
-			Remediation: "Ensure Reasonix home is readable or reinstall packages",
+			Remediation: "Ensure Rill home is readable or reinstall packages",
 			SettingsTab: "plugins",
 		})
 		return rep, issues
@@ -387,10 +387,10 @@ func collectPlugins(reasonixHome string, disp func(string) string) (PluginPackag
 	for _, p := range st.Plugins {
 		info := PluginPackageInfo{
 			Name: p.Name, Enabled: p.Enabled, Version: p.Version,
-			Root:         disp(pluginpkg.ResolveRoot(reasonixHome, p.Root)),
+			Root:         disp(pluginpkg.ResolveRoot(rillHome, p.Root)),
 			ManifestKind: p.ManifestKind, Status: "ok",
 		}
-		root := pluginpkg.ResolveRoot(reasonixHome, p.Root)
+		root := pluginpkg.ResolveRoot(rillHome, p.Root)
 		if fi, err := os.Stat(root); err != nil || !fi.IsDir() {
 			info.Status = "missing_root"
 			issues = append(issues, Issue{
@@ -410,7 +410,7 @@ func collectPlugins(reasonixHome string, disp func(string) string) (PluginPackag
 				Severity: "error", Code: "plugin.invalid_manifest", Subsystem: "plugins",
 				Name: p.Name, Source: disp(root),
 				Message:     "plugin package manifest is invalid: " + sanitizeErr(perr),
-				Remediation: "Fix reasonix-plugin.json / Codex / Claude plugin manifest",
+				Remediation: "Fix rillagent-plugin.json / Codex / Claude plugin manifest",
 				SettingsTab: "plugins",
 			})
 			rep.Packages = append(rep.Packages, info)

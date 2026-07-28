@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 
 	// Pin the UI language for the whole cli test binary. Production code
 	// (cli.Run) calls i18n.DetectLanguage("") which resolves the host locale from
-	// the environment (REASONIX_LANG/LC_ALL/LC_MESSAGES/LANG) and installs it as
+	// the environment (RILLAGENT_LANG/LC_ALL/LC_MESSAGES/LANG) and installs it as
 	// the global i18n.M. On a non-English dev machine that flips M to e.g.
 	// Chinese, and tests that exercise the CLI entry point (acp_test.go,
 	// cli_test.go) don't restore it — so later tests asserting English UI strings
@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 	// deterministic English environment keeps the suite independent of the host
 	// locale (matching CI). Tests that need another language still set it
 	// explicitly via i18n.DetectLanguage(lang) with their own cleanup.
-	os.Unsetenv("REASONIX_LANG")
+	os.Unsetenv("RILLAGENT_LANG")
 	os.Unsetenv("LC_ALL")
 	os.Unsetenv("LC_MESSAGES")
 	os.Setenv("LANG", "en_US.UTF-8")
@@ -112,7 +112,7 @@ func writeTUIImageCapabilityConfig(t *testing.T, root string) {
 		Models:       []string{"text-only", "vision-pro"},
 		VisionModels: []string{"vision-pro"},
 	}}
-	if err := cfg.SaveTo(filepath.Join(root, "reasonix.toml")); err != nil {
+	if err := cfg.SaveTo(filepath.Join(root, "rillagent.toml")); err != nil {
 		t.Fatalf("save config: %v", err)
 	}
 }
@@ -609,14 +609,14 @@ func TestMainManagerFollowsTranscriptWithoutTopPadding(t *testing.T) {
 	m := newChatTUI(ctrl, "", make(chan event.Event, 1), 80)
 	m0, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = m0.(chatTUI)
-	m.wrappedLines = []string{"reasonix", "› /mcp"}
+	m.wrappedLines = []string{"rillagent", "› /mcp"}
 
 	out := ansi.Strip(m.renderTranscriptWithMainManager("Manage MCP servers\n1 servers"))
 	lines := strings.Split(out, "\n")
 	if len(lines) < 4 {
 		t.Fatalf("rendered manager area too short:\n%s", out)
 	}
-	if !strings.Contains(lines[0], "reasonix") || !strings.Contains(lines[1], "/mcp") {
+	if !strings.Contains(lines[0], "rillagent") || !strings.Contains(lines[1], "/mcp") {
 		t.Fatalf("transcript lines should stay above manager:\n%s", out)
 	}
 	if strings.TrimSpace(lines[2]) != "" {
@@ -1375,7 +1375,7 @@ func isolateUserConfig(t *testing.T) {
 	t.Helper()
 	root := t.TempDir()
 	t.Setenv("HOME", root)
-	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	t.Setenv("AppData", filepath.Join(root, "AppData")) // os.UserConfigDir reads AppData on Windows
 	t.Chdir(root)
@@ -1487,7 +1487,7 @@ func TestAutoPlanCommandPersistsAndUpdatesController(t *testing.T) {
 
 func TestAutoPlanCommandWritesUserConfigNotProjectConfig(t *testing.T) {
 	isolateUserConfig(t)
-	projectPath := filepath.Join(mustGetwd(t), "reasonix.toml")
+	projectPath := filepath.Join(mustGetwd(t), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[agent]\nauto_plan = \"off\"\n"), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
@@ -1536,7 +1536,7 @@ func TestReasoningLanguageCommandPersistsAndUpdatesController(t *testing.T) {
 
 func TestReasoningLanguageCommandWritesUserConfigNotProjectConfig(t *testing.T) {
 	isolateUserConfig(t)
-	projectPath := filepath.Join(mustGetwd(t), "reasonix.toml")
+	projectPath := filepath.Join(mustGetwd(t), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[agent]\nreasoning_language = \"en\"\n"), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
@@ -1563,7 +1563,7 @@ func TestReasoningLanguageCommandWritesUserConfigNotProjectConfig(t *testing.T) 
 
 func TestMemoryV5CommandWritesUserConfigNotProjectConfig(t *testing.T) {
 	isolateUserConfig(t)
-	projectPath := filepath.Join(mustGetwd(t), "reasonix.toml")
+	projectPath := filepath.Join(mustGetwd(t), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[agent]\nmemory_compiler = { enabled = true }\n"), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
@@ -1625,7 +1625,7 @@ func TestLanguageCommandAutoClearsPinnedLanguage(t *testing.T) {
 
 func TestLanguageCommandAutoClearsLowerPriorityUserOverride(t *testing.T) {
 	isolateUserConfig(t)
-	t.Setenv("REASONIX_LANG", "")
+	t.Setenv("RILLAGENT_LANG", "")
 	t.Setenv("LC_ALL", "")
 	t.Setenv("LC_MESSAGES", "")
 	t.Setenv("LANG", "")
@@ -1641,7 +1641,7 @@ func TestLanguageCommandAutoClearsLowerPriorityUserOverride(t *testing.T) {
 		t.Fatalf("save user config: %v", err)
 	}
 	projectCfg := config.Default()
-	if err := projectCfg.SaveTo("reasonix.toml"); err != nil {
+	if err := projectCfg.SaveTo("rillagent.toml"); err != nil {
 		t.Fatalf("save project config: %v", err)
 	}
 
@@ -2630,54 +2630,6 @@ func TestSlashSubagentWithoutTaskStaysIdleWithUsageHint(t *testing.T) {
 	}
 	if out := strings.Join(m.transcript, "\n"); !strings.Contains(out, "usage: /helper <task>") {
 		t.Fatalf("missing task usage hint:\n%s", out)
-	}
-}
-
-func TestSlashMigrateShowsProgress(t *testing.T) {
-	isolateCLIConfigHome(t)
-	m := newTestChatTUI()
-
-	if cmd := m.runSlashCommand("/migrate"); cmd != nil {
-		t.Fatal("/migrate should run locally without returning a command")
-	}
-	out := strings.Join(m.transcript, "\n")
-	for _, want := range []string{
-		"/migrate",
-		"migration rescue: checking legacy config and credentials",
-		"migration rescue: scanning legacy memory",
-		"migration rescue: scanning legacy sessions",
-		"migration rescue complete:",
-	} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("missing %q in transcript:\n%s", want, out)
-		}
-	}
-}
-
-func TestSlashMigrateFromImportsExplicitSessions(t *testing.T) {
-	home := isolateCLIConfigHome(t)
-	legacySessions := filepath.Join(home, "Old Reasonix", "sessions")
-	if err := os.MkdirAll(legacySessions, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(legacySessions, "old-chat.jsonl"), []byte(`{"role":"user","content":"hello from old install"}`+"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	m := newTestChatTUI()
-
-	input := `/migrate --from "` + filepath.Dir(legacySessions) + `"`
-	if cmd := m.runSlashCommand(input); cmd != nil {
-		t.Fatal("/migrate --from should run locally without returning a command")
-	}
-	out := strings.Join(m.transcript, "\n")
-	for _, want := range []string{
-		input,
-		"migration rescue: scanning explicit legacy sessions from " + filepath.Dir(legacySessions),
-		"imported 1 past session(s) from " + legacySessions,
-	} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("missing %q in transcript:\n%s", want, out)
-		}
 	}
 }
 

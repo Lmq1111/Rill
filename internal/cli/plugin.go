@@ -45,13 +45,13 @@ func pluginCommand(args []string) int {
 
 func pluginUsage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  reasonix plugin install <source> [--yes] [--dry-run] [--link] [--replace]
-  reasonix plugin list
-  reasonix plugin show <name>
-  reasonix plugin enable <name>
-  reasonix plugin disable <name>
-  reasonix plugin remove <name>
-  reasonix plugin doctor <name>`)
+  rillagent plugin install <source> [--yes] [--dry-run] [--link] [--replace]
+  rillagent plugin list
+  rillagent plugin show <name>
+  rillagent plugin enable <name>
+  rillagent plugin disable <name>
+  rillagent plugin remove <name>
+  rillagent plugin doctor <name>`)
 }
 
 func pluginInstallCommand(args []string) int {
@@ -185,7 +185,7 @@ func runInstallSourceJSON(body map[string]any) int {
 }
 
 func pluginListCommand() int {
-	st, err := pluginpkg.LoadState(config.ReasonixHomeDir())
+	st, err := pluginpkg.LoadState(config.RillHomeDir())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -222,7 +222,7 @@ func pluginShowCommand(args []string) int {
 		fmt.Fprintf(os.Stderr, "plugin %q is not installed\n", args[0])
 		return 1
 	}
-	root := pluginpkg.ResolveRoot(config.ReasonixHomeDir(), p.Root)
+	root := pluginpkg.ResolveRoot(config.RillHomeDir(), p.Root)
 	pkg, warnings, err := pluginpkg.ParseDir(root)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -315,7 +315,7 @@ func pluginDoctorCommand(args []string) int {
 		fmt.Fprintf(os.Stderr, "plugin %q is not installed\n", args[0])
 		return 1
 	}
-	root := pluginpkg.ResolveRoot(config.ReasonixHomeDir(), p.Root)
+	root := pluginpkg.ResolveRoot(config.RillHomeDir(), p.Root)
 	pkg, warnings, err := pluginpkg.ParseDir(root)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "invalid:", err)
@@ -345,7 +345,7 @@ func pluginSetEnabledCommand(args []string, enabled bool) int {
 		fmt.Fprintln(os.Stderr, "plugin enable/disable requires a plugin name")
 		return 2
 	}
-	if err := pluginpkg.SetEnabled(config.ReasonixHomeDir(), args[0], enabled); err != nil {
+	if err := pluginpkg.SetEnabled(config.RillHomeDir(), args[0], enabled); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -354,7 +354,7 @@ func pluginSetEnabledCommand(args []string, enabled bool) int {
 }
 
 func findInstalledPlugin(name string) (pluginpkg.InstalledPlugin, bool, error) {
-	st, err := pluginpkg.LoadState(config.ReasonixHomeDir())
+	st, err := pluginpkg.LoadState(config.RillHomeDir())
 	if err != nil {
 		return pluginpkg.InstalledPlugin{}, false, err
 	}

@@ -145,7 +145,7 @@ type Controller struct {
 	// tool registry the executor reads each turn, and the session-scoped context a
 	// hot-added stdio server binds its subprocess to — behind its own lock, off
 	// c.mu. The Controller keeps the config-facing orchestration (persisting
-	// reasonix.toml on add/remove, building specs from entries). See mcp.go.
+	// rillagent.toml on add/remove, building specs from entries). See mcp.go.
 	mcp                   mcpManager
 	mcpDefaultCallTimeout time.Duration
 	mcpConfigureSpec      func(*plugin.Spec)
@@ -812,7 +812,7 @@ const planApprovalTool = "exit_plan_mode"
 const SandboxEscapeApprovalTool = "sandbox_escape"
 
 // ManagedConfigWriteApprovalTool is the internal Tool name used for per-write
-// approval when a file tool targets a Reasonix-managed config file outside the
+// approval when a file tool targets a Rill-managed config file outside the
 // workspace write roots. It is a fresh human decision: config files control
 // providers, sandbox rules, permissions, and MCP servers for future sessions,
 // so YOLO/auto approval must never answer it.
@@ -1640,7 +1640,7 @@ func (c *Controller) noticeDetail(text, detail string) {
 }
 
 // Run executes a turn synchronously, returning the agent's error. Used by the
-// headless `reasonix run` path, where the Sink renders to stdout and the caller
+// headless `rillagent run` path, where the Sink renders to stdout and the caller
 // just needs the exit status — no TurnDone event, no cancel bookkeeping.
 func (c *Controller) Run(ctx context.Context, input string) (err error) {
 	c.maybeSessionStart(ctx)
@@ -1675,7 +1675,7 @@ func (c *Controller) Run(ctx context.Context, input string) (err error) {
 // returns only its final answer. It is the headless CLI counterpart to explicit
 // slash invocation: the child keeps an isolated session, while the caller owns
 // stdout rendering and exit status. readOnly selects the preview-safe runner
-// used by `reasonix subagent try`.
+// used by `rillagent subagent try`.
 func (c *Controller) RunSubagentProfile(ctx context.Context, name, task string, readOnly bool) (string, error) {
 	name = strings.TrimSpace(name)
 	task = strings.TrimSpace(task)
@@ -1974,7 +1974,7 @@ func rulesWithoutFreshHumanApproval(rules []permission.Rule) []permission.Rule {
 }
 
 // ApplyHeadlessApprovalMode configures the executor gate for a non-interactive
-// (`reasonix run`) session from an explicit --permission-mode. Unlike
+// (`rillagent run`) session from an explicit --permission-mode. Unlike
 // EnableInteractiveApproval it installs no blocking approver, asker, or
 // fresh-approval prompt: there is no key loop to answer them, and the default
 // infinite approval timeout would wedge the run forever on an Ask rule, the
@@ -1993,7 +1993,7 @@ func rulesWithoutFreshHumanApproval(rules []permission.Rule) []permission.Rule {
 // deny rules and fresh-human tools (memory, plan, sandbox, config) stay enforced
 // by the gate for every mode. ask/manual/acceptEdits are not routed here — the
 // caller leaves them at ToolApprovalAsk, keeping boot's default headless gate,
-// which resolves ordinary ask decisions to allow for `reasonix run` autonomy.
+// which resolves ordinary ask decisions to allow for `rillagent run` autonomy.
 func (c *Controller) ApplyHeadlessApprovalMode(mode string) {
 	mode = normalizeToolApprovalMode(mode)
 	c.approval.setMode(mode)
@@ -2594,6 +2594,39 @@ func (c *Controller) Compact(ctx context.Context, instructions string) error {
 	}
 	defer c.endRotation()
 	return c.executor.CompactNow(ctx, instructions)
+}
+
+// ClearModelContext clears only the provider-facing conversation context. The
+// immutable Session.Messages transcript and its session path remain unchanged;
+// the durable boundary is stored in branch metadata so a restart preserves the
+// separation.
+func (c *Controller) ClearModelContext() error {
+	if c.executor == nil {
+		return nil
+	}
+	if err := c.beginRotation(); err != nil {
+		if errors.Is(err, errTurnRunningRotation) {
+			return fmt.Errorf("cannot clear model context while a turn is running")
+		}
+		return err
+	}
+	defer c.endRotation()
+
+	// Persist the transcript first. The boundary must never point beyond what a
+	// restarted process can reload from disk.
+	if err := c.Snapshot(); err != nil {
+		return err
+	}
+	session := c.executor.Session()
+	start := session.Len()
+	path := c.SessionPath()
+	if path != "" {
+		if err := agent.SaveModelContextStart(path, start); err != nil {
+			return err
+		}
+	}
+	c.executor.ClearModelContext()
+	return nil
 }
 
 // maybeSessionStart fires the SessionStart hook exactly once per session, lazily
@@ -3966,6 +3999,15 @@ func (c *Controller) ContextSnapshot() (int, int) {
 	return u.PromptTokens + u.CompletionTokens, c.executor.ContextWindow()
 }
 
+// ModelContextStart exposes the provider-facing history boundary to host
+// surfaces without exposing or mutating the transcript itself.
+func (c *Controller) ModelContextStart() int {
+	if c.executor == nil || c.executor.Session() == nil {
+		return 0
+	}
+	return c.executor.Session().ModelContextStart()
+}
+
 // CompactRatio returns the auto-compaction threshold as a fraction of the window
 // (0 when the executor is unset). The status line shows headroom against it.
 func (c *Controller) CompactRatio() float64 {
@@ -4249,7 +4291,7 @@ func (c *Controller) AddMCPServer(e config.PluginEntry) (int, error) {
 
 // ConnectMCPServer connects an MCP server entry for this session without writing
 // it to config. Desktop owns config placement so it can keep user-level settings
-// out of project reasonix.toml while preserving the CLI AddMCPServer semantics.
+// out of project rillagent.toml while preserving the CLI AddMCPServer semantics.
 func (c *Controller) ConnectMCPServer(e config.PluginEntry) (int, error) {
 	return c.connectMCPServer(e)
 }
@@ -4688,7 +4730,7 @@ func (c *Controller) Bypass() bool {
 // the SessionAPI surface; each is a thin delegation. See memory.go.
 
 // QuickAdd appends a one-line note to the doc-memory file for scope (project
-// REASONIX.md by default) — the write side of "#<note>". Returns the file written.
+// RILL.md by default) — the write side of "#<note>". Returns the file written.
 func (c *Controller) QuickAdd(scope memory.Scope, note string) (string, error) {
 	return c.memory.quickAdd(scope, note)
 }
@@ -4913,7 +4955,7 @@ func sandboxEscapeApprovalReason(reason string) string {
 	return reason
 }
 
-// managedConfigWriteApprover routes a file tool's Reasonix-managed config write
+// managedConfigWriteApprover routes a file tool's Rill-managed config write
 // through the fresh-human approval prompt (see ManagedConfigWriteApprovalTool).
 // A session grant is tool-wide (mirroring sandbox_escape): one "allow for this
 // session" covers the rest of the repair flow across the handful of managed
@@ -5457,11 +5499,11 @@ func (c *Controller) requestApprovalDecisionWithOptions(ctx context.Context, too
 	// Claude's PermissionRequest contract answers the dialog on the plugin's
 	// behalf (auto-allow/auto-deny) instead of merely observing it, so a
 	// decision here must preempt the prompt rather than just notify — this
-	// runs synchronously and before the dialog is shown. Native Reasonix
+	// runs synchronously and before the dialog is shown. Native Rill
 	// PermissionRequest hooks stay advisory-only (see claudePermissionBlocking).
 	//
 	// A hook's auto-allow must never stand in for a fresh human decision:
-	// sandbox escapes, Reasonix config writes, memory remember/forget, and
+	// sandbox escapes, Rill config writes, memory remember/forget, and
 	// plan approval (RequiresFreshHumanApprovalTool) are deliberately excluded
 	// from YOLO/auto-approval and Guardian too, so a broadly-matched plugin
 	// hook returning "allow" can't silently rubber-stamp them. A deny still
@@ -5604,7 +5646,7 @@ func hasFile(dir, name string) bool {
 func listSourceDirs(root string, maxDepth int) []string {
 	skip := map[string]bool{
 		".git": true, ".github": true, "node_modules": true,
-		"vendor": true, ".reasonix": true, "desktop": true,
+		"vendor": true, ".rillagent": true, "desktop": true,
 		"dist": true, "build": true, ".cache": true, "bin": true,
 	}
 	var dirs []string

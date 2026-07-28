@@ -1,13 +1,25 @@
 # Changelog
 
-All notable changes to the Go line (Reasonix 1.0+) are recorded here. The legacy
-`0.x` TypeScript history lives on the [`v1`](https://github.com/esengine/DeepSeek-Reasonix/tree/v1)
-branch.
+All notable Rill changes are recorded here. Earlier implementation history is
+available from the upstream
+[DeepSeek-Reasonix repository](https://github.com/esengine/DeepSeek-Reasonix).
 
 ## Unreleased
 
+No user-facing changes have been recorded after v0.1.0.
+
+## 0.1.0 - 2026-07-28
+
 ### Added
 
+- Added the Rill macOS ARM64 desktop workbench and Rillagent CLI under an
+  independent product identity and local data namespace.
+- Added the frozen 24-page desktop surface, live project/session/file/Git
+  integrations, seven P0 regressions, and secondary history, channel,
+  automation, and settings workflows.
+- Added local redacted diagnostics, zero-egress checks for retired reporting
+  and update endpoints, complete engineering/E2E/visual regression gates, and
+  an ad-hoc-signed macOS release pipeline.
 - Added Claude Code-style searchable CLI pickers for models, providers, and
   sessions, with arrow, Vim, and `Ctrl+P` / `Ctrl+N` navigation.
 - Added `-p` / `--print`, `text`, `json`, and `stream-json` output modes for
@@ -37,7 +49,7 @@ branch.
   completed. A level-1 sub-step with no phase header above it is rejected.
   Executor and planner rounds now use automatic progress management. Retired
   `[agent].max_steps` and `planner_max_steps` keys remain parseable for upgrades,
-  but are ignored and removed by a one-time migration so stale hidden limits
+  but are ignored and removed during configuration normalization so stale hidden limits
   cannot truncate new behavior. One-off CLI and unattended bot limits remain.
 
 ### Fixed
@@ -50,16 +62,16 @@ branch.
   private (`0600`, with private job directories), and the retired
   `redact_tool_output` setting is removed with a one-time upgrade notice.
 
-## [1.0.0] — 2026-06-03
+## Upstream baseline inherited by Rill
 
-First stable release — a **ground-up rewrite in Go**. Not an upgrade of the `0.x`
-TypeScript line; a new codebase that becomes the default (`main-v2`).
+The following capabilities were inherited from the upstream Go codebase. This
+section is provenance, not a Rill release entry.
 
 ### Highlights
 
 - **Go kernel**: a single static binary (CGO-free), cross-compiled for
   darwin/linux/windows on amd64 + arm64. Distributed via npm (the package wraps
-  the native binary), Homebrew (`esengine/reasonix` tap), and release archives;
+  the native binary) and release archives;
   no Node runtime needed to run it.
 - **Agent core**: the loop, built-in tools (read/write/edit/multi_edit/glob/grep/
   ls/bash/web_fetch/todo_write), permission gate, sandboxed bash, and the
@@ -71,12 +83,12 @@ TypeScript line; a new codebase that becomes the default (`main-v2`).
   `[[plugins]]` and a Claude-Code `.mcp.json`.
 - **Code intelligence via CodeGraph**: a tree-sitter symbol/call graph
   (`codegraph_*` tools) replaces embedding semantic search — no embedding service
-  or API cost. Fetched into a local cache on first use (or `reasonix codegraph
+  or API cost. Fetched into a local cache on first use (or `rillagent codegraph
   install`) and indexed in the background, so installs and startup stay fast.
 - **Plan mode** with evidence-backed step sign-off (`complete_step`).
-- **Memory**: `REASONIX.md` hierarchy + auto-memory, folded into the cache-stable
+- **Memory**: `RILL.md` hierarchy + auto-memory, folded into the cache-stable
   prefix.
-- **ACP** (`reasonix acp`) and an HTTP/SSE server frontend; desktop app (Wails).
+- **ACP** (`rillagent acp`) and an HTTP/SSE server frontend; desktop app (Wails).
 
 ### Fixed
 
@@ -88,10 +100,11 @@ TypeScript line; a new codebase that becomes the default (`main-v2`).
 
 ### Notes
 
-- Versions: the legacy TypeScript line stays in `0.x`; the Go line starts at
-  `1.0.0`. See [docs/MIGRATING.md](docs/MIGRATING.md).
+- Rill uses its own release series and data namespace. See
+  [docs/MIGRATING.md](docs/MIGRATING.md).
 - Release archives ship a bare binary; CodeGraph is fetched on first use. Windows
   support for the fetched runtime is unverified — install `codegraph` on PATH if
   the auto-fetch doesn't resolve there.
 
-[1.0.0]: https://github.com/esengine/DeepSeek-Reasonix/releases/tag/v1.0.0
+Upstream release reference:
+https://github.com/esengine/DeepSeek-Reasonix/releases/tag/v1.0.0

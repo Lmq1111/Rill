@@ -121,8 +121,8 @@ func buildSpecIdentity(ctx context.Context, s Spec) (mcptrust.Identity, error) {
 
 // MCPStateDir returns a stable, server-scoped host directory outside the
 // workspace. MCP sandboxes permit writes only here in the reader lane.
-func MCPStateDir(reasonixHome, workspace, server string) string {
-	if strings.TrimSpace(reasonixHome) == "" {
+func MCPStateDir(rillHome, workspace, server string) string {
+	if strings.TrimSpace(rillHome) == "" {
 		return ""
 	}
 	workspaceID := mcptrust.WorkspaceFingerprint(workspace)
@@ -132,7 +132,7 @@ func MCPStateDir(reasonixHome, workspace, server string) string {
 	if workspaceID == "" {
 		workspaceID = "global"
 	}
-	return filepath.Join(reasonixHome, "mcp-state", workspaceID, slug(server))
+	return filepath.Join(rillHome, "mcp-state", workspaceID, slug(server))
 }
 
 func isolationPolicy(s Spec) string {

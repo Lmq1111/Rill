@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestAppIconPNGUsesBlueFullCanvasRoundedBackground(t *testing.T) {
+func TestAppIconPNGUsesRillFullCanvasRoundedBackground(t *testing.T) {
 	f, err := os.Open("build/appicon.png")
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +26,7 @@ func TestAppIconPNGUsesBlueFullCanvasRoundedBackground(t *testing.T) {
 	assertFullCanvasRoundedIcon(t, img, 1024)
 }
 
-func TestWindowsICOUsesBlueFullCanvasRoundedBackground(t *testing.T) {
+func TestWindowsICOUsesRillFullCanvasRoundedBackground(t *testing.T) {
 	for _, size := range []int{16, 24, 32, 48, 64, 256} {
 		t.Run(fmt.Sprintf("%dx%d", size, size), func(t *testing.T) {
 			img := decodeICOImage(t, "build/windows/icon.ico", size)
@@ -55,8 +55,10 @@ func assertFullCanvasRoundedIcon(t *testing.T, img image.Image, size int) {
 	}
 	for _, corner := range corners {
 		_, _, _, a := img.At(corner.x, corner.y).RGBA()
-		if a > 0xff {
-			t.Fatalf("%s corner must be transparent, alpha=%d", corner.name, a)
+		// Small ICO sizes may retain a few antialiasing alpha levels at the
+		// mathematical corner; they must remain visually transparent.
+		if a > 0x1000 {
+			t.Fatalf("%s corner must be visually transparent, alpha=%d", corner.name, a)
 		}
 	}
 
@@ -80,25 +82,18 @@ func assertFullCanvasRoundedIcon(t *testing.T, img image.Image, size int) {
 		if a == 0 {
 			t.Fatalf("%s edge must contain visible rounded-rect background", point.name)
 		}
-		assertReasonixBlue(t, point.name, img.At(point.x, point.y))
+		assertRillFlowPalette(t, point.name, img.At(point.x, point.y))
 	}
 }
 
-func assertReasonixBlue(t *testing.T, name string, colorValue color.Color) {
+func assertRillFlowPalette(t *testing.T, name string, colorValue color.Color) {
 	t.Helper()
 
 	r16, g16, b16, _ := colorValue.RGBA()
 	r, g, b := uint8(r16>>8), uint8(g16>>8), uint8(b16>>8)
-	if !near(r, 0x01, 2) || !near(g, 0x53, 2) || !near(b, 0xe5, 2) {
-		t.Fatalf("%s edge must use Reasonix blue background, got #%02x%02x%02x", name, r, g, b)
+	if r >= 40 || (g <= r+15 && b <= r+25) || b < 40 {
+		t.Fatalf("%s edge must use the Rill blue-teal background, got #%02x%02x%02x", name, r, g, b)
 	}
-}
-
-func near(got, want uint8, tolerance uint8) bool {
-	if got > want {
-		return got-want <= tolerance
-	}
-	return want-got <= tolerance
 }
 
 func decodeICOImage(t *testing.T, path string, size int) image.Image {

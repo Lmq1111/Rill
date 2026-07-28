@@ -1,0 +1,217 @@
+name: Release Rill
+
+on:
+  push:
+    tags: ["rill-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-rill-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-package:
+    name: Verify and package macOS ARM64
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify annotated tag is on main
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          case "$tag" in
+            rill-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "invalid Rill release tag: $tag" >&2; exit 1 ;;
+          esac
+          version="${tag#rill-v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release version must match X.Y.Z: $version" >&2
+            exit 1
+          }
+          [ "$(git cat-file -t "$tag")" = "tag" ] || {
+            echo "Rill releases require an annotated tag" >&2
+            exit 1
+          }
+          tagged_commit="$(git rev-parse "$tag^{commit}")"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$tagged_commit" origin/main || {
+            echo "tagged commit is not on origin/main: $tagged_commit" >&2
+            exit 1
+          }
+          [ "$(uname -m)" = "arm64" ] || {
+            echo "release runner is not native arm64: $(uname -m)" >&2
+            exit 1
+          }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.5"
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            desktop/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.5
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: desktop/frontend/pnpm-lock.yaml
+
+      - name: Install release tools
+        shell: bash
+        run: |
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          brew install create-dmg
+
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          unformatted="$(git ls-files -z '*.go' | xargs -0 -r gofmt -l)"
+          if [ -n "$unformatted" ]; then
+            echo "These Go files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Check Rill brand boundary
+        run: ./scripts/check-rill-brand.sh
+
+      - name: Vet root module
+        run: go vet ./...
+
+      - name: Test root module
+        env:
+          RILLAGENT_RELEASE_CACHE_GUARD: "1"
+        run: go test ./... -count=1
+
+      - name: Build CLI gate
+        run: go build -trimpath -o "$RUNNER_TEMP/rillagent-ci" ./cmd/rillagent
+
+      - name: Test Desktop module
+        working-directory: desktop
+        run: go test ./... -count=1
+
+      - name: Generate Wails frontend bindings
+        working-directory: desktop
+        run: wails generate module
+
+      - name: Install frozen frontend dependencies
+        working-directory: desktop/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check frontend
+        working-directory: desktop/frontend
+        run: pnpm typecheck
+
+      - name: Test frontend
+        working-directory: desktop/frontend
+        run: pnpm test:all
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: pnpm build
+
+      - name: Run complete E2E suite
+        working-directory: desktop/frontend
+        env:
+          RILL_PLAYWRIGHT_CHANNEL: chrome
+        run: pnpm exec playwright test tests/e2e
+
+      - name: Run complete frozen visual suite
+        working-directory: desktop/frontend
+        env:
+          RILL_PLAYWRIGHT_CHANNEL: chrome
+        run: pnpm exec playwright test tests/visual
+
+      - name: Package Rill release files
+        shell: bash
+        run: |
+          go_path="$(command -v go)"
+          RILL_RELEASE_GO_BIN="$go_path" \
+            scripts/package-rill-release.sh "${{ steps.release.outputs.version }}"
+
+      - name: Upload reviewed release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: rill-v${{ steps.release.outputs.version }}-release-files
+          path: |
+            dist/release-rill-v${{ steps.release.outputs.version }}/Rill-darwin-arm64.dmg
+            dist/release-rill-v${{ steps.release.outputs.version }}/Rill-darwin-arm64.dmg.sha256
+            dist/release-rill-v${{ steps.release.outputs.version }}/Rillagent-darwin-arm64.tar.gz
+            dist/release-rill-v${{ steps.release.outputs.version }}/Rillagent-darwin-arm64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: verify-and-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      - name: Download reviewed release files
+        uses: actions/download-artifact@v8
+        with:
+          name: rill-v${{ needs.verify-and-package.outputs.version }}-release-files
+          path: dist
+
+      - name: Recompute public checksums
+        working-directory: dist
+        run: |
+          sha256sum -c Rill-darwin-arm64.dmg.sha256
+          sha256sum -c Rillagent-darwin-arm64.tar.gz.sha256
+
+      - name: Publish Rill v0.1.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify-and-package.outputs.tag }}
+          VERSION: ${{ needs.verify-and-package.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="docs/releases/rill-v${VERSION}.md"
+          [ -s "$notes" ] || { echo "release notes are missing: $notes" >&2; exit 1; }
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release already exists: $TAG" >&2
+            exit 1
+          fi
+          gh release create "$TAG" \
+            dist/Rill-darwin-arm64.dmg \
+            dist/Rill-darwin-arm64.dmg.sha256 \
+            dist/Rillagent-darwin-arm64.tar.gz \
+            dist/Rillagent-darwin-arm64.tar.gz.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --latest \
+            --title "Rill v${VERSION}" \
+            --notes-file "$notes"

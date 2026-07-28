@@ -101,7 +101,7 @@ type PluginMCPServerView struct {
 }
 
 func (a *App) Plugins() []PluginView {
-	st, err := pluginpkg.LoadState(config.ReasonixHomeDir())
+	st, err := pluginpkg.LoadState(config.RillHomeDir())
 	if err != nil {
 		return []PluginView{{Error: err.Error()}}
 	}
@@ -119,11 +119,11 @@ func (a *App) Plugins() []PluginView {
 			Version:      p.Version,
 			Description:  p.Description,
 			Source:       p.Source,
-			Root:         pluginpkg.ResolveRoot(config.ReasonixHomeDir(), p.Root),
+			Root:         pluginpkg.ResolveRoot(config.RillHomeDir(), p.Root),
 			ManifestKind: p.ManifestKind,
 			Enabled:      p.Enabled,
 		}
-		if p.Verification != nil && pluginpkg.VerificationValid(config.ReasonixHomeDir(), p) {
+		if p.Verification != nil && pluginpkg.VerificationValid(config.RillHomeDir(), p) {
 			view.Verification = &PluginVerificationView{
 				CatalogEntryID: p.Verification.CatalogEntryID, Commit: p.Verification.Commit,
 				PackageSHA256: p.Verification.PackageSHA256, VerifiedAt: p.Verification.VerifiedAt.Format(time.RFC3339),
@@ -271,7 +271,7 @@ func (a *App) SetPluginEnabled(name string, enabled bool) error {
 	if err := a.ensureActiveTabRebuildAllowed("plugins"); err != nil {
 		return err
 	}
-	if err := pluginpkg.SetEnabled(config.ReasonixHomeDir(), strings.TrimSpace(name), enabled); err != nil {
+	if err := pluginpkg.SetEnabled(config.RillHomeDir(), strings.TrimSpace(name), enabled); err != nil {
 		return err
 	}
 	a.invalidateSkillRootsCache()

@@ -18,6 +18,7 @@ type HookConfigView struct {
 	Description string `json:"description,omitempty"`
 	Timeout     int    `json:"timeout,omitempty"`
 	Cwd         string `json:"cwd,omitempty"`
+	Disabled    bool   `json:"disabled,omitempty"`
 }
 
 type HooksSettingsView struct {
@@ -77,6 +78,7 @@ func (a *App) SaveHooksSettingsForRoot(scope, projectRoot string, hooks []HookCo
 			Description: strings.TrimSpace(h.Description),
 			Timeout:     h.Timeout,
 			Cwd:         strings.TrimSpace(h.Cwd),
+			Disabled:    h.Disabled,
 		})
 	}
 	if s == string(hook.ScopeProject) && strings.TrimSpace(path) == "" {
@@ -142,6 +144,7 @@ func hookConfigView(event hook.Event, cfg hook.HookConfig) HookConfigView {
 		Description: cfg.Description,
 		Timeout:     cfg.Timeout,
 		Cwd:         cfg.Cwd,
+		Disabled:    cfg.Disabled,
 	}
 }
 

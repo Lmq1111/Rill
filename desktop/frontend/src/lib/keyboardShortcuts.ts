@@ -51,8 +51,8 @@ export type ShortcutDefinition = {
   configurable?: boolean;
 };
 
-const SHORTCUTS_STORAGE_KEY = "reasonix.customShortcuts";
-const SHORTCUTS_CHANGED_EVENT = "reasonix:shortcuts-changed";
+const SHORTCUTS_STORAGE_KEY = "rillagent.customShortcuts";
+const SHORTCUTS_CHANGED_EVENT = "rillagent:shortcuts-changed";
 
 export const SHORTCUT_DEFINITIONS: readonly ShortcutDefinition[] = [
   {
@@ -334,6 +334,46 @@ export function resetCustomShortcuts(): void {
     // Ignore storage failures; the in-memory cache is still reset below.
   }
   cachedCustomShortcuts = {};
+  notifyShortcutsChanged();
+}
+
+export function encodeDesktopShortcuts(
+  shortcuts: Partial<Record<ShortcutAction, ShortcutCombo>>,
+): Record<string, string> {
+  const normalized = normalizeCustomShortcuts(shortcuts);
+  const out: Record<string, string> = {};
+  for (const definition of SHORTCUT_DEFINITIONS) {
+    const combo = normalized[definition.action];
+    if (combo) out[definition.action] = JSON.stringify(combo);
+  }
+  return out;
+}
+
+export function decodeDesktopShortcuts(
+  shortcuts: Record<string, string> | null | undefined,
+): Partial<Record<ShortcutAction, ShortcutCombo>> {
+  const decoded: Record<string, unknown> = {};
+  for (const [action, payload] of Object.entries(shortcuts ?? {})) {
+    try {
+      decoded[action] = JSON.parse(payload);
+    } catch {
+      // Ignore malformed persisted values; the backend rejects new malformed
+      // writes, but older hand-edited config must not break the settings page.
+    }
+  }
+  return normalizeCustomShortcuts(decoded);
+}
+
+export function replaceCustomShortcuts(
+  shortcuts: Partial<Record<ShortcutAction, ShortcutCombo>>,
+): void {
+  const next = normalizeCustomShortcuts(shortcuts);
+  try {
+    localStorage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Runtime behavior still uses the in-memory authoritative backend snapshot.
+  }
+  cachedCustomShortcuts = next;
   notifyShortcutsChanged();
 }
 

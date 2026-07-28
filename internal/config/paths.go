@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"reasonix/internal/brand"
 	"reasonix/internal/command"
 )
 
@@ -40,142 +41,73 @@ func userConfigPath() string {
 }
 
 func userConfigDir() string {
-	return reasonixHomeDir()
+	return rillHomeDir()
 }
 
-func reasonixHomeDir() string {
-	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+func rillHomeDir() string {
+	if dir := cleanEnvDir("RILLAGENT_HOME"); dir != "" {
 		return dir
 	}
 	if runtimeGOOS == "windows" {
 		if dir := osUserConfigDir(); dir != "" {
-			return filepath.Join(dir, "reasonix")
+			return filepath.Join(dir, brand.Executable)
 		}
 		if home, err := osUserHomeDir(); err == nil && home != "" {
-			return filepath.Join(home, "AppData", "Roaming", "reasonix")
+			return filepath.Join(home, "AppData", "Roaming", brand.Executable)
 		}
 		return ""
 	}
 	if home, err := osUserHomeDir(); err == nil && home != "" {
-		return filepath.Join(home, ".reasonix")
+		return filepath.Join(home, brand.ProjectDir)
 	}
 	if dir := osUserConfigDir(); dir != "" {
-		return filepath.Join(dir, "reasonix")
+		return filepath.Join(dir, brand.Executable)
 	}
 	return ""
 }
 
 func userConfigLoadPath() string {
-	primary := userConfigPath()
-	if primary == "" {
-		return legacyUserConfigPath()
-	}
-	if _, err := os.Stat(primary); err == nil {
-		return primary
-	}
-	if legacy := legacyUserConfigPath(); legacy != "" {
-		if _, err := os.Stat(legacy); err == nil {
-			return legacy
-		}
-	}
-	for _, legacy := range legacyXDGConfigPaths() {
-		if legacy == "" || samePath(legacy, primary) {
-			continue
-		}
-		if _, err := os.Stat(legacy); err == nil {
-			return legacy
-		}
-	}
-	return primary
+	return userConfigPath()
 }
 
 func legacyUserConfigPath() string {
-	dir := legacyOSSupportDir()
-	if dir == "" {
-		return ""
-	}
-	path := filepath.Join(dir, "config.toml")
-	if primary := userConfigPath(); primary != "" && samePath(path, primary) {
-		return ""
-	}
-	return path
+	return ""
 }
 
 func userConfigCandidatePaths() []string {
-	var paths []string
 	if p := userConfigPath(); p != "" {
-		paths = append(paths, p)
+		return []string{p}
 	}
-	if p := legacyUserConfigPath(); p != "" {
-		paths = append(paths, p)
-	}
-	paths = append(paths, legacyXDGConfigPaths()...)
-	return paths
+	return nil
 }
 
 func legacyXDGConfigPaths() []string {
-	if IsolatedHomeDir() != "" {
-		return nil
-	}
-	if runtimeGOOS == "windows" {
-		return nil
-	}
-	seen := map[string]bool{}
-	var paths []string
-	add := func(path string) {
-		if path == "" {
-			return
-		}
-		path = filepath.Clean(path)
-		if seen[path] {
-			return
-		}
-		seen[path] = true
-		paths = append(paths, path)
-	}
-	if dir := cleanEnvDir("XDG_CONFIG_HOME"); dir != "" {
-		add(filepath.Join(dir, "reasonix", "config.toml"))
-	}
-	if home, err := osUserHomeDir(); err == nil && home != "" {
-		add(filepath.Join(home, ".config", "reasonix", "config.toml"))
-	}
-	return paths
+	return nil
 }
 
 func userSupportDir() string {
-	if dir := cleanEnvDir("REASONIX_STATE_HOME"); dir != "" {
+	if dir := cleanEnvDir("RILLAGENT_STATE_HOME"); dir != "" {
 		return dir
 	}
-	return reasonixHomeDir()
+	return rillHomeDir()
 }
 
 func legacyOSSupportDir() string {
-	if IsolatedHomeDir() != "" {
-		return ""
-	}
-	dir := osUserConfigDir()
-	if dir == "" {
-		return ""
-	}
-	path := filepath.Join(dir, "reasonix")
-	if current := reasonixHomeDir(); current != "" && samePath(path, current) {
-		return ""
-	}
-	return path
+	return ""
 }
 
 func userCacheDir() string {
-	if dir := cleanEnvDir("REASONIX_CACHE_HOME"); dir != "" {
+	if dir := cleanEnvDir("RILLAGENT_CACHE_HOME"); dir != "" {
 		return dir
 	}
-	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+	if dir := cleanEnvDir("RILLAGENT_HOME"); dir != "" {
 		return filepath.Join(dir, "cache")
 	}
 	dir := osUserCacheDir()
 	if dir == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix")
+	return filepath.Join(dir, brand.Executable)
 }
 
 func cleanEnvDir(name string) string {
@@ -216,21 +148,21 @@ func samePath(a, b string) bool {
 	return filepath.Clean(a) == filepath.Clean(b)
 }
 
-// IsolatedHomeDir returns the REASONIX_HOME directory when it has been
+// IsolatedHomeDir returns the RILLAGENT_HOME directory when it has been
 // explicitly set via the environment variable. A non-empty return signals a
 // self-contained runtime that must not fall back to legacy OS-default data
 // paths or import data from the system-wide production install.
 func IsolatedHomeDir() string {
-	return cleanEnvDir("REASONIX_HOME")
+	return cleanEnvDir("RILLAGENT_HOME")
 }
 
 // userConfigDisplayPath is userConfigPath collapsed to a ~-relative form for
 // comments rendered into the user's own config.toml, so Windows users see the
-// real location instead of a hardcoded ~/.reasonix path.
+// real location instead of a hardcoded ~/.rillagent path.
 func userConfigDisplayPath() string {
 	p := userConfigPath()
 	if p == "" {
-		return "<os-config-dir>/reasonix/config.toml"
+		return "<os-config-dir>/rillagent/config.toml"
 	}
 	if home, err := osUserHomeDir(); err == nil && home != "" {
 		if rel, err := filepath.Rel(home, p); err == nil && !strings.HasPrefix(rel, "..") {
@@ -240,55 +172,32 @@ func userConfigDisplayPath() string {
 	return p
 }
 
-// UserConfigPath is the user-global config.toml. It lives under Reasonix home:
-// REASONIX_HOME/config.toml, then ~/.reasonix/config.toml on Unix-like systems,
-// or %AppData%/reasonix/config.toml on Windows. If %AppData% is unavailable on
-// Windows, it falls back to %USERPROFILE%/AppData/Roaming/reasonix/config.toml.
+// UserConfigPath is the user-global config.toml. It lives under Rill home:
+// RILLAGENT_HOME/config.toml, then ~/.rillagent/config.toml on Unix-like systems,
+// or %AppData%/rillagent/config.toml on Windows. If %AppData% is unavailable on
+// Windows, it falls back to %USERPROFILE%/AppData/Roaming/rillagent/config.toml.
 // "" when the user config dir can't be resolved.
 func UserConfigPath() string { return userConfigPath() }
 
-// LegacyUserConfigPath is the old OS app-support config.toml path when it
-// differs from UserConfigPath. It is read as a compatibility fallback when the
-// primary user config does not exist.
+// LegacyUserConfigPath remains as an internal compatibility API. Rill never
+// reads a legacy brand path, so it always returns an empty string.
 func LegacyUserConfigPath() string { return legacyUserConfigPath() }
 
-// LegacyUserConfigPaths returns every known legacy user config path that differs
-// from the current v1.8.1 Reasonix-home config path.
+// LegacyUserConfigPaths remains as an internal compatibility API. Rill does
+// not import Reasonix or LDagent configuration.
 func LegacyUserConfigPaths() []string {
-	primary := userConfigPath()
-	var out []string
-	add := func(path string) {
-		if path == "" || samePath(path, primary) {
-			return
-		}
-		for _, existing := range out {
-			if samePath(existing, path) {
-				return
-			}
-		}
-		out = append(out, path)
-	}
-	add(legacyUserConfigPath())
-	for _, path := range legacyXDGConfigPaths() {
-		add(path)
-	}
-	return out
+	return nil
 }
 
-// ReasonixManagedConfigPaths returns the Reasonix-owned user configuration
+// RillManagedConfigPaths returns the Rill-owned user configuration
 // FILES that model-driven tools may repair on the user's request, each gated
-// by a fresh per-write human approval: the current config.toml, compatibility
-// TOML locations, and the legacy v0.x ~/.reasonix/config.json. Individual
-// files, never directories — the Reasonix home also holds credentials (.env),
+// by a fresh per-write human approval. Only the current config.toml is managed;
+// individual files, never directories — the Rill home also holds credentials (.env),
 // global hooks (settings.json), skills, and session stores, and none of those
 // may ride along on a config repair.
-func ReasonixManagedConfigPaths() []string {
+func RillManagedConfigPaths() []string {
 	var out []string
 	out = appendUniquePath(out, UserConfigPath())
-	for _, path := range LegacyUserConfigPaths() {
-		out = appendUniquePath(out, path)
-	}
-	out = appendUniquePath(out, legacyConfigPath())
 	return out
 }
 
@@ -306,43 +215,40 @@ func appendUniquePath(paths []string, path string) []string {
 	return append(paths, clean)
 }
 
-// ReasonixHomeDir is the current Reasonix home directory. It honors
-// REASONIX_HOME, then uses ~/.reasonix on macOS/Linux or %APPDATA%/reasonix on
+// RillHomeDir is the current Rill home directory. It honors
+// RILLAGENT_HOME, then uses ~/.rillagent on macOS/Linux or %APPDATA%/rillagent on
 // Windows, with a %USERPROFILE%/AppData/Roaming fallback when %APPDATA% is
 // unavailable.
-func ReasonixHomeDir() string { return reasonixHomeDir() }
+func RillHomeDir() string { return rillHomeDir() }
 
 // WorkspaceLeaseDir stores cross-process Delivery writer locks outside user
-// workspaces. It intentionally follows the cache root rather than project or
-// session state: taking a lease must never dirty the repository it protects.
+// workspaces. It follows the selected Rillagent cache root so explicit
+// RILLAGENT_CACHE_HOME and RILLAGENT_HOME profiles remain fully isolated.
 func WorkspaceLeaseDir() string {
-	// Deliberately ignore REASONIX_HOME/REASONIX_CACHE_HOME here. Two app
-	// instances with different state profiles can still open the same user
-	// workspace, so their safety lock must converge on one OS-user cache root.
-	dir := osUserCacheDir()
+	dir := userCacheDir()
 	if strings.TrimSpace(dir) == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "workspace-leases")
+	return filepath.Join(dir, "workspace-leases")
 }
 
 // DeliveryWorktreeDir is durable storage for user-visible isolated Delivery
 // workspaces. Explicit state/home overrides remain authoritative. Windows uses
 // LocalAppData by default so large Git worktrees do not roam with the user's
-// profile; other platforms keep using Reasonix state storage.
+// profile; other platforms keep using Rill state storage.
 func DeliveryWorktreeDir() string {
-	if dir := cleanEnvDir("REASONIX_STATE_HOME"); dir != "" {
+	if dir := cleanEnvDir("RILLAGENT_STATE_HOME"); dir != "" {
 		return filepath.Join(dir, "worktrees")
 	}
-	if dir := cleanEnvDir("REASONIX_HOME"); dir != "" {
+	if dir := cleanEnvDir("RILLAGENT_HOME"); dir != "" {
 		return filepath.Join(dir, "worktrees")
 	}
 	if runtimeGOOS == "windows" {
 		if dir := osUserCacheDir(); dir != "" {
-			return filepath.Join(dir, "reasonix", "worktrees")
+			return filepath.Join(dir, brand.Executable, "worktrees")
 		}
 		if home, err := osUserHomeDir(); err == nil && home != "" {
-			return filepath.Join(home, "AppData", "Local", "reasonix", "worktrees")
+			return filepath.Join(home, "AppData", "Local", brand.Executable, "worktrees")
 		}
 		return ""
 	}
@@ -353,13 +259,13 @@ func DeliveryWorktreeDir() string {
 	return filepath.Join(dir, "worktrees")
 }
 
-// UserCredentialsPath is the reasonix-owned global .env file under Reasonix
-// home. It is the single source for provider credentials saved by Reasonix, so
+// UserCredentialsPath is the rillagent-owned global .env file under Rill
+// home. It is the single source for provider credentials saved by Rill, so
 // stale shell, Windows, project, or home env vars cannot silently override keys
-// the user saved through setup or settings. "" when Reasonix home can't be
+// the user saved through setup or settings. "" when Rill home can't be
 // resolved.
 func UserCredentialsPath() string {
-	dir := reasonixHomeDir()
+	dir := rillHomeDir()
 	if dir == "" {
 		return ""
 	}
@@ -378,7 +284,7 @@ func ArchiveDir() string {
 }
 
 // SessionDir is where chat sessions are persisted (one .jsonl per session).
-// Used by `reasonix --continue` / `--resume` to find the recent ones. Empty
+// Used by `rillagent --continue` / `--resume` to find the recent ones. Empty
 // if the user state dir can't be resolved — sessions then aren't saved.
 func SessionDir() string {
 	dir := userSupportDir()
@@ -475,41 +381,28 @@ func CacheDir() string {
 	return dir
 }
 
-// MemoryUserDir returns the reasonix user state root (…/reasonix), under which
-// the user-global REASONIX.md and the per-project auto-memory store live. Empty
+// MemoryUserDir returns the rillagent user state root (…/rillagent), under which
+// the user-global RILL.md and the per-project auto-memory store live. Empty
 // when the user state dir can't be resolved, which disables user-scoped memory.
 func MemoryUserDir() string {
 	return userSupportDir()
 }
 
-// ConventionDirs are the parent directories scanned for agent assets (skills,
-// commands), in canonical-first order. .reasonix is ours; .agents / .agent /
+// ConventionDirs are the parent directories scanned for portable agent assets
+// such as skills, in canonical-first order. .rillagent is ours; .agents / .agent /
 // .claude let users drop in assets authored for other agent tools without moving
-// files. Shared so skills (internal/skill) and commands (CommandDirs) discover
-// the same set. Note: hooks are NOT scanned across these — a .claude/settings.json
+// files. Commands intentionally do not use these compatibility roots: Rillagent
+// project commands load only from .rillagent/commands. Hooks are also not scanned
+// across these — a .claude/settings.json
 // uses a different hook schema that can't be parsed as ours, so hooks stay in
-// .reasonix/settings.json (see internal/hook).
-var ConventionDirs = []string{".reasonix", ".agents", ".agent", ".claude"}
-
-// conventionSubdirsAsc joins sub under each ConventionDir of base, in ascending
-// priority (reverse of ConventionDirs) so the canonical .reasonix ends up the
-// highest-priority entry — command.Load lets a later directory win on a clash.
-func conventionSubdirsAsc(base, sub string) []string {
-	out := make([]string, 0, len(ConventionDirs))
-	for i := len(ConventionDirs) - 1; i >= 0; i-- {
-		out = append(out, filepath.Join(base, ConventionDirs[i], sub))
-	}
-	return out
-}
+// .rillagent/settings.json (see internal/hook).
+var ConventionDirs = []string{brand.ProjectDir, ".agents", ".agent", ".claude"}
 
 // CommandDirs returns the directories scanned for custom slash commands, lowest
 // priority first, so a later (more specific) directory overrides an earlier one
-// on a name clash. Order: home-dir convention dirs (~/.claude/commands …
-// ~/.reasonix/commands), the Reasonix home commands dir, the legacy OS
-// app-support dir if different, then the project's
-// convention dirs (.claude/commands … .reasonix/commands). Scanning the .claude /
-// .agents / .agent dirs lets commands authored for other agent tools (same .md +
-// frontmatter format) work here unchanged.
+// on a name clash. Order: enabled plugin command roots, the Rillagent user
+// commands directory, then the current project's .rillagent/commands directory.
+// Old-brand and cross-tool project command directories are never scanned.
 func CommandDirs() []string {
 	return CommandDirsForRoot(".")
 }
@@ -548,26 +441,10 @@ func CommandRootsForRoot(root string) []command.Root {
 	for _, spec := range pluginPackageCommandRoots() {
 		add(spec)
 	}
-	if dir := legacyOSSupportDir(); dir != "" {
-		add(command.Root{Path: filepath.Join(dir, "commands")})
-	}
-	for _, legacy := range legacyXDGConfigPaths() {
-		add(command.Root{Path: filepath.Join(filepath.Dir(legacy), "commands")})
-	}
-	if home, err := osUserHomeDir(); err == nil {
-		for _, dir := range conventionSubdirsAsc(home, "commands") {
-			add(command.Root{Path: dir})
-		}
-	}
 	if dir := userConfigDir(); dir != "" {
 		add(command.Root{Path: filepath.Join(dir, "commands")})
 	}
-	if dir := userSupportDir(); dir != "" && !samePath(dir, userConfigDir()) {
-		add(command.Root{Path: filepath.Join(dir, "commands")})
-	}
-	for _, dir := range conventionSubdirsAsc(root, "commands") {
-		add(command.Root{Path: dir})
-	}
+	add(command.Root{Path: filepath.Join(root, brand.ProjectDir, "commands")})
 	return roots
 }
 
@@ -580,9 +457,9 @@ func SourcePath() string {
 // root, or "" if none. Equivalent to SourcePath() when root is ".".
 func SourcePathForRoot(root string) string {
 	root = resolveRoot(root)
-	projectTOML := "reasonix.toml"
+	projectTOML := brand.ProjectConfig
 	if root != "." {
-		projectTOML = filepath.Join(root, "reasonix.toml")
+		projectTOML = filepath.Join(root, brand.ProjectConfig)
 	}
 	if _, err := os.Stat(projectTOML); err == nil {
 		return projectTOML

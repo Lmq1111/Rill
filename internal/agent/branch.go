@@ -65,6 +65,9 @@ type BranchMeta struct {
 	Turns        int               `json:"turns,omitempty"`
 	Preview      string            `json:"preview,omitempty"`
 	InFlightTurn *InFlightTurnMeta `json:"in_flight_turn,omitempty"`
+	// ModelContextStart is the immutable-history index after which messages are
+	// sent to the provider. Zero preserves the legacy full-context behavior.
+	ModelContextStart int `json:"model_context_start,omitempty"`
 }
 
 // BranchMetaCountsVersion is stamped into BranchMeta.SchemaVersion whenever a
@@ -170,6 +173,25 @@ func SaveBranchMeta(sessionPath string, m BranchMeta) error {
 
 func SaveBranchMetaPreserveUpdated(sessionPath string, m BranchMeta) error {
 	return saveBranchMeta(sessionPath, m, false)
+}
+
+// SaveModelContextStart persists the provider-facing context boundary without
+// changing session activity or transcript contents.
+func SaveModelContextStart(sessionPath string, start int) error {
+	if sessionPath == "" {
+		return fmt.Errorf("empty session path")
+	}
+	if start < 0 {
+		return fmt.Errorf("invalid model context start %d", start)
+	}
+	unlock := lockSessionSavePath(sessionPath)
+	defer unlock()
+	m, err := EnsureBranchMeta(sessionPath)
+	if err != nil {
+		return err
+	}
+	m.ModelContextStart = start
+	return SaveBranchMetaPreserveUpdated(sessionPath, m)
 }
 
 func saveBranchMeta(sessionPath string, m BranchMeta, touchUpdated bool) error {

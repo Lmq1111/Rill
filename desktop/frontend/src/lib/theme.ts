@@ -35,8 +35,8 @@ const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
 const DEFAULT_THEME_STYLE: ThemeStyle = "graphite";
 const DEFAULT_THEME: Theme = "auto";
 
-const THEME_KEY = "reasonix-theme";
-const STYLE_KEY = "reasonix-theme-style";
+const THEME_KEY = "rillagent-theme";
+const STYLE_KEY = "rillagent-theme-style";
 const AUTO_THEME_MEDIA_QUERY = "(prefers-color-scheme: light)";
 let currentTheme: Theme = DEFAULT_THEME;
 let currentThemeStyle: ThemeStyle = DEFAULT_THEME_STYLE;

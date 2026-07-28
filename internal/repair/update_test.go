@@ -11,10 +11,10 @@ import (
 
 func TestFileUpdateRollbackRestoresPreviousBinary(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	target := filepath.Join(t.TempDir(), "reasonix-desktop")
+	t.Setenv("RILLAGENT_HOME", home)
+	target := filepath.Join(t.TempDir(), "rill-desktop")
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(filepath.Dir(target), "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(filepath.Dir(target), "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	if err := os.WriteFile(target, []byte("old"), 0o700); err != nil {
 		t.Fatal(err)
@@ -43,14 +43,14 @@ func TestFileUpdateRollbackRestoresPreviousBinary(t *testing.T) {
 
 func TestRollbackPendingUpdateRejectsUnexpectedVersion(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
+	target := filepath.Join(dir, "rill-desktop")
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(dir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(dir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	if err := os.WriteFile(target, []byte("v1"), 0o700); err != nil {
 		t.Fatal(err)
@@ -76,15 +76,15 @@ func TestRollbackPendingUpdateRejectsUnexpectedVersion(t *testing.T) {
 
 func TestFileUpdateRollbackRestoresReleaseUnit(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	// Resolve symlinks up front (macOS /var -> /private/var) so the recorded
 	// target dir matches the resolved launcher dir in validation.
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -94,7 +94,7 @@ func TestFileUpdateRollbackRestoresReleaseUnit(t *testing.T) {
 	if err := os.WriteFile(guard, []byte("old-guard"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	missingSibling := filepath.Join(dir, "reasonix-update-helper.exe")
+	missingSibling := filepath.Join(dir, "rill-update-helper.exe")
 	tx, err := PrepareFileUpdate("v1", "v2", target, guard, missingSibling)
 	if err != nil {
 		t.Fatal(err)
@@ -134,13 +134,13 @@ func TestFileUpdateRollbackRestoresReleaseUnit(t *testing.T) {
 
 func TestCancelPendingUpdateRemovesReleaseUnitBackups(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -172,13 +172,13 @@ func TestCancelPendingUpdateRemovesReleaseUnitBackups(t *testing.T) {
 // and the pending transaction.
 func TestRecoverFailedInstallRollsBackAndClearsMarker(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -226,7 +226,7 @@ func TestRecoverFailedInstallRollsBackAndClearsMarker(t *testing.T) {
 // forever.
 func TestRecoverFailedInstallClearsStaleMarker(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	if err := MarkUpdateApplyFailed("v2", "installer exited with 1"); err != nil {
 		t.Fatal(err)
 	}
@@ -241,13 +241,13 @@ func TestRecoverFailedInstallClearsStaleMarker(t *testing.T) {
 
 func TestRecoverFailedInstallIgnoresMarkerForAnotherVersion(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -295,13 +295,13 @@ func TestRecoverFailedInstallCorrelatesMarkerByVersionAndTime(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
-			t.Setenv("REASONIX_HOME", home)
+			t.Setenv("RILLAGENT_HOME", home)
 			dir, err := filepath.EvalSymlinks(t.TempDir())
 			if err != nil {
 				t.Fatal(err)
 			}
-			target := filepath.Join(dir, "reasonix-desktop")
-			guard := filepath.Join(dir, "reasonix-guard")
+			target := filepath.Join(dir, "rill-desktop")
+			guard := filepath.Join(dir, "rill-guard")
 			originalExecutable := repairExecutable
 			repairExecutable = func() (string, error) { return guard, nil }
 			t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -352,10 +352,10 @@ func TestRecoverFailedInstallCorrelatesMarkerByVersionAndTime(t *testing.T) {
 
 func TestHealthyUpdateRemovesBackup(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	target := filepath.Join(t.TempDir(), "reasonix-desktop")
+	t.Setenv("RILLAGENT_HOME", home)
+	target := filepath.Join(t.TempDir(), "rill-desktop")
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(filepath.Dir(target), "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(filepath.Dir(target), "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	if err := os.WriteFile(target, []byte("old"), 0o700); err != nil {
 		t.Fatal(err)
@@ -387,14 +387,14 @@ func TestHealthyUpdateRemovesBackup(t *testing.T) {
 // the pending transaction survives, and a later rollback attempt succeeds.
 func TestFileUpdateRollbackCompensatesOnPartialFailure(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
-	added := filepath.Join(dir, "reasonix-update-helper.exe")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
+	added := filepath.Join(dir, "rill-update-helper.exe")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -414,7 +414,7 @@ func TestFileUpdateRollbackCompensatesOnPartialFailure(t *testing.T) {
 
 	originalRename := rollbackSwapRename
 	rollbackSwapRename = func(oldpath, newpath string) error {
-		if oldpath == guard+".reasonix-rollback-stage" && newpath == guard {
+		if oldpath == guard+".rillagent-rollback-stage" && newpath == guard {
 			return errors.New("injected rename failure")
 		}
 		return os.Rename(oldpath, newpath)
@@ -440,7 +440,7 @@ func TestFileUpdateRollbackCompensatesOnPartialFailure(t *testing.T) {
 			t.Fatalf("compensated %s = %q, want %q", filepath.Base(path), got, want)
 		}
 	}
-	leftovers, err := filepath.Glob(filepath.Join(dir, "*.reasonix-rollback-*"))
+	leftovers, err := filepath.Glob(filepath.Join(dir, "*.rillagent-rollback-*"))
 	if err != nil || len(leftovers) != 0 {
 		t.Fatalf("rollback left staging files behind: %v (err=%v)", leftovers, err)
 	}
@@ -475,13 +475,13 @@ func TestFileUpdateRollbackCompensatesOnPartialFailure(t *testing.T) {
 // exactly as it was.
 func TestFileUpdateRollbackStageFailureLeavesInstallUntouched(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	guard := filepath.Join(dir, "reasonix-guard")
+	target := filepath.Join(dir, "rill-desktop")
+	guard := filepath.Join(dir, "rill-guard")
 	originalExecutable := repairExecutable
 	repairExecutable = func() (string, error) { return guard, nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
@@ -501,7 +501,7 @@ func TestFileUpdateRollbackStageFailureLeavesInstallUntouched(t *testing.T) {
 
 	originalCopy := rollbackStageCopy
 	rollbackStageCopy = func(src, dst string, mode os.FileMode) (string, error) {
-		if dst == guard+".reasonix-rollback-stage" {
+		if dst == guard+".rillagent-rollback-stage" {
 			return "", errors.New("injected copy failure")
 		}
 		return copyFileWithHash(src, dst, mode)
@@ -524,7 +524,7 @@ func TestFileUpdateRollbackStageFailureLeavesInstallUntouched(t *testing.T) {
 			t.Fatalf("%s = %q, want untouched %q", filepath.Base(path), got, want)
 		}
 	}
-	leftovers, err := filepath.Glob(filepath.Join(dir, "*.reasonix-rollback-*"))
+	leftovers, err := filepath.Glob(filepath.Join(dir, "*.rillagent-rollback-*"))
 	if err != nil || len(leftovers) != 0 {
 		t.Fatalf("stage failure left staging files behind: %v (err=%v)", leftovers, err)
 	}

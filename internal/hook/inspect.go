@@ -77,18 +77,10 @@ func Inspect(opts LoadOptions) Inspection {
 	}
 
 	// Plugin hooks (enabled packages only — same as Load).
-	appendPluginInspect(&out, reasonixHome(opts.HomeDir), opts.ProjectRoot)
+	appendPluginInspect(&out, rillHome(opts.HomeDir), opts.ProjectRoot)
 
 	g := GlobalSettingsPath(opts.HomeDir)
 	st := inspectSettingsFile(g, ScopeGlobal)
-	if st.Status == "missing" {
-		if legacy := legacyGlobalSettingsPath(opts.HomeDir); legacy != "" {
-			if pathExists(legacy) {
-				g = legacy
-				st = inspectSettingsFile(g, ScopeGlobal)
-			}
-		}
-	}
 	out.Sources = append(out.Sources, st)
 	if s := readSettingsRaw(g); s != nil {
 		appendInspectEntries(&out, s, ScopeGlobal, g)
@@ -184,11 +176,11 @@ func appendInspectEntries(out *Inspection, s *Settings, scope Scope, source stri
 	}
 }
 
-func appendPluginInspect(out *Inspection, reasonixHomeDir, projectRoot string) {
-	if strings.TrimSpace(reasonixHomeDir) == "" {
+func appendPluginInspect(out *Inspection, rillHomeDir, projectRoot string) {
+	if strings.TrimSpace(rillHomeDir) == "" {
 		return
 	}
-	installed, _ := pluginpkg.LoadInstalled(reasonixHomeDir)
+	installed, _ := pluginpkg.LoadInstalled(rillHomeDir)
 	for _, item := range installed {
 		pkg := item.Package
 		src := filepath.Join(pkg.Root, pluginpkg.ManifestPath(pkg.ManifestKind))

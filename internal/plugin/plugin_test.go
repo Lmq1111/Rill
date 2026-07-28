@@ -695,7 +695,7 @@ func TestStartAvailableKeepsGoodServers(t *testing.T) {
 		Args:    []string{"-test.run=TestHelperProcess", "--"},
 		Env:     map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
 	}
-	bad := Spec{Name: "bad", Command: "reasonix-missing-mcp-binary"}
+	bad := Spec{Name: "bad", Command: "rillagent-missing-mcp-binary"}
 
 	host, tools := StartAvailable(ctx, []Spec{bad, good})
 	defer host.Close()
@@ -728,7 +728,7 @@ func TestStartAllAllOrNothingOnFailure(t *testing.T) {
 		Args:    []string{"-test.run=TestHelperProcess", "--"},
 		Env:     map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
 	}
-	bad := Spec{Name: "bad", Command: "reasonix-missing-mcp-binary"}
+	bad := Spec{Name: "bad", Command: "rillagent-missing-mcp-binary"}
 
 	for _, tc := range []struct {
 		name  string
@@ -832,7 +832,7 @@ func TestStdioCommandNotFoundSuggestsPATHFix(t *testing.T) {
 	stdioShellPATH = func(context.Context) string { return "" }
 	t.Cleanup(func() { stdioShellPATH = old })
 
-	host, _ := StartAvailable(ctx, []Spec{{Name: "missing", Command: "reasonix-missing-mcp-binary"}})
+	host, _ := StartAvailable(ctx, []Spec{{Name: "missing", Command: "rillagent-missing-mcp-binary"}})
 	defer host.Close()
 
 	failures := host.Failures()
@@ -841,7 +841,7 @@ func TestStdioCommandNotFoundSuggestsPATHFix(t *testing.T) {
 	}
 	msg := failures[0].Error
 	for _, want := range []string{
-		`command "reasonix-missing-mcp-binary" not found on PATH`,
+		`command "rillagent-missing-mcp-binary" not found on PATH`,
 		"absolute command path",
 		"MCP server env",
 	} {
@@ -1413,17 +1413,17 @@ func TestStdioReaderSandboxBlocksInitializeSideEffects(t *testing.T) {
 	if err != nil {
 		t.Skipf("home directory unavailable: %v", err)
 	}
-	workspace, err := os.MkdirTemp(home, ".reasonix-mcp-workspace-")
+	workspace, err := os.MkdirTemp(home, ".rillagent-mcp-workspace-")
 	if err != nil {
 		t.Skipf("cannot create workspace fixture: %v", err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(workspace) })
-	outside, err := os.MkdirTemp(home, ".reasonix-mcp-home-")
+	outside, err := os.MkdirTemp(home, ".rillagent-mcp-home-")
 	if err != nil {
 		t.Skipf("cannot create home fixture: %v", err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(outside) })
-	stateDir, err := os.MkdirTemp(home, ".reasonix-mcp-state-")
+	stateDir, err := os.MkdirTemp(home, ".rillagent-mcp-state-")
 	if err != nil {
 		t.Skipf("cannot create state fixture: %v", err)
 	}

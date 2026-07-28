@@ -9,10 +9,10 @@ import (
 
 func TestPendingUpdateRejectsTargetOutsideGuardInstall(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	guardDir := t.TempDir()
-	target := filepath.Join(t.TempDir(), "reasonix-desktop")
-	backup := filepath.Join(home, "repair", "updates", "reasonix-desktop.previous")
+	target := filepath.Join(t.TempDir(), "rill-desktop")
+	backup := filepath.Join(home, "repair", "updates", "rill-desktop.previous")
 	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestPendingUpdateRejectsTargetOutsideGuardInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(guardDir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(guardDir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	if _, err := ReadPendingUpdate(); err == nil {
 		t.Fatal("pending update outside Guard install was accepted")
@@ -33,10 +33,10 @@ func TestPendingUpdateRejectsTargetOutsideGuardInstall(t *testing.T) {
 
 func TestPendingUpdateRejectsUnexpectedReleaseFile(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir := t.TempDir()
-	target := filepath.Join(dir, "reasonix-desktop")
-	backup := filepath.Join(home, "repair", "updates", "reasonix-desktop.previous")
+	target := filepath.Join(dir, "rill-desktop")
+	backup := filepath.Join(home, "repair", "updates", "rill-desktop.previous")
 	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -44,15 +44,15 @@ func TestPendingUpdateRejectsUnexpectedReleaseFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(dir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(dir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	const hash = "deadbeef"
 	bad := []UpdateTransactionFile{
 		{TargetPath: filepath.Join(dir, "evil.exe"), BackupPath: backup, SHA256: hash},
-		{TargetPath: filepath.Join(t.TempDir(), "reasonix-guard"), BackupPath: backup, SHA256: hash},
-		{TargetPath: filepath.Join(dir, "reasonix-guard"), BackupPath: filepath.Join(t.TempDir(), "loose.previous"), SHA256: hash},
-		{TargetPath: filepath.Join(dir, "reasonix-guard"), BackupPath: backup}, // missing hash
-		{TargetPath: filepath.Join(dir, "reasonix-guard"), BackupPath: backup, SHA256: hash, MissingBefore: true},
+		{TargetPath: filepath.Join(t.TempDir(), "rill-guard"), BackupPath: backup, SHA256: hash},
+		{TargetPath: filepath.Join(dir, "rill-guard"), BackupPath: filepath.Join(t.TempDir(), "loose.previous"), SHA256: hash},
+		{TargetPath: filepath.Join(dir, "rill-guard"), BackupPath: backup}, // missing hash
+		{TargetPath: filepath.Join(dir, "rill-guard"), BackupPath: backup, SHA256: hash, MissingBefore: true},
 		{TargetPath: target, MissingBefore: true},
 	}
 	for _, file := range bad {
@@ -77,13 +77,13 @@ func TestPendingUpdateRejectsUnexpectedReleaseFile(t *testing.T) {
 
 func TestPendingUpdateAcceptsMissingReleaseSibling(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	backup := filepath.Join(home, "repair", "updates", "reasonix-desktop.previous")
+	target := filepath.Join(dir, "rill-desktop")
+	backup := filepath.Join(home, "repair", "updates", "rill-desktop.previous")
 	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestPendingUpdateAcceptsMissingReleaseSibling(t *testing.T) {
 		t.Fatal(err)
 	}
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(dir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(dir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
 	tx := &UpdateTransaction{
 		SchemaVersion: 1,
@@ -102,7 +102,7 @@ func TestPendingUpdateAcceptsMissingReleaseSibling(t *testing.T) {
 		BackupSHA256:  "deadbeef",
 		Files: []UpdateTransactionFile{
 			{TargetPath: target, BackupPath: backup, SHA256: "deadbeef"},
-			{TargetPath: filepath.Join(dir, "Reasonix.exe"), MissingBefore: true},
+			{TargetPath: filepath.Join(dir, "Rill.exe"), MissingBefore: true},
 		},
 		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
 	}
@@ -116,13 +116,13 @@ func TestPendingUpdateAcceptsMissingReleaseSibling(t *testing.T) {
 
 func TestPendingUpdateRejectsHashlessOrPrimaryLessTransactions(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(dir, "reasonix-desktop")
-	backup := filepath.Join(home, "repair", "updates", "reasonix-desktop.previous")
+	target := filepath.Join(dir, "rill-desktop")
+	backup := filepath.Join(home, "repair", "updates", "rill-desktop.previous")
 	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -130,9 +130,9 @@ func TestPendingUpdateRejectsHashlessOrPrimaryLessTransactions(t *testing.T) {
 		t.Fatal(err)
 	}
 	originalExecutable := repairExecutable
-	repairExecutable = func() (string, error) { return filepath.Join(dir, "reasonix-guard"), nil }
+	repairExecutable = func() (string, error) { return filepath.Join(dir, "rill-guard"), nil }
 	t.Cleanup(func() { repairExecutable = originalExecutable })
-	guardBackup := filepath.Join(home, "repair", "updates", "reasonix-guard.previous")
+	guardBackup := filepath.Join(home, "repair", "updates", "rill-guard.previous")
 	txs := map[string]*UpdateTransaction{
 		"missing primary hash": {
 			SchemaVersion: 1, ToVersion: "v2", TargetKind: "file",
@@ -142,7 +142,7 @@ func TestPendingUpdateRejectsHashlessOrPrimaryLessTransactions(t *testing.T) {
 		"release unit omits primary executable": {
 			SchemaVersion: 1, ToVersion: "v2", TargetKind: "file",
 			TargetPath: target, BackupPath: backup, BackupSHA256: "deadbeef",
-			Files:     []UpdateTransactionFile{{TargetPath: filepath.Join(dir, "reasonix-guard"), BackupPath: guardBackup, SHA256: "deadbeef"}},
+			Files:     []UpdateTransactionFile{{TargetPath: filepath.Join(dir, "rill-guard"), BackupPath: guardBackup, SHA256: "deadbeef"}},
 			CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		},
 	}

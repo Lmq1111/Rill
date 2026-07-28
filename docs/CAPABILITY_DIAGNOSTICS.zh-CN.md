@@ -6,9 +6,9 @@
 &nbsp;·&nbsp;
 <a href="./PLUGIN_PACKAGES.zh-CN.md">插件包</a>
 
-Reasonix 提供 CLI 与桌面端 **设置 → 诊断** 共用的只读能力诊断模型，覆盖 Skills、
+Rill 提供 CLI 与桌面端 **设置 → 诊断** 共用的只读能力诊断模型，覆盖 Skills、
 Commands、Hooks、插件包、MCP 服务器，以及指令文件（`AGENTS.md` /
-`REASONIX.md` / `CLAUDE.md`）。
+`RILL.md` / `CLAUDE.md`）。
 
 **写入策略**
 
@@ -21,11 +21,11 @@ Commands、Hooks、插件包、MCP 服务器，以及指令文件（`AGENTS.md` 
 
 | 目标 | 命令 / 入口 |
 | --- | --- |
-| 检查当前工作区的 skills / hooks / MCP / 插件 | `reasonix doctor capabilities` |
-| 机器可读报告（CI / 报障） | `reasonix doctor capabilities --json` |
-| 指定项目根目录 | `reasonix doctor capabilities --root /path/to/project` |
-| 真实探测 MCP 启动（会启动第三方服务器） | `reasonix doctor capabilities --live --timeout 5s` |
-| 让 Agent 按手册排障 | 会话中 `/reasonix-guide`，或自然语言描述症状 |
+| 检查当前工作区的 skills / hooks / MCP / 插件 | `rillagent doctor capabilities` |
+| 机器可读报告（CI / 报障） | `rillagent doctor capabilities --json` |
+| 指定项目根目录 | `rillagent doctor capabilities --root /path/to/project` |
+| 真实探测 MCP 启动（会启动第三方服务器） | `rillagent doctor capabilities --live --timeout 5s` |
+| 让 Agent 按手册排障 | 会话中 `/rillagent-guide`，或自然语言描述症状 |
 | GUI 健康视图 | 桌面端 **设置 → 诊断** |
 
 **默认是静态且安全的**：无网络、不启动 MCP 子进程。只有你明确需要启动
@@ -34,9 +34,9 @@ automatic MCP 时才用 `--live`。
 其它既有 doctor 命令（行为不变）：
 
 ```bash
-reasonix doctor                  # 环境 / provider / 沙箱快照
-reasonix doctor session <id>     # 支持用会话包
-reasonix doctor redact-sessions  # 脱敏会话中的密钥
+rillagent doctor                  # 环境 / provider / 沙箱快照
+rillagent doctor session <id>     # 支持用会话包
+rillagent doctor redact-sessions  # 脱敏会话中的密钥
 ```
 
 ## 日常工作流
@@ -44,7 +44,7 @@ reasonix doctor redact-sessions  # 脱敏会话中的密钥
 ### 1. 「Skill / 命令找不到或内容不对」
 
 ```bash
-reasonix doctor capabilities --json | jq '.skills.entries, .commands.entries, .issues'
+rillagent doctor capabilities --json | jq '.skills.entries, .commands.entries, .issues'
 ```
 
 关注：
@@ -54,12 +54,12 @@ reasonix doctor capabilities --json | jq '.skills.entries, .commands.entries, .i
 - `skill.missing_description` — 能加载但索引描述很弱
 - `command.read_failed` — 文件读失败或解析失败
 
-然后到 **设置 → 技能**，或直接改 `.reasonix/skills` / `.reasonix/commands` 下的文件。
+然后到 **设置 → 技能**，或直接改 `.rillagent/skills` / `.rillagent/commands` 下的文件。
 
 ### 2. 「项目 Hooks 不触发」
 
 ```bash
-reasonix doctor capabilities | sed -n '/Hooks/,/Plugins/p'
+rillagent doctor capabilities | sed -n '/Hooks/,/Plugins/p'
 ```
 
 若出现 `hook.untrusted_project`，在 **设置 → Hooks**（或 CLI trust 流程）信任该
@@ -70,25 +70,25 @@ reasonix doctor capabilities | sed -n '/Hooks/,/Plugins/p'
 1. 先做静态检查（无副作用）：
 
    ```bash
-   reasonix doctor capabilities --json | jq '.mcp.servers, .issues[] | select(.subsystem=="mcp")'
+   rillagent doctor capabilities --json | jq '.mcp.servers, .issues[] | select(.subsystem=="mcp")'
    ```
 
 2. 仅在接受启动第三方服务器时：
 
    ```bash
-   reasonix doctor capabilities --live --timeout 10s --json
+   rillagent doctor capabilities --live --timeout 10s --json
    ```
 
 常见 code：`mcp.command_not_found`、`mcp.invalid_transport`、
 `mcp.start_failed`、`mcp.no_tools`。桌面端更推荐 **设置 → 诊断** 打开
 「包含当前会话运行状态」——只读取**活动标签 Host**，不会再起第二个 Host。
 
-### 4. 让 Agent 按手册排查（`reasonix-guide`）
+### 4. 让 Agent 按手册排查（`rillagent-guide`）
 
 交互式会话中：
 
 ```text
-/reasonix-guide
+/rillagent-guide
 ```
 
 或：
@@ -100,17 +100,17 @@ reasonix doctor capabilities | sed -n '/Hooks/,/Plugins/p'
 该内置 Skill 是 **inline**（`runAs: inline`）。它会优先要求模型运行：
 
 ```bash
-reasonix doctor capabilities --json
+rillagent doctor capabilities --json
 ```
 
 只有你明确允许启动外部 MCP 时才建议 `--live`。项目或全局同名
-`reasonix-guide` 会覆盖内置版；也可用
-`[skills].disabled_skills = ["reasonix-guide"]` 隐藏。
+`rillagent-guide` 会覆盖内置版；也可用
+`[skills].disabled_skills = ["rillagent-guide"]` 隐藏。
 
 ## CLI 参考
 
 ```bash
-reasonix doctor capabilities [--root PATH] [--json] [--live] [--timeout 5s]
+rillagent doctor capabilities [--root PATH] [--json] [--live] [--timeout 5s]
 ```
 
 | 参数 | 含义 |
@@ -142,16 +142,16 @@ reasonix doctor capabilities [--root PATH] [--json] [--live] [--timeout 5s]
 
 ```bash
 # 当前目录、人类可读
-reasonix doctor capabilities
+rillagent doctor capabilities
 
 # CI：仅有 error 时非零退出
-reasonix doctor capabilities --json
+rillagent doctor capabilities --json
 
 # live 探测，超时 15 秒
-reasonix doctor capabilities --live --timeout 15s --json 2>live-warn.txt
+rillagent doctor capabilities --live --timeout 15s --json 2>live-warn.txt
 ```
 
-既有 `reasonix doctor` / `doctor session` / `doctor redact-sessions` 的 JSON
+既有 `rillagent doctor` / `doctor session` / `doctor redact-sessions` 的 JSON
 schema **不会**混入新字段。
 
 ## 桌面端
@@ -208,12 +208,12 @@ MCP 仅列出 env/header 的 **key**。可能携带 HTTP 响应体或 MCP stderr
 
 | 需求 | 改用 |
 | --- | --- |
-| Provider 密钥、代理、沙箱 OS 支持 | `reasonix doctor` |
-| 给支持用的完整会话包 | `reasonix doctor session <id>` |
-| 单个插件包 | `reasonix plugin doctor <name>` |
+| Provider 密钥、代理、沙箱 OS 支持 | `rillagent doctor` |
+| 给支持用的完整会话包 | `rillagent doctor session <id>` |
+| 单个插件包 | `rillagent plugin doctor <name>` |
 | 会话内 MCP 列表 | `/mcp` |
 
 ## 缓存影响
 
-内置 `reasonix-guide` 仅在 system prompt 的 Skill 索引中增加 **一行稳定索引**；
+内置 `rillagent-guide` 仅在 system prompt 的 Skill 索引中增加 **一行稳定索引**；
 正文按需加载。诊断本身不进入 provider 请求。

@@ -98,7 +98,7 @@ func PrepareFileUpdate(fromVersion, toVersion, targetPath string, siblingPaths .
 	}
 	root := config.MemoryUserDir()
 	if root == "" {
-		return nil, fmt.Errorf("prepare update: Reasonix state directory is unavailable")
+		return nil, fmt.Errorf("prepare update: Rill state directory is unavailable")
 	}
 	unlock := lockPendingUpdate()
 	defer unlock()
@@ -161,7 +161,7 @@ func PrepareAppBundleUpdate(fromVersion, toVersion, appPath, backupPath string) 
 		BackupPath:    filepath.Clean(strings.TrimSpace(backupPath)),
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339Nano),
 	}
-	if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".reasonix-update-backup" {
+	if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".rillagent-update-backup" {
 		return nil, fmt.Errorf("prepare update: invalid macOS bundle paths")
 	}
 	unlock := lockPendingUpdate()
@@ -178,7 +178,7 @@ func WritePendingUpdate(tx *UpdateTransaction) error {
 	}
 	path := PendingUpdatePath()
 	if path == "" {
-		return fmt.Errorf("pending update: Reasonix state directory is unavailable")
+		return fmt.Errorf("pending update: Rill state directory is unavailable")
 	}
 	b, err := json.MarshalIndent(tx, "", "  ")
 	if err != nil {
@@ -330,7 +330,7 @@ func rollbackPendingUpdate(expectedToVersion, expectedCreatedAt string) (UpdateR
 		if _, err := os.Stat(tx.BackupPath); err != nil {
 			return result, fmt.Errorf("rollback update: backup bundle: %w", err)
 		}
-		failed := tx.TargetPath + ".reasonix-failed-" + time.Now().UTC().Format("20060102T150405Z")
+		failed := tx.TargetPath + ".rillagent-failed-" + time.Now().UTC().Format("20060102T150405Z")
 		if err := os.Rename(tx.TargetPath, failed); err != nil {
 			return result, fmt.Errorf("rollback update: move failed bundle: %w", err)
 		}
@@ -378,7 +378,7 @@ func restoreReleaseUnit(files []UpdateTransactionFile) (mixed bool, err error) {
 		if st, statErr := os.Stat(f.TargetPath); statErr == nil {
 			mode = st.Mode().Perm()
 		}
-		stage := f.TargetPath + ".reasonix-rollback-stage"
+		stage := f.TargetPath + ".rillagent-rollback-stage"
 		if _, copyErr := rollbackStageCopy(f.BackupPath, stage, mode); copyErr != nil {
 			return false, fmt.Errorf("stage %s: %w", filepath.Base(f.TargetPath), copyErr)
 		}
@@ -390,7 +390,7 @@ func restoreReleaseUnit(files []UpdateTransactionFile) (mixed bool, err error) {
 	failedIndex := -1
 	var swapErr error
 	for i, f := range files {
-		aside := f.TargetPath + ".reasonix-rollback-aside"
+		aside := f.TargetPath + ".rillagent-rollback-aside"
 		if renameErr := rollbackSwapRename(f.TargetPath, aside); renameErr != nil {
 			if os.IsNotExist(renameErr) {
 				// A rollback interrupted between renames may have consumed this
@@ -428,7 +428,7 @@ func restoreReleaseUnit(files []UpdateTransactionFile) (mixed bool, err error) {
 		for _, f := range files {
 			// Best-effort: on Windows the running executable's aside may linger
 			// until the process exits, but it is no longer a live entry point.
-			_ = os.Remove(f.TargetPath + ".reasonix-rollback-aside")
+			_ = os.Remove(f.TargetPath + ".rillagent-rollback-aside")
 		}
 		return false, nil
 	}
@@ -459,11 +459,11 @@ func restoreReleaseUnit(files []UpdateTransactionFile) (mixed bool, err error) {
 // primary target; Guard/launcher artifacts only as release-unit siblings.
 func allowedUpdateTargetBase(base string, primary bool) bool {
 	switch strings.ToLower(base) {
-	case "reasonix-desktop", "reasonix-desktop.exe":
+	case "rill-desktop", "rill-desktop.exe":
 		return primary
-	case "reasonix.exe":
+	case "rill.exe":
 		return true
-	case "reasonix-guard", "reasonix-guard.exe", "reasonix-launcher.exe", "reasonix-update-helper.exe":
+	case "rill-guard", "rill-guard.exe", "rill-launcher.exe", "rill-update-helper.exe":
 		return !primary
 	default:
 		return false
@@ -487,7 +487,7 @@ func validateUpdateTransaction(tx *UpdateTransaction) error {
 	switch tx.TargetKind {
 	case "file":
 		if !allowedUpdateTargetBase(filepath.Base(tx.TargetPath), true) {
-			return fmt.Errorf("pending update target is not a Reasonix executable")
+			return fmt.Errorf("pending update target is not a Rill executable")
 		}
 		if filepath.Dir(launcher) != filepath.Dir(tx.TargetPath) {
 			return fmt.Errorf("pending update target is outside the current Guard installation")
@@ -536,7 +536,7 @@ func validateUpdateTransaction(tx *UpdateTransaction) error {
 			return fmt.Errorf("pending update release unit omits the primary executable")
 		}
 	case "app-bundle":
-		if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".reasonix-update-backup" {
+		if !strings.HasSuffix(strings.ToLower(tx.TargetPath), ".app") || tx.BackupPath != tx.TargetPath+".rillagent-update-backup" {
 			return fmt.Errorf("pending update bundle paths are invalid")
 		}
 		inside := tx.TargetPath + string(filepath.Separator)

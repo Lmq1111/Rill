@@ -915,7 +915,7 @@ func TestSkillEnabledMutator(t *testing.T) {
 func TestPluginMutators(t *testing.T) {
 	c := Default()
 
-	if err := c.UpsertPlugin(PluginEntry{Name: "ex", Command: "reasonix-plugin-example"}); err != nil {
+	if err := c.UpsertPlugin(PluginEntry{Name: "ex", Command: "rillagent-plugin-example"}); err != nil {
 		t.Fatalf("add stdio: %v", err)
 	}
 	if err := c.UpsertPlugin(PluginEntry{Name: "stripe", Type: "http", URL: "https://mcp.stripe.com"}); err != nil {
@@ -1080,7 +1080,7 @@ func TestSaveToRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	path := filepath.Join(t.TempDir(), "nested", "reasonix.toml")
+	path := filepath.Join(t.TempDir(), "nested", "rillagent.toml")
 	if err := c.SaveTo(path); err != nil {
 		t.Fatalf("SaveTo: %v", err)
 	}
@@ -1139,7 +1139,7 @@ func TestSaveToScopesUserAndProjectFiles(t *testing.T) {
 		t.Fatalf("user config mode = %o, want 600", info.Mode().Perm())
 	}
 
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := c.SaveTo(projectPath); err != nil {
 		t.Fatalf("SaveTo project config: %v", err)
 	}
@@ -1183,7 +1183,7 @@ api_key_env = "USER_DEEPSEEK_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(root, "rillagent.toml"), []byte(`
 [[providers]]
 name = "deepseek-flash"
 kind = "openai"
@@ -1232,7 +1232,7 @@ api_key_env = "GLOBAL_SHARED_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(root, "rillagent.toml"), []byte(`
 [[providers]]
 name = "shared"
 kind = "openai"
@@ -1284,7 +1284,7 @@ max_steps = 21
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "reasonix.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(root, "rillagent.toml"), []byte(`
 default_model = "deepseek-pro"
 
 [agent]
@@ -1322,7 +1322,7 @@ temperature = 0.8
 	if cfg.Bot.MaxSteps != 21 {
 		t.Fatalf("bot.max_steps = %d, want independent bot limit preserved", cfg.Bot.MaxSteps)
 	}
-	for _, path := range []string{userPath, filepath.Join(root, "reasonix.toml")} {
+	for _, path := range []string{userPath, filepath.Join(root, "rillagent.toml")} {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -1361,7 +1361,7 @@ filter_subprocess_env = true
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(root, "reasonix.toml")
+	projectPath := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte(`[secrets]
 redact_tool_output = false
 protect_sensitive_files = true
@@ -1412,7 +1412,7 @@ protect_sensitive_files = true
 func TestLoadForRootReadOnlyIgnoresDeprecatedAgentStepLimitsWithoutRewriting(t *testing.T) {
 	isolateUserConfigHome(t)
 	root := t.TempDir()
-	path := filepath.Join(root, "reasonix.toml")
+	path := filepath.Join(root, "rillagent.toml")
 	original := []byte(`
 [agent]
 max_steps = 3
@@ -1458,7 +1458,7 @@ api_key_env = "GLOBAL_SHARED_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(root, "reasonix.toml")
+	projectPath := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte(`
 [[providers]]
 name = "shared"
@@ -1509,7 +1509,7 @@ api_key_env = "GLOBAL_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(root, "reasonix.toml")
+	projectPath := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte(`
 config_version = 2
 default_model = "project-local/project-model"
@@ -1551,7 +1551,7 @@ api_key_env = "PROJECT_KEY"
 }
 
 func TestSaveToExistingProjectPersistsTopLevelDelta(t *testing.T) {
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[permissions]\nallow = [\"Bash(go test:*)\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1586,7 +1586,7 @@ func TestSaveToExistingProjectPersistsTopLevelDelta(t *testing.T) {
 }
 
 func TestSaveToExistingProjectPersistsProviderAccessWithoutReplacingDesktopSection(t *testing.T) {
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[desktop]\nlegacy_preference = \"keep\"\n\n[permissions]\nallow = [\"Bash(go test:*)\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1659,7 +1659,7 @@ func TestProviderEntriesConfigEqualIgnoresResolvedCredentialState(t *testing.T) 
 }
 
 func TestSaveToExistingProjectRemovesPluginDelta(t *testing.T) {
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	cfg := Default()
 	if err := cfg.UpsertPlugin(PluginEntry{Name: "ed", Type: "http", URL: "https://mcp.example.com/mcp", Headers: map[string]string{"Authorization": "Bearer token"}}); err != nil {
 		t.Fatal(err)
@@ -1691,7 +1691,7 @@ func TestSaveToExistingProjectRemovesPluginDelta(t *testing.T) {
 
 func TestSaveToExistingProjectRemovesIneffectiveWindowsBashEnforce(t *testing.T) {
 	setRuntimeGOOS(t, "windows")
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[sandbox]\nbash = \"enforce\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1715,7 +1715,7 @@ func TestSaveToExistingProjectRemovesIneffectiveWindowsBashEnforce(t *testing.T)
 
 func TestSaveToExistingProjectRemovesIneffectiveWindowsBashEnforceWhenTargetIsOff(t *testing.T) {
 	setRuntimeGOOS(t, "windows")
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[sandbox]\nbash = \"enforce\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1739,7 +1739,7 @@ func TestSaveToExistingProjectRemovesIneffectiveWindowsBashEnforceWhenTargetIsOf
 
 func TestSaveToExistingProjectRemovesOnlyIneffectiveWindowsBashEnforce(t *testing.T) {
 	setRuntimeGOOS(t, "windows")
-	projectPath := filepath.Join(t.TempDir(), "reasonix.toml")
+	projectPath := filepath.Join(t.TempDir(), "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[sandbox]\nbash = \"enforce\"\nnetwork = true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1778,7 +1778,7 @@ func TestSaveForRootDoesNotWriteUserAgentSettingsIntoProjectConfig(t *testing.T)
 	if err := os.WriteFile(userPath, []byte("[agent]\ntemperature = 0.42\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	projectPath := filepath.Join(root, "reasonix.toml")
+	projectPath := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(projectPath, []byte("[permissions]\nallow = [\"Bash(go test:*)\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

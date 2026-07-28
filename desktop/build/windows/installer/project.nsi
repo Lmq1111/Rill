@@ -1,7 +1,7 @@
 Unicode true
 
 ####
-## Reasonix per-user NSIS installer.
+## Rill per-user NSIS installer.
 ##
 ## This file is COMMITTED and customized (Wails leaves an existing project.nsi
 ## untouched and only regenerates wails_tools.nsh). The customizations vs.
@@ -17,8 +17,8 @@ Unicode true
 ##      InstallLocation (HKCU\...\Uninstall\InstallLocation). When upgrading from
 ##      a build that did not write InstallLocation yet, .onInit falls back to the
 ##      old DisplayIcon path before using the default. Without this, every release
-##      forces the user back to %LOCALAPPDATA%\Programs\Reasonix even if they had
-##      moved the install to a different drive (e.g. D:\Tools\Reasonix); the silent
+##      forces the user back to %LOCALAPPDATA%\Programs\Rill even if they had
+##      moved the install to a different drive (e.g. D:\Tools\Rill); the silent
 ##      auto-updater would re-run with /S into the wrong dir, leaving the old
 ##      install orphaned.
 ##
@@ -76,21 +76,21 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-!define REASONIX_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
-!define REASONIX_UPDATE_HELPER "reasonix-update-helper.exe"
-!define REASONIX_GUARD "reasonix-guard.exe"
-!define REASONIX_LAUNCHER "reasonix-launcher.exe"
-!define REASONIX_PORTABLE_ENTRY "Reasonix.exe"
-!define REASONIX_UNLOCK_RETRIES 60
+!define RILLAGENT_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+!define RILLAGENT_UPDATE_HELPER "rill-update-helper.exe"
+!define RILLAGENT_GUARD "rill-guard.exe"
+!define RILLAGENT_LAUNCHER "rill-launcher.exe"
+!define RILLAGENT_PORTABLE_ENTRY "Rill.exe"
+!define RILLAGENT_UNLOCK_RETRIES 60
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation" # Reuse the previous install path on update; .onInit falls back to the default on first install.
-InstallDir "${REASONIX_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
+InstallDir "${RILLAGENT_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
 ShowInstDetails show # This will always show the installation details.
 
 ####
 ## Per-user uninstaller registry (HKCU). Replaces wails.writeUninstaller /
 ## wails.deleteUninstaller, which write HKLM and would fail without admin rights.
 ####
-!macro reasonix.writeUninstaller
+!macro rillagent.writeUninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
@@ -101,8 +101,8 @@ ShowInstDetails show # This will always show the installation details.
     WriteRegStr HKCU "${UNINST_KEY}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
     # Persist the resolved install path so a subsequent update picks it up
     # via InstallDirRegKey above. Without this, every release would force the
-    # user back to %LOCALAPPDATA%\Programs\Reasonix even if they had moved
-    # the install to a different drive (e.g. D:\Tools\Reasonix). The auto-
+    # user back to %LOCALAPPDATA%\Programs\Rill even if they had moved
+    # the install to a different drive (e.g. D:\Tools\Rill). The auto-
     # updater re-runs this installer with /S and trusts the persisted path,
     # so it has to be present before the silent re-install.
     WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
@@ -112,7 +112,7 @@ ShowInstDetails show # This will always show the installation details.
     WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
 !macroend
 
-!macro reasonix.deleteUninstaller
+!macro rillagent.deleteUninstaller
     Delete "$INSTDIR\uninstall.exe"
     DeleteRegKey HKCU "${UNINST_KEY}"
 !macroend
@@ -132,11 +132,11 @@ Function .onInit
    StrCmp $INSTDIR "" fallback done
 
 fallback:
-   StrCpy $INSTDIR "${REASONIX_DEFAULT_INSTALLDIR}"
+   StrCpy $INSTDIR "${RILLAGENT_DEFAULT_INSTALLDIR}"
 done:
 FunctionEnd
 
-Function reasonix.waitForExecutableUnlock
+Function rillagent.waitForExecutableUnlock
    StrCpy $0 0
 
 retry:
@@ -147,30 +147,30 @@ retry:
    FileClose $1
 
 check_guard:
-   IfFileExists "$INSTDIR\${REASONIX_GUARD}" 0 check_launcher
+   IfFileExists "$INSTDIR\${RILLAGENT_GUARD}" 0 check_launcher
    ClearErrors
-   FileOpen $1 "$INSTDIR\${REASONIX_GUARD}" a
+   FileOpen $1 "$INSTDIR\${RILLAGENT_GUARD}" a
    IfErrors locked
    FileClose $1
 
 check_launcher:
-   IfFileExists "$INSTDIR\${REASONIX_LAUNCHER}" 0 check_portable_entry
+   IfFileExists "$INSTDIR\${RILLAGENT_LAUNCHER}" 0 check_portable_entry
    ClearErrors
-   FileOpen $1 "$INSTDIR\${REASONIX_LAUNCHER}" a
+   FileOpen $1 "$INSTDIR\${RILLAGENT_LAUNCHER}" a
    IfErrors locked
    FileClose $1
 
 check_portable_entry:
-   IfFileExists "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" 0 done
+   IfFileExists "$INSTDIR\${RILLAGENT_PORTABLE_ENTRY}" 0 done
    ClearErrors
-   FileOpen $1 "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" a
+   FileOpen $1 "$INSTDIR\${RILLAGENT_PORTABLE_ENTRY}" a
    IfErrors locked
    FileClose $1
    Goto done
 
 locked:
    IntOp $0 $0 + 1
-   IntCmp $0 ${REASONIX_UNLOCK_RETRIES} failed 0 0
+   IntCmp $0 ${RILLAGENT_UNLOCK_RETRIES} failed 0 0
    Sleep 1000
    Goto retry
 
@@ -178,14 +178,14 @@ failed:
    IfSilent silent interactive
 
 interactive:
-   MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Reasonix is still running. Close Reasonix, then click Retry to continue the installation." IDRETRY retry IDCANCEL abort
+   MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Rill is still running. Close Rill, then click Retry to continue the installation." IDRETRY retry IDCANCEL abort
    Goto retry
 
 silent:
    SetErrorLevel 1618
 
 abort:
-   Abort "Reasonix is still running. Close Reasonix and run the installer again."
+   Abort "Rill is still running. Close Rill and run the installer again."
 
 done:
 FunctionEnd
@@ -195,33 +195,33 @@ Section
 
     !insertmacro wails.webview2runtime
 
-    Call reasonix.waitForExecutableUnlock
+    Call rillagent.waitForExecutableUnlock
 
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
-    !if /FileExists "${REASONIX_UPDATE_HELPER}"
-    File "/oname=${REASONIX_UPDATE_HELPER}" "${REASONIX_UPDATE_HELPER}"
+    !if /FileExists "${RILLAGENT_UPDATE_HELPER}"
+    File "/oname=${RILLAGENT_UPDATE_HELPER}" "${RILLAGENT_UPDATE_HELPER}"
     !else
-    !warning "${REASONIX_UPDATE_HELPER} was not found; Windows auto-update will fail safely until the helper is installed."
+    !warning "${RILLAGENT_UPDATE_HELPER} was not found; Windows auto-update will fail safely until the helper is installed."
     !endif
-    !if /FileExists "${REASONIX_GUARD}"
-    File "/oname=${REASONIX_GUARD}" "${REASONIX_GUARD}"
+    !if /FileExists "${RILLAGENT_GUARD}"
+    File "/oname=${RILLAGENT_GUARD}" "${RILLAGENT_GUARD}"
     !endif
-    !if /FileExists "${REASONIX_LAUNCHER}"
-    File "/oname=${REASONIX_LAUNCHER}" "${REASONIX_LAUNCHER}"
-    ; Portable archives expose Reasonix.exe as a second copy of the Guard
+    !if /FileExists "${RILLAGENT_LAUNCHER}"
+    File "/oname=${RILLAGENT_LAUNCHER}" "${RILLAGENT_LAUNCHER}"
+    ; Portable archives expose Rill.exe as a second copy of the Guard
     ; launcher. Preserve that layout only when upgrading an existing portable
     ; directory, and keep the alias in lockstep with the canonical launcher.
-    IfFileExists "$INSTDIR\${REASONIX_PORTABLE_ENTRY}" 0 reasonix_no_portable_entry
-    File "/oname=${REASONIX_PORTABLE_ENTRY}" "${REASONIX_LAUNCHER}"
-reasonix_no_portable_entry:
+    IfFileExists "$INSTDIR\${RILLAGENT_PORTABLE_ENTRY}" 0 rillagent_no_portable_entry
+    File "/oname=${RILLAGENT_PORTABLE_ENTRY}" "${RILLAGENT_LAUNCHER}"
+rillagent_no_portable_entry:
     ; Keep the Guard launcher as the target while taking the visible shortcut
     ; icon from the Wails application. The launcher embeds the same icon too,
     ; but an explicit icon source prevents stale/generic taskbar pins after an
     ; in-place upgrade from a launcher build that had no Windows resources.
-    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${REASONIX_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${REASONIX_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
+    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${RILLAGENT_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
+    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${RILLAGENT_LAUNCHER}" "launch --detach" "$INSTDIR\${PRODUCT_EXECUTABLE}" 0
     !else
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
@@ -230,7 +230,7 @@ reasonix_no_portable_entry:
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
 
-    !insertmacro reasonix.writeUninstaller
+    !insertmacro rillagent.writeUninstaller
 SectionEnd
 
 Section "uninstall"
@@ -240,10 +240,10 @@ Section "uninstall"
 
     ; Precision uninstall: delete main application files
     Delete "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    Delete "$INSTDIR\${REASONIX_UPDATE_HELPER}"
-    Delete "$INSTDIR\${REASONIX_GUARD}"
-    Delete "$INSTDIR\${REASONIX_LAUNCHER}"
-    Delete "$INSTDIR\${REASONIX_PORTABLE_ENTRY}"
+    Delete "$INSTDIR\${RILLAGENT_UPDATE_HELPER}"
+    Delete "$INSTDIR\${RILLAGENT_GUARD}"
+    Delete "$INSTDIR\${RILLAGENT_LAUNCHER}"
+    Delete "$INSTDIR\${RILLAGENT_PORTABLE_ENTRY}"
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
@@ -251,7 +251,7 @@ Section "uninstall"
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols
 
-    !insertmacro reasonix.deleteUninstaller
+    !insertmacro rillagent.deleteUninstaller
 
     ; Only remove the installation directory if it is empty to prevent data loss
     RMDir $INSTDIR

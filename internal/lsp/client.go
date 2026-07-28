@@ -47,7 +47,7 @@ func startClient(ctx context.Context, bin string, args []string, env map[string]
 	cmd := exec.CommandContext(ctx, bin, args...)
 	proc.HideWindow(cmd)
 	cmd.Dir = root
-	cmd.Env = append(secrets.ProcessEnv(), envSlice(env)...)
+	cmd.Env = lspProcessEnv(env)
 	cmd.Stderr = io.Discard
 
 	stdin, err := cmd.StdinPipe()
@@ -272,4 +272,9 @@ func envSlice(env map[string]string) []string {
 		out = append(out, k+"="+v)
 	}
 	return out
+}
+
+func lspProcessEnv(overrides map[string]string) []string {
+	env := append(secrets.ProcessEnv(), envSlice(overrides)...)
+	return secrets.FilterDisallowedProductEnv(env)
 }

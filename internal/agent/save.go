@@ -31,7 +31,7 @@ const (
 	sessionLeaseInfoSidecarSuffix = ".jsonl.lease.json"
 	guardianSidecarSuffix         = ".guardian.jsonl"
 	// nameMaxBytes is the single-component filename limit shared by the
-	// filesystems Reasonix targets (APFS, ext4, NTFS all cap at 255).
+	// filesystems Rill targets (APFS, ext4, NTFS all cap at 255).
 	nameMaxBytes = 255
 	// maxSessionBasenameBytes bounds transcript basenames that reconciliation
 	// leaves in place. Sidecars append up to ~16 bytes to the transcript name
@@ -1151,6 +1151,7 @@ func loadSessionUnlocked(path string) (*Session, error) {
 			revision := int64(0)
 			if ok {
 				revision = meta.Revision
+				s.SetModelContextStart(meta.ModelContextStart)
 			}
 			s.markPersisted(path, digest, s.version, revision, s.rewriteVersion)
 		}

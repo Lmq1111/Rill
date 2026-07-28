@@ -310,7 +310,7 @@ func mcpConfigLocation() string {
 	if path := config.UserConfigPath(); path != "" {
 		return path
 	}
-	return "reasonix.toml"
+	return "rillagent.toml"
 }
 
 type mcpEditConfigLaunch struct {

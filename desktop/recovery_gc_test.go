@@ -156,7 +156,7 @@ func TestRecoveryGCFirstSweepWaitsForTabRestore(t *testing.T) {
 
 func TestRecoveryGCSkipsSweepInSafeMode(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("RILLAGENT_SAFE_MODE", "1")
 	root := globalTabWorkspaceRoot()
 	dir := desktopSessionDir(root)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

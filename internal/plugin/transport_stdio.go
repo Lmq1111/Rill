@@ -267,7 +267,7 @@ func resolveStdioExecutable(ctx context.Context, s Spec, env []string) (string, 
 // enrichStdioShellPATH probes the user's interactive login shell for its PATH
 // and prepends those directories to the current environment. The result is the
 // subprocess environment with a PATH that matches what the user sees in their
-// terminal, even when Reasonix was launched from the Finder / Dock / open(1).
+// terminal, even when Rill was launched from the Finder / Dock / open(1).
 func enrichStdioShellPATH(ctx context.Context, env []string) []string {
 	currentPath, _ := envValue(env, "PATH")
 	if shellPath := strings.TrimSpace(stdioShellPATH(ctx)); shellPath != "" {
@@ -392,7 +392,7 @@ func defaultStdioShellPATH(ctx context.Context) string {
 	if shell == "" {
 		return ""
 	}
-	const marker = "__REASONIX_PATH__="
+	const marker = "__RILLAGENT_PATH__="
 	script := "printf '\\n" + marker + "%s\\n' \"$PATH\""
 	for _, args := range [][]string{
 		{"-l", "-i", "-c", script},
@@ -455,9 +455,12 @@ func parseShellPATH(out []byte, marker string) string {
 func mergeEnv(base []string, overrides map[string]string) []string {
 	out := append([]string(nil), base...)
 	for k, v := range overrides {
+		if secrets.DisallowedProductEnvKey(k) {
+			continue
+		}
 		out = setEnvValue(out, k, v)
 	}
-	return out
+	return secrets.FilterDisallowedProductEnv(out)
 }
 
 func setEnvValue(env []string, key, value string) []string {

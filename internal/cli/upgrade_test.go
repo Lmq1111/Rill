@@ -34,28 +34,40 @@ func TestNormalizeVersion(t *testing.T) {
 	}
 }
 
+func TestUpgradeRepository(t *testing.T) {
+	if ghOwner != "Lmq1111" || ghRepo != "Rill" {
+		t.Fatalf("upgrade repository = %s/%s, want Lmq1111/Rill", ghOwner, ghRepo)
+	}
+	if ghAPIReleases != "https://api.github.com/repos/Lmq1111/Rill/releases" {
+		t.Fatalf("release API = %q", ghAPIReleases)
+	}
+	if ghDownloadBase != "https://github.com/Lmq1111/Rill/releases/download" {
+		t.Fatalf("download base = %q", ghDownloadBase)
+	}
+}
+
 func TestVerifyChecksum(t *testing.T) {
 	content := []byte("hello world")
 	sum := sha256.Sum256(content)
 	hash := hex.EncodeToString(sum[:])
 
 	t.Run("match", func(t *testing.T) {
-		checksumFile := []byte(fmt.Sprintf("%s  reasonix-linux-amd64.tar.gz\n", hash))
-		if err := verifyChecksum(content, "reasonix-linux-amd64.tar.gz", checksumFile); err != nil {
+		checksumFile := []byte(fmt.Sprintf("%s  rillagent-linux-amd64.tar.gz\n", hash))
+		if err := verifyChecksum(content, "rillagent-linux-amd64.tar.gz", checksumFile); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("mismatch", func(t *testing.T) {
-		checksumFile := []byte(fmt.Sprintf("%s  reasonix-linux-amd64.tar.gz\n", "0000000000000000000000000000000000000000000000000000000000000000"))
-		if err := verifyChecksum(content, "reasonix-linux-amd64.tar.gz", checksumFile); err == nil {
+		checksumFile := []byte(fmt.Sprintf("%s  rillagent-linux-amd64.tar.gz\n", "0000000000000000000000000000000000000000000000000000000000000000"))
+		if err := verifyChecksum(content, "rillagent-linux-amd64.tar.gz", checksumFile); err == nil {
 			t.Error("expected checksum mismatch error")
 		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		checksumFile := []byte(fmt.Sprintf("%s  reasonix-darwin-arm64.tar.gz\n", hash))
-		if err := verifyChecksum(content, "reasonix-linux-amd64.tar.gz", checksumFile); err == nil {
+		checksumFile := []byte(fmt.Sprintf("%s  rillagent-darwin-arm64.tar.gz\n", hash))
+		if err := verifyChecksum(content, "rillagent-linux-amd64.tar.gz", checksumFile); err == nil {
 			t.Error("expected not-found error")
 		}
 	})
@@ -81,14 +93,14 @@ func TestUpgradeSuccessMessageIncludesCurrentAndLatestVersions(t *testing.T) {
 }
 
 func TestExtractFromTarGz(t *testing.T) {
-	// Build a .tar.gz in memory containing a "reasonix" entry.
+	// Build a .tar.gz in memory containing a "rillagent" entry.
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gw)
 
 	body := []byte("fake binary content")
 	if err := tw.WriteHeader(&tar.Header{
-		Name: "reasonix",
+		Name: "rillagent",
 		Mode: 0o755,
 		Size: int64(len(body)),
 	}); err != nil {
@@ -104,7 +116,7 @@ func TestExtractFromTarGz(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := extractFromTarGz(buf.Bytes(), "reasonix")
+	got, err := extractFromTarGz(buf.Bytes(), "rillagent")
 	if err != nil {
 		t.Fatalf("extractFromTarGz: %v", err)
 	}
@@ -121,7 +133,7 @@ func TestExtractFromTarGz_Nested(t *testing.T) {
 
 	body := []byte("nested binary")
 	if err := tw.WriteHeader(&tar.Header{
-		Name: "reasonix-linux-amd64/reasonix",
+		Name: "rillagent-linux-amd64/rillagent",
 		Mode: 0o755,
 		Size: int64(len(body)),
 	}); err != nil {
@@ -137,7 +149,7 @@ func TestExtractFromTarGz_Nested(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := extractFromTarGz(buf.Bytes(), "reasonix")
+	got, err := extractFromTarGz(buf.Bytes(), "rillagent")
 	if err != nil {
 		t.Fatalf("extractFromTarGz: %v", err)
 	}
@@ -161,7 +173,7 @@ func TestExtractFromTarGz_NotFound(t *testing.T) {
 	tw.Close()
 	gw.Close()
 
-	_, err := extractFromTarGz(buf.Bytes(), "reasonix")
+	_, err := extractFromTarGz(buf.Bytes(), "rillagent")
 	if err == nil {
 		t.Error("expected error for missing binary")
 	}
@@ -222,7 +234,7 @@ func TestPickCLIRelease(t *testing.T) {
 	}
 
 	// The 1.x line ships as rc on npm @next, so a newer prerelease must be
-	// selected, not skipped — `reasonix upgrade` always moves to the newest 1.x.
+	// selected, not skipped — `rillagent upgrade` always moves to the newest 1.x.
 	withRC := []ghRelease{
 		{TagName: "v1.7.0-rc.1"},
 		{TagName: "v1.6.0"},

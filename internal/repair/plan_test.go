@@ -51,7 +51,7 @@ func TestProjectRepairPlanRequiresExplicitPermission(t *testing.T) {
 
 func TestApplyRepairPlanMultiActionUndoRevertsWholePlan(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	global := filepath.Join(home, "config.toml")
 	tabs := filepath.Join(home, "desktop-tabs.json")
 	if err := os.WriteFile(global, []byte("[broken\n"), 0o600); err != nil {
@@ -85,10 +85,10 @@ func TestApplyRepairPlanMultiActionUndoRevertsWholePlan(t *testing.T) {
 
 func TestProjectRepairPlanDoesNotRepairGlobalConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	root := t.TempDir()
 	global := filepath.Join(home, "config.toml")
-	project := filepath.Join(root, "reasonix.toml")
+	project := filepath.Join(root, "rillagent.toml")
 	for _, path := range []string{global, project} {
 		if err := os.WriteFile(path, []byte("[broken\n"), 0o600); err != nil {
 			t.Fatal(err)

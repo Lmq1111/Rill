@@ -9,7 +9,7 @@ import "sync"
 // Cross-process writers still race. Every runtime in-process editor takes this
 // lock around its load→mutate→save cycle: bot mapping/pairing persistence,
 // desktop settings and MCP writers, serve effort switches, controller skill
-// toggles, the CLI TUI / `reasonix config` write paths, and `reasonix setup`'s
+// toggles, the CLI TUI / `rillagent config` write paths, and `rillagent setup`'s
 // commit-time operation replay.
 // Desktop's read-only config loads (tray/view/bot-runtime paths) never write:
 // they apply legacy migrations in memory only, and the migrated form reaches

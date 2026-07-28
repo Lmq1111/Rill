@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -154,32 +155,92 @@ func TestFilterEnvDropsSensitiveKeys(t *testing.T) {
 }
 
 func TestProcessEnvUnfilteredByDefault(t *testing.T) {
-	t.Setenv("REASONIX_TEST_SECRET_TOKEN", "ghp_abcdefghijklmnopqrstuvwxyz")
+	t.Setenv("RILLAGENT_TEST_SECRET_TOKEN", "ghp_abcdefghijklmnopqrstuvwxyz")
 	joined := strings.Join(ProcessEnv(), "\n")
-	if !strings.Contains(joined, "REASONIX_TEST_SECRET_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz") {
+	if !strings.Contains(joined, "RILLAGENT_TEST_SECRET_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz") {
 		t.Fatalf("ProcessEnv filtered by default; filter_subprocess_env must be opt-in:\n%s", joined)
 	}
 
 	SetFilterSubprocessEnv(true)
 	t.Cleanup(func() { SetFilterSubprocessEnv(false) })
 	joined = strings.Join(ProcessEnv(), "\n")
-	if strings.Contains(joined, "REASONIX_TEST_SECRET_TOKEN") {
+	if strings.Contains(joined, "RILLAGENT_TEST_SECRET_TOKEN") {
 		t.Fatalf("ProcessEnv leaked sensitive key with filtering enabled:\n%s", joined)
 	}
 }
 
 func TestProcessEnvAlwaysFiltersRegisteredCredentialKeys(t *testing.T) {
-	const key = "REASONIX_TEST_CUSTOM_PROVIDER_CREDENTIAL"
+	const key = "RILLAGENT_TEST_CUSTOM_PROVIDER_CREDENTIAL"
 	t.Setenv(key, "opaque-provider-value")
-	t.Setenv("REASONIX_TEST_BENIGN_ENV", "visible")
+	t.Setenv("RILLAGENT_TEST_BENIGN_ENV", "visible")
 	RegisterCredentialEnvKeys([]string{key})
 
 	joined := strings.Join(ProcessEnv(), "\n")
 	if strings.Contains(joined, key+"=") || strings.Contains(joined, "opaque-provider-value") {
 		t.Fatalf("registered provider credential survived in subprocess env:\n%s", joined)
 	}
-	if !strings.Contains(joined, "REASONIX_TEST_BENIGN_ENV=visible") {
+	if !strings.Contains(joined, "RILLAGENT_TEST_BENIGN_ENV=visible") {
 		t.Fatalf("ordinary env was removed with opt-in filtering off:\n%s", joined)
+	}
+}
+
+func TestProcessEnvAlwaysFiltersRetiredProductNamespaces(t *testing.T) {
+	for key, value := range map[string]string{
+		"REASONIX_HOME":       "/tmp/old-reasonix-home",
+		"REASONIX_SAFE_MODE":  "1",
+		"LDAGENT_HOME":        "/tmp/old-ldagent-home",
+		"LDAGENT_PLUGIN_ROOT": "/tmp/old-plugin",
+	} {
+		t.Setenv(key, value)
+	}
+	t.Setenv("RILLAGENT_HOME", "/tmp/rill-home")
+
+	joined := strings.Join(ProcessEnv(), "\n")
+	for _, forbidden := range []string{"REASONIX_", "LDAGENT_", "/tmp/old-reasonix-home", "/tmp/old-ldagent-home", "/tmp/old-plugin"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("retired product environment leaked %q:\n%s", forbidden, joined)
+		}
+	}
+	if !strings.Contains(joined, "RILLAGENT_HOME=/tmp/rill-home") {
+		t.Fatalf("Rill environment was removed with retired namespaces:\n%s", joined)
+	}
+}
+
+func TestFilterDisallowedProductEnvIsCaseInsensitive(t *testing.T) {
+	got := FilterDisallowedProductEnv([]string{
+		"PATH=/usr/bin",
+		"reasonix_home=/tmp/old",
+		"LdAgEnT_CaChE_HoMe=/tmp/legacy",
+		"RILLAGENT_CACHE_HOME=/tmp/rill",
+	})
+	joined := strings.Join(got, "\n")
+	if strings.Contains(strings.ToUpper(joined), "REASONIX_") || strings.Contains(strings.ToUpper(joined), "LDAGENT_") {
+		t.Fatalf("case-variant retired namespace survived:\n%s", joined)
+	}
+	for _, want := range []string{"PATH=/usr/bin", "RILLAGENT_CACHE_HOME=/tmp/rill"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("allowed environment %q was removed:\n%s", want, joined)
+		}
+	}
+}
+
+func TestSanitizeProcessEnvironmentRemovesOnlyRetiredNamespaces(t *testing.T) {
+	t.Setenv("REASONIX_HOME", "/tmp/old-reasonix")
+	t.Setenv("LdAgEnT_SaFe_MoDe", "1")
+	t.Setenv("RILLAGENT_HOME", "/tmp/rill")
+	t.Setenv("PATH", "/usr/bin")
+
+	SanitizeProcessEnvironment()
+
+	for _, key := range []string{"REASONIX_HOME", "LdAgEnT_SaFe_MoDe"} {
+		if value, ok := os.LookupEnv(key); ok {
+			t.Fatalf("retired product environment %s survived with value %q", key, value)
+		}
+	}
+	for key, want := range map[string]string{"RILLAGENT_HOME": "/tmp/rill", "PATH": "/usr/bin"} {
+		if got := os.Getenv(key); got != want {
+			t.Fatalf("allowed environment %s = %q, want %q", key, got, want)
+		}
 	}
 }
 

@@ -29,48 +29,19 @@ import (
 	"reasonix/internal/netclient"
 )
 
-// updater.go is the transport-free core of the desktop auto-updater: manifest
-// fetch, version comparison, signed download, and per-platform apply/relaunch. It
-// has no Wails dependency so the logic is unit-tested directly; updater_app.go is
-// the thin Wails binding that wires these into App methods and progress events.
+// updater.go retains transport and verification helpers for compatibility tests,
+// but Rill exposes no automatic manifest, download, or install path. Updates are
+// user-initiated through the public Rill Releases page only.
 
-// Manifest endpoints — R2 CDN first (fast, especially in CN), then the crash
-// worker release gateway, then GitHub as the stable channel's last resort. The
-// build channel picks the rolling pointer so a canary build polls the canary
-// line and a stable build polls latest; the two never cross. The gateway still
-// avoids GitHub's repository-wide /releases/latest shortcut so the app is not
-// coupled to GitHub's homepage badge semantics.
 const (
-	r2Base             = "https://dl.reasonix.io"
-	releaseGatewayBase = "https://crash.reasonix.io/v1/desktop/releases"
-	downloadPageURL    = "https://reasonix.io/?download=desktop#start"
-	httpTimeout        = 15 * time.Second
+	downloadPageURL = "https://github.com/Lmq1111/Rill/releases"
+	httpTimeout     = 15 * time.Second
 )
 
-// githubManifestFallback is the stable channel's last-resort manifest source.
-// dl.reasonix.io and crash.reasonix.io share one Cloudflare zone, so bot
-// protection that 403s a user's egress IP takes out both first-party endpoints
-// at once (#6005); GitHub is separate infrastructure. Stable desktop releases
-// own the repo-wide latest badge and publish latest.json directly, while
-// release.yml also keeps a desktop-manifest mirror attached to stable CLI
-// releases for older publishing windows. Canary has no GitHub release, so its
-// chain stays two-deep.
-const githubManifestFallback = "https://github.com/esengine/DeepSeek-Reasonix/releases/latest/download/latest.json"
-
-// manifestEndpoints returns the manifest URLs for the running build's channel,
-// in the order fetchManifest tries them.
+// manifestEndpoints is intentionally empty. No automatic updater manifest is
+// authorized for Rill.
 func manifestEndpoints() []string {
-	if channel == "canary" {
-		return []string{
-			r2Base + "/canary/latest.json",
-			releaseGatewayBase + "/canary/latest.json",
-		}
-	}
-	return []string{
-		r2Base + "/latest/latest.json",
-		releaseGatewayBase + "/stable/latest.json",
-		githubManifestFallback,
-	}
+	return nil
 }
 
 // updaterUserAgent identifies updater traffic. Go's default Go-http-client UA
@@ -78,7 +49,7 @@ func manifestEndpoints() []string {
 // lets the release edge allowlist updater requests and makes them attributable
 // in server logs.
 func updaterUserAgent() string {
-	return fmt.Sprintf("Reasonix-Updater/%s (%s/%s; %s)", version, runtime.GOOS, runtime.GOARCH, channel)
+	return fmt.Sprintf("Rill-Updater/%s (%s/%s; %s)", version, runtime.GOOS, runtime.GOARCH, channel)
 }
 
 // downloadPage is the human-facing releases page shown when self-update is
@@ -136,18 +107,13 @@ func newHTTPClient(forceIPv4 bool) (*http.Client, error) {
 	return netclient.NewHTTPClient(cfg.NetworkProxySpec(), netclient.TransportOptions{ForceIPv4: forceIPv4})
 }
 
-// canSelfUpdate reports whether in-place update is possible. Windows and Linux
-// can replace the verified artifact directly; macOS requires an explicitly
-// signed/notarized build flag so local or ad-hoc builds stay manual.
+// canSelfUpdate is permanently false in Rill.
 func canSelfUpdate() bool {
-	return runtime.GOOS != "darwin" || macSelfUpdateAllowed()
+	return false
 }
 
 func manualUpdateReason() string {
-	if runtime.GOOS == "darwin" && !macSelfUpdateAllowed() {
-		return "macOS automatic updates require a Developer ID signed and notarized build"
-	}
-	return ""
+	return "Rill updates are available only through the public Releases page"
 }
 
 // normalizeVersion canonicalizes a version to semver "vX.Y.Z". It reports ok=false
@@ -192,10 +158,6 @@ func fetchManifest(ctx context.Context, c *http.Client) (*update.Manifest, error
 // evaluate compares the running version against the manifest and builds the
 // frontend-facing result. Pure (no I/O) so the comparison is unit-tested.
 func evaluate(current string, m *update.Manifest) UpdateInfo {
-	page := m.DownloadPage
-	if page == "" {
-		page = downloadPage()
-	}
 	info := UpdateInfo{
 		Current:       current,
 		Latest:        m.Version,
@@ -204,7 +166,7 @@ func evaluate(current string, m *update.Manifest) UpdateInfo {
 		CanSelfUpdate: canSelfUpdate(),
 		ManualOnly:    !canSelfUpdate(),
 		ManualReason:  manualUpdateReason(),
-		DownloadURL:   page,
+		DownloadURL:   downloadPage(),
 	}
 	cur, okCur := normalizeVersion(current)
 	latest, okLatest := normalizeVersion(m.Version)
@@ -243,7 +205,7 @@ func defaultUpdateCacheBaseDir() (string, error) {
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "Reasonix", "updates"), nil
+	return filepath.Join(base, "Rill", "updates"), nil
 }
 
 func updateCacheDir() (string, error) {
@@ -272,7 +234,7 @@ func assetFileName(asset update.Asset, version string) string {
 		}
 	}
 	clean := strings.NewReplacer("/", "-", "\\", "-", ":", "-", " ", "-").Replace(version)
-	return "Reasonix-" + clean + "-" + update.CurrentPlatform() + ".update"
+	return "Rill-" + clean + "-" + update.CurrentPlatform() + ".update"
 }
 
 func writeAtomic(path string, data []byte, mode os.FileMode) error {
@@ -591,11 +553,11 @@ func extractBinary(targz []byte, name string) ([]byte, error) {
 // applyLinux replaces the running binary with the one inside the downloaded
 // tar.gz; the caller relaunches afterwards.
 func applyLinux(targz []byte) error {
-	bin, err := extractBinary(targz, "reasonix-desktop")
+	bin, err := extractBinary(targz, "rill-desktop")
 	if err != nil {
 		return err
 	}
-	guard, err := extractBinary(targz, "reasonix-guard")
+	guard, err := extractBinary(targz, "rill-guard")
 	if err != nil {
 		return err
 	}
@@ -603,7 +565,7 @@ func applyLinux(targz []byte) error {
 	if exe == "" {
 		return fmt.Errorf("update: current executable path is unavailable")
 	}
-	if err := writeAtomic(filepath.Join(filepath.Dir(exe), "reasonix-guard"), guard, 0o700); err != nil {
+	if err := writeAtomic(filepath.Join(filepath.Dir(exe), "rill-guard"), guard, 0o700); err != nil {
 		return fmt.Errorf("update Guard: %w", err)
 	}
 	return selfupdate.Apply(bytes.NewReader(bin), selfupdate.Options{})
@@ -657,9 +619,9 @@ func updateSiblingArtifacts() []string {
 func updateSiblingNames(goos string) []string {
 	switch goos {
 	case "windows":
-		return []string{"reasonix-guard.exe", "reasonix-launcher.exe", "reasonix-update-helper.exe", "Reasonix.exe"}
+		return []string{"rill-guard.exe", "rill-launcher.exe", "rill-update-helper.exe", "Rill.exe"}
 	case "linux":
-		return []string{"reasonix-guard"}
+		return []string{"rill-guard"}
 	default:
 		return nil
 	}
@@ -672,7 +634,7 @@ func relaunchThroughGuard() error {
 	if err != nil {
 		return err
 	}
-	launcher := filepath.Join(filepath.Dir(exe), "reasonix-guard")
+	launcher := filepath.Join(filepath.Dir(exe), "rill-guard")
 	if runtime.GOOS == "windows" {
 		launcher += ".exe"
 	}
@@ -689,16 +651,16 @@ func currentLauncherPath() string {
 	if exe == "" {
 		return ""
 	}
-	name := "reasonix-guard"
+	name := "rill-guard"
 	if runtime.GOOS == "windows" {
-		name = "reasonix-launcher.exe"
+		name = "rill-launcher.exe"
 	}
 	launcher := filepath.Join(filepath.Dir(exe), name)
 	if _, err := os.Stat(launcher); err == nil {
 		return launcher
 	}
 	if runtime.GOOS == "windows" {
-		guard := filepath.Join(filepath.Dir(exe), "reasonix-guard.exe")
+		guard := filepath.Join(filepath.Dir(exe), "rill-guard.exe")
 		if _, err := os.Stat(guard); err == nil {
 			return guard
 		}

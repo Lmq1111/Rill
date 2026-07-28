@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"reasonix/internal/brand"
 	"reasonix/internal/fileutil"
 	fileencoding "reasonix/internal/fileutil/encoding"
 	"reasonix/internal/provider"
@@ -16,8 +17,8 @@ import (
 
 // Load builds the configuration: defaults, then user config, then project
 // config, then MCP servers from Claude Code's .mcp.json, then (lowest priority)
-// the v0.x ~/.reasonix/config.json's mcpServers. Provider api_key_env values
-// resolve from Reasonix's global .env, not from project .env files.
+// the v0.x ~/.rillagent/config.json's mcpServers. Provider api_key_env values
+// resolve from Rill's global .env, not from project .env files.
 func Load() (*Config, error) {
 	return LoadForRoot(".")
 }
@@ -25,8 +26,8 @@ func Load() (*Config, error) {
 // LoadForRoot builds the configuration with project files resolved from root
 // instead of the current working directory. When root is "" or ".", it behaves
 // like Load(). This is the workspace-aware entry point: desktop tabs use it so
-// each project's reasonix.toml + .mcp.json are resolved independently without
-// changing the process cwd, while provider keys stay rooted in Reasonix home.
+// each project's rillagent.toml + .mcp.json are resolved independently without
+// changing the process cwd, while provider keys stay rooted in Rill home.
 //
 // Note: LoadForRoot may rewrite legacy MCP `tier` lines on disk (see
 // mergeRuntimeTOMLFile). Callers that must not mutate config files should use
@@ -52,9 +53,9 @@ func loadForRoot(root string, migrateOnDisk bool) (*Config, error) {
 	cfg.setExpansionEnv(expansionEnv)
 	cfg.CredentialsStore = credentialsStoreMode()
 
-	projectTOML := "reasonix.toml"
+	projectTOML := brand.ProjectConfig
 	if root != "." {
-		projectTOML = filepath.Join(root, "reasonix.toml")
+		projectTOML = filepath.Join(root, brand.ProjectConfig)
 	}
 
 	mergeTOML := mergeFile
@@ -81,12 +82,12 @@ func loadForRoot(root string, migrateOnDisk bool) (*Config, error) {
 	}
 	cfg.Agent.MemoryCompiler = globalMemoryCompiler
 	// Secret protection is a user-global security control: a cloned repo's
-	// reasonix.toml must not be able to flip on the workflow-breaking env/path
+	// rillagent.toml must not be able to flip on the workflow-breaking env/path
 	// protections.
 	cfg.Secrets = globalSecrets
 	// TOML decoding replaces [[plugins]] wholesale, so cfg.Plugins now holds
 	// only the last file's. Re-merge by name across all sources (later wins) so a
-	// project reasonix.toml doesn't drop the global config's MCP servers.
+	// project rillagent.toml doesn't drop the global config's MCP servers.
 	// mergeTOMLPlugins only reads files; it does not run on-disk migrations.
 	plugins, err := mergeTOMLPlugins(tomlSources)
 	if err != nil {
@@ -108,7 +109,7 @@ func loadForRoot(root string, migrateOnDisk bool) (*Config, error) {
 
 	// Claude Code's .mcp.json (project root) is read last and merged into
 	// [[plugins]], so a server configured for Claude works here unchanged.
-	// reasonix.toml wins on a name collision (see mergeMCPJSON).
+	// rillagent.toml wins on a name collision (see mergeMCPJSON).
 	mcpFile := mcpJSONFile
 	if root != "." {
 		mcpFile = filepath.Join(root, mcpJSONFile)
@@ -122,13 +123,6 @@ func loadForRoot(root string, migrateOnDisk bool) (*Config, error) {
 	}
 	cfg.mergeMCPJSON(entries)
 
-	// Lowest priority before the one-time v1.9.1 MCP migration: the v0.x
-	// ~/.reasonix/config.json's mcpServers. Once the migration marker exists, the
-	// current config is authoritative even when it is empty; reading the legacy
-	// source again would resurrect servers the user removed from current config.
-	if !mcpGlobalMigrationComplete() {
-		cfg.mergeMCPJSON(loadLegacyMCP(legacyConfigPath()))
-	}
 	_ = mergeInstalledPluginPackages(cfg, root)
 	normalizePluginCommandLines(cfg)
 	normalizeLegacyEffort(cfg)
@@ -157,7 +151,7 @@ func loadForRoot(root string, migrateOnDisk bool) (*Config, error) {
 // runtime extensions and boot from built-in defaults. The environment switch is
 // intentionally process-local; it never rewrites user configuration.
 func SafeModeRequested() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("REASONIX_SAFE_MODE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("RILLAGENT_SAFE_MODE"))) {
 	case "1", "true", "yes", "on":
 		return true
 	default:
@@ -190,7 +184,7 @@ func loadSafeModeForRoot(root string) *Config {
 // LoadRecoveryDefaultsForRoot returns the same built-in-only configuration used
 // by Safe Mode without reading or migrating user/project TOML. Recovery tools use
 // it to reach an explicitly selected built-in provider when configuration is
-// malformed; provider credentials still resolve only from Reasonix's global
+// malformed; provider credentials still resolve only from Rill's global
 // credential store.
 func LoadRecoveryDefaultsForRoot(root string) *Config {
 	return loadSafeModeForRoot(root)
@@ -233,9 +227,9 @@ func userAutoPlanMode() string {
 }
 
 // restoreUnresolvableProjectDefaultModel falls back to the user/global
-// default_model when a project reasonix.toml overrides it with a reference no
+// default_model when a project rillagent.toml overrides it with a reference no
 // configured provider serves (#4218). Pre-v1.11 persistence paths (e.g. the
-// "always allow" writer) full-rendered ./reasonix.toml and pinned the built-in
+// "always allow" writer) full-rendered ./rillagent.toml and pinned the built-in
 // default_model ("deepseek-flash") into it; once the user's [[providers]]
 // replaced the built-in presets, that stale name resolved to nothing and boot
 // hard-failed in every launch from that folder. In-memory only — the project
@@ -584,10 +578,10 @@ func DesktopProviderAccessDeclared(path string) (bool, error) {
 	return declarations.DesktopProviderAccessDeclared, err
 }
 
-// LoadForEdit returns a config to seed the `reasonix setup` wizard when reconfiguring:
+// LoadForEdit returns a config to seed the `rillagent setup` wizard when reconfiguring:
 // the built-in defaults with the file at path (if present) decoded on top, so a
 // reconfigure preserves the user's existing providers and agent settings instead
-// of resetting to defaults. Reasonix's global .env is loaded so api_key_env
+// of resetting to defaults. Rill's global .env is loaded so api_key_env
 // resolution works while the wizard decides which keys are still missing.
 func LoadForEdit(path string) *Config {
 	return loadForEdit(path, true, true)
@@ -749,9 +743,9 @@ func MigrateLegacyAgentStepLimitsForRoot(root string) (bool, error) {
 	if userPath := userConfigLoadPath(); userPath != "" {
 		paths = append(paths, userPath)
 	}
-	projectPath := "reasonix.toml"
+	projectPath := "rillagent.toml"
 	if root != "." {
-		projectPath = filepath.Join(root, "reasonix.toml")
+		projectPath = filepath.Join(root, "rillagent.toml")
 	}
 	paths = append(paths, projectPath)
 
@@ -829,9 +823,9 @@ func MigrateLegacyRedactToolOutputForRoot(root string) (bool, error) {
 	if userPath := userConfigLoadPath(); userPath != "" {
 		paths = append(paths, userPath)
 	}
-	projectPath := "reasonix.toml"
+	projectPath := "rillagent.toml"
 	if root != "." {
-		projectPath = filepath.Join(root, "reasonix.toml")
+		projectPath = filepath.Join(root, "rillagent.toml")
 	}
 	paths = append(paths, projectPath)
 
@@ -1160,7 +1154,7 @@ func normalizeLegacyMimoCustomProviders(c *Config) bool {
 }
 
 // NormalizeLegacyMimoCustomProvidersForRefs appends custom OpenAI-compatible
-// MiMo providers needed by legacy refs that live outside reasonix.toml, such as
+// MiMo providers needed by legacy refs that live outside rillagent.toml, such as
 // restored desktop tab state.
 func NormalizeLegacyMimoCustomProvidersForRefs(c *Config, refs ...string) bool {
 	return normalizeLegacyMimoCustomProvidersForRefs(c, refs...)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,6 +15,24 @@ import (
 
 	"aead.dev/minisign"
 )
+
+func TestCatalogEndpointIsTheOnlyApprovedReasonixRuntimePath(t *testing.T) {
+	u, err := url.Parse(CatalogURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Scheme != "https" || u.Host != "dl.reasonix.io" || u.Path != "/plugins/catalog/v1/index.json" || u.RawQuery != "" || u.Fragment != "" {
+		t.Fatalf("catalog endpoint = %q, want the audited HTTPS MCP catalog path", CatalogURL)
+	}
+	if SignatureURL != CatalogURL+".minisig" {
+		t.Fatalf("signature endpoint = %q, want catalog sidecar", SignatureURL)
+	}
+	for _, forbidden := range []string{"crash.reasonix.io", "/desktop", "/latest", "/telemetry", "/metrics", "/update"} {
+		if strings.Contains(CatalogURL, forbidden) || strings.Contains(SignatureURL, forbidden) {
+			t.Fatalf("MCP catalog reused forbidden reporting/update route %q", forbidden)
+		}
+	}
+}
 
 func signedIndex(t *testing.T, idx Index) ([]byte, []byte, string) {
 	t.Helper()

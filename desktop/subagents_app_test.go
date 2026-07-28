@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -134,8 +135,8 @@ func TestCreateSubagentProfileScopeIsStrictButEmptyRemainsGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("empty scope should preserve the legacy global default: %v", err)
 	}
-	if !strings.Contains(filepath.ToSlash(path), "/.reasonix/skills/") {
-		t.Fatalf("empty scope path = %q, want global Reasonix skills dir", path)
+	if !strings.Contains(filepath.ToSlash(path), "/.rillagent/skills/") {
+		t.Fatalf("empty scope path = %q, want global Rill skills dir", path)
 	}
 	if _, err := a.CreateSubagentProfile(SubagentProfileInput{
 		Name: "bad-scope", Description: "d", SystemPrompt: "body", Scope: "custom",
@@ -227,7 +228,7 @@ func TestUpdateSubagentProfileRefusesNonManualSkill(t *testing.T) {
 	home := os.Getenv("HOME")
 	// A hand-authored subagent skill without invocation: manual — the exact
 	// shape the reviewer flagged: editing it here would silently drop fields.
-	dir := filepath.Join(home, ".reasonix", "skills", "hand-authored")
+	dir := filepath.Join(home, ".rillagent", "skills", "hand-authored")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +250,7 @@ func TestUpdateSubagentProfileRefusesUnmanagedFrontmatter(t *testing.T) {
 	home := os.Getenv("HOME")
 	// invocation: manual but carrying read-only — dropping it on save would
 	// turn a read-only agent writable (boot.go picks the registry from it).
-	dir := filepath.Join(home, ".reasonix", "skills", "manual-readonly")
+	dir := filepath.Join(home, ".rillagent", "skills", "manual-readonly")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +280,7 @@ func TestUpdateSubagentProfileRefusesUnmanagedFrontmatter(t *testing.T) {
 func TestUpdateSubagentProfileRefusesManualInlineSkill(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "manual-inline")
+	dir := filepath.Join(home, ".rillagent", "skills", "manual-inline")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +307,7 @@ func TestUpdateSubagentProfileRefusesManualInlineSkill(t *testing.T) {
 func TestDeleteSubagentProfileRefusesNonProfileSkill(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "hand-skill")
+	dir := filepath.Join(home, ".rillagent", "skills", "hand-skill")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +327,7 @@ func TestDeleteSubagentProfileRefusesNonProfileSkill(t *testing.T) {
 func TestUpdateSubagentProfileRefusesExpandedReferences(t *testing.T) {
 	a := newTestSubagentApp(t)
 	home := os.Getenv("HOME")
-	dir := filepath.Join(home, ".reasonix", "skills", "with-refs")
+	dir := filepath.Join(home, ".rillagent", "skills", "with-refs")
 	if err := os.MkdirAll(filepath.Join(dir, "references"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -548,6 +549,42 @@ api_key_env = "DEEPSEEK_API_KEY"
 	}
 	if _, ok := cfg.Agent.SubagentEfforts["explore"]; ok {
 		t.Fatalf("cleared effort override should be removed, got %+v", cfg.Agent.SubagentEfforts)
+	}
+}
+
+func TestSetSubagentProfileOverridesIsAtomic(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "deepseek/deepseek-v4-flash"
+
+[[providers]]
+name = "deepseek"
+kind = "openai"
+base_url = "https://api.deepseek.com"
+models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+default = "deepseek-v4-flash"
+api_key_env = "DEEPSEEK_API_KEY"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	if err := app.SetSubagentProfileOverrides("explore", "deepseek/deepseek-v4-pro", "max"); err != nil {
+		t.Fatalf("SetSubagentProfileOverrides: %v", err)
+	}
+	before := config.LoadForEdit(config.UserConfigPath())
+	if before.Agent.SubagentModels["explore"] != "deepseek/deepseek-v4-pro" || before.Agent.SubagentEfforts["explore"] != "max" {
+		t.Fatalf("saved overrides = model:%q effort:%q", before.Agent.SubagentModels["explore"], before.Agent.SubagentEfforts["explore"])
+	}
+	if err := app.SetSubagentProfileOverrides("explore", "deepseek/deepseek-v4-flash", "not-an-effort"); err == nil {
+		t.Fatal("SetSubagentProfileOverrides accepted invalid effort")
+	}
+	after := config.LoadForEdit(config.UserConfigPath())
+	if !reflect.DeepEqual(after.Agent.SubagentModels, before.Agent.SubagentModels) || !reflect.DeepEqual(after.Agent.SubagentEfforts, before.Agent.SubagentEfforts) {
+		t.Fatalf("failed override save changed persisted maps: before=%+v/%+v after=%+v/%+v", before.Agent.SubagentModels, before.Agent.SubagentEfforts, after.Agent.SubagentModels, after.Agent.SubagentEfforts)
 	}
 }
 
@@ -777,7 +814,7 @@ func TestSubagentProfileCRUDRefusesWhileControllerBusy(t *testing.T) {
 // instead of racing the first one's cancel handle.
 func TestTrySubagentProfileCancelAbortsRunAndIsSingleFlight(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "RILLAGENT_TEST_KEY", "sk-test")
 
 	requestStarted := make(chan struct{})
 	release := make(chan struct{})
@@ -800,7 +837,7 @@ func TestTrySubagentProfileCancelAbortsRunAndIsSingleFlight(t *testing.T) {
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-t/model-t1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-t", Kind: "openai", BaseURL: srv.URL, Model: "model-t1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-t", Kind: "openai", BaseURL: srv.URL, Model: "model-t1", APIKeyEnv: "RILLAGENT_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)

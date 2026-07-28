@@ -66,7 +66,7 @@ type result struct {
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "e2ebench — Reasonix end-to-end benchmark.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "e2ebench — Rill end-to-end benchmark.\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", flag.CommandLine.Name())
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\nExamples:\n")
@@ -80,7 +80,7 @@ func main() {
 
 	mode := flag.String("mode", "suite", "suite | diff (diff = generate tests for the PR diff and grade with the repo's tests)")
 	suite := flag.String("suite", "benchmarks/e2e", "suite root (contains tasks/<id>/)")
-	bin := flag.String("bin", "reasonix", "path to the reasonix binary")
+	bin := flag.String("bin", "rillagent", "path to the rillagent binary")
 	model := flag.String("model", "", "provider/model name (default: config default)")
 	profileFlag := flag.String("profile", benchmarkProfileBaseline, "prompt profile: baseline | delivery")
 	outMD := flag.String("out", "", "write the markdown report here (default: stdout)")
@@ -298,7 +298,7 @@ func render(results []result) string {
 	if len(results) > 0 && results[0].Profile != "" {
 		profile = results[0].Profile
 	}
-	fmt.Fprintf(&b, "## 🤖 Reasonix e2e benchmark (%s)\n\n", profile)
+	fmt.Fprintf(&b, "## 🤖 Rill e2e benchmark (%s)\n\n", profile)
 	fmt.Fprintf(&b, "**Accuracy:** %d/%d (%s) · **Cache hit:** %s · **Tokens:** %s (prompt %s / completion %s) · **Compactions:** %d · **Cost:** %s%.4f\n\n",
 		passed, ran, pct(passed, ran), pct(hit, hit+miss),
 		comma(pTok+cTok), comma(pTok), comma(cTok), compacts, currencySym(currency), cost)

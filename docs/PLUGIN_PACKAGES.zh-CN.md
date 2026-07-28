@@ -1,11 +1,11 @@
-# Reasonix 插件包
+# Rill 插件包
 
-Reasonix 插件包把 skills、hooks 和 MCP servers 组织成一个可安装单元。
+Rill 插件包把 skills、hooks 和 MCP servers 组织成一个可安装单元。
 
 ## CLI 模式
 
-在终端里使用 `reasonix plugin` 安装和管理插件包。插件包当前按全局范围安装，
-写入 Reasonix home 目录。
+在终端里使用 `rillagent plugin` 安装和管理插件包。插件包当前按全局范围安装，
+写入 Rillagent home 目录。
 
 ### 通过 CLI 安装
 
@@ -15,31 +15,31 @@ Reasonix 插件包把 skills、hooks 和 MCP servers 组织成一个可安装单
   `https://github.com/obra/superpowers`。
 - GitHub 分支或子目录 URL，例如
   `https://github.com/owner/repo/tree/main/path/to/plugin`。
-- 本地目录，目录内需要包含 `reasonix-plugin.json`、
+- 本地目录，目录内需要包含 `rillagent-plugin.json`、
   `.codex-plugin/plugin.json` 或 `.claude-plugin/plugin.json`。
 
 只预览安装计划，不写文件：
 
 ```bash
-reasonix plugin install git:github.com/obra/superpowers --dry-run
+rillagent plugin install git:github.com/obra/superpowers --dry-run
 ```
 
 确认计划后安装：
 
 ```bash
-reasonix plugin install git:github.com/obra/superpowers --yes
+rillagent plugin install git:github.com/obra/superpowers --yes
 ```
 
 指定安装名称，或覆盖已安装的同名插件：
 
 ```bash
-reasonix plugin install git:github.com/obra/superpowers --name superpowers --replace --yes
+rillagent plugin install git:github.com/obra/superpowers --name superpowers --replace --yes
 ```
 
 以开发模式使用本地目录：
 
 ```bash
-reasonix plugin install /path/to/plugin --link --replace --yes
+rillagent plugin install /path/to/plugin --link --replace --yes
 ```
 
 CLI 安装参数：
@@ -49,18 +49,18 @@ CLI 安装参数：
 - `--replace` 允许当前来源替换已安装的同名插件。
 - `--name <name>` 或 `--name=<name>` 覆盖插件 manifest 里的名称，
   作为本次安装名称。
-- `--link` 链接本地插件目录，而不是复制到 Reasonix 的插件存储目录。
+- `--link` 链接本地插件目录，而不是复制到 Rill 的插件存储目录。
   移动或删除该目录会导致这个链接插件失效。
 
-如果运行 `reasonix plugin install <source>` 时既没有 `--dry-run`，
+如果运行 `rillagent plugin install <source>` 时既没有 `--dry-run`，
 也没有 `--yes`，CLI 会拒绝写文件，并提示使用其中一个参数重新运行。
 安装和移除命令会输出结构化 JSON，来源于桌面端同一套 install-source 后端。
 
 插件状态和内容写入：
 
 ```text
-~/.reasonix/plugin-packages.json
-~/.reasonix/plugins/<name>/
+~/.rillagent/plugin-packages.json
+~/.rillagent/plugins/<name>/
 ```
 
 ### 通过 CLI 管理
@@ -68,13 +68,13 @@ CLI 安装参数：
 列出已安装插件：
 
 ```bash
-reasonix plugin list
+rillagent plugin list
 ```
 
 查看某个插件的元数据、根目录、来源以及导出的能力数量：
 
 ```bash
-reasonix plugin show superpowers
+rillagent plugin show superpowers
 ```
 
 如果能读取到能力明细，`show` 也会输出具体清单：
@@ -87,29 +87,29 @@ reasonix plugin show superpowers
 检查 manifest 和 skill roots 是否可读：
 
 ```bash
-reasonix plugin doctor superpowers
+rillagent plugin doctor superpowers
 ```
 
 工作区级能力总览（skills / hooks / MCP 合并 / 包根目录）见
 [能力诊断](./CAPABILITY_DIAGNOSTICS.zh-CN.md)：
 
 ```bash
-reasonix doctor capabilities --json
+rillagent doctor capabilities --json
 # 桌面端：设置 → 诊断
-# Agent：  /reasonix-guide
+# Agent：  /rillagent-guide
 ```
 
 在不卸载的情况下启用或禁用插件：
 
 ```bash
-reasonix plugin disable superpowers
-reasonix plugin enable superpowers
+rillagent plugin disable superpowers
+rillagent plugin enable superpowers
 ```
 
 移除插件：
 
 ```bash
-reasonix plugin remove superpowers --yes
+rillagent plugin remove superpowers --yes
 ```
 
 `remove` 也可以写成 `uninstall`。它需要 `--yes`，
@@ -118,7 +118,7 @@ reasonix plugin remove superpowers --yes
 
 ### 在 CLI 中使用已安装插件
 
-已安装插件不会打开一个独立聊天界面。插件启用后，Reasonix 会把它的能力加载到普通交互会话里：
+已安装插件不会打开一个独立聊天界面。插件启用后，Rill 会把它的能力加载到普通交互会话里：
 
 - 在交互会话里运行 `/plugins` 可以列出已安装插件包。
   运行 `/plugins show <name>` 可以在不离开聊天的情况下查看该插件导出的
@@ -128,9 +128,9 @@ reasonix plugin remove superpowers --yes
 - **Hooks** 会在配置的生命周期事件里自动运行，例如 `SessionStart`、
   `UserPromptSubmit`、`PreToolUse` 或 `PostToolUse`。
 - **MCP servers** 会进入正常 MCP/工具流程。用户只需要描述任务，
-  Reasonix 会在相关时调用插件提供的工具。
+  Rill 会在相关时调用插件提供的工具。
 
-如果是在另一个终端里安装、启用、禁用或更新插件，而当前已有 `reasonix` 会话正在运行，
+如果是在另一个终端里安装、启用、禁用或更新插件，而当前已有 `rillagent` 会话正在运行，
 建议开启新会话，或重新打开 `/skills` 确认当前会话能看到预期技能。
 
 ## 桌面端设置
@@ -190,7 +190,7 @@ reasonix plugin remove superpowers --yes
 
 ## 原生 Manifest
 
-Reasonix 原生插件在根目录声明 `reasonix-plugin.json`：
+Rill 原生插件在根目录声明 `rillagent-plugin.json`：
 
 ```json
 {
@@ -214,15 +214,15 @@ Reasonix 原生插件在根目录声明 `reasonix-plugin.json`：
 }
 ```
 
-相对路径都按插件根目录解析。Reasonix 安装插件时不会执行第三方安装脚本。
+相对路径都按插件根目录解析。Rill 安装插件时不会执行第三方安装脚本。
 
 ## Codex 与 Claude 兼容
 
-Reasonix 也会读取 `.codex-plugin/plugin.json` 和 `.claude-plugin/plugin.json`。
+Rill 也会读取 `.codex-plugin/plugin.json` 和 `.claude-plugin/plugin.json`。
 安装预检会结构化显示“完全兼容 / 部分兼容 / 不兼容”、已映射能力和每个被跳过
 的条目。非原生插件如果没有任何可映射能力，会直接阻止安装，不再留下“安装成功
 但不可用”的记录。“完全兼容”指清单里声明的每个能力都成功解析并映射到了
-Reasonix 的对应实现，并不代表导入 Hook 的每一种运行时决策都被遵守。
+Rill 的对应实现，并不代表导入 Hook 的每一种运行时决策都被遵守。
 `PreToolUse`/`PermissionRequest` 的“拒绝”与 `PermissionRequest` 的“批准”已经
 实现；但 Hook 的 `updatedInput`，以及 `PreToolUse` 的 `ask`/`defer` 决策，是
 脚本在实际运行时通过 stdout 决定的，并非清单里的静态字段，因此安装阶段无法
@@ -233,38 +233,38 @@ Reasonix 的对应实现，并不代表导入 Hook 的每一种运行时决策�
 中的同名插件。对象来源仅接受 GitHub 仓库 URL 加完整 commit SHA；未固定版本的
 外部字符串、npm、`strict: false` 以及其他高级 marketplace 协议在整库安装时会
 跳过，按名称选中时则直接报错。
-对于 Superpowers 和 Claude 风格 skill 包，Reasonix 会映射：
+对于 Superpowers 和 Claude 风格 skill 包，Rill 会映射：
 
-- `skills` 到 Reasonix skill root。Claude 清单若未声明 `skills` 字段，会回退到
+- `skills` 到 Rill skill root。Claude 清单若未声明 `skills` 字段，会回退到
   约定目录 `skills/`（或 `.claude/skills/`），与 Claude 自身的自动发现一致。
   插件 skill 统一以 `/<插件名>:<技能名>` 展示和调用。无歧义的 `/<技能名>`
   仍作为隐藏兼容别名接受输入；项目和用户 skill 保留短名称，多个插件导出的
   同名 skill 则只能通过各自的限定名称独立调用。这一用户侧命名空间不会改变
   模型 skill 索引或 `run_skill` 工具使用的内部短标识。
-- `commands/`（以及 `.claude/commands/`）映射为 Reasonix 自定义斜杠命令：每个
+- `commands/`（以及 `.claude/commands/`）映射为 Rill 自定义斜杠命令：每个
   `<name>.md` 提示词模板统一以 `/<插件名>:<命令名>` 展示和调用，frontmatter 的
   `description` / `argument-hint` 以及 `$ARGUMENTS` / `$1..$N` 替换均生效。
   当短名称没有歧义时，`/<命令名>` 仍作为隐藏兼容别名接受输入，但不会出现在
   补全、帮助、桌面菜单、ACP 命令发现或提供给模型的命令清单中。用户和项目命令
   始终占有自己的短名称；多个插件导出同名命令时不会生成短名称别名。显式自定义
   命令也可以占用限定名称，Desktop 插件详情会报告该冲突。原生
-  `reasonix-plugin.json` 清单也可以通过 `"commands"` 路径列表显式声明。
+  `rillagent-plugin.json` 清单也可以通过 `"commands"` 路径列表显式声明。
 - `agents/*.md` 映射为插件所属、需要手动调用的子代理配置。Claude 模型别名会继承
-  当前 Reasonix 模型；内联 `tools` 列表会转换为 Reasonix 工具名，并支持
+  当前 Rill 模型；内联 `tools` 列表会转换为 Rill 工具名，并支持
   `mcp__*__search` 这类 MCP 通配符。Agent 使用独立的
   `/<插件>:agent:<名称>` 命名空间，因此上游 Agent 与 Skill 同名时不会互相遮蔽。
-- 如果存在 `hooks/session-start-codex`，映射为 Reasonix `SessionStart` hook。
+- 如果存在 `hooks/session-start-codex`，映射为 Rill `SessionStart` hook。
 - 插件根目录的 `CLAUDE.md` 会映射为内置的 `SessionStart` 上下文 hook。
-  Reasonix 会直接读取该文件，不通过 shell 命令。
+  Rill 会直接读取该文件，不通过 shell 命令。
 - `.claude/settings.json` 和 `hooks/hooks.json` 里的 command hooks 会按同名事件映射。
   `matcher`、`args`、`async`、`env` 和 timeout 均会保留。`matcher` 以及 Hook 脚本看到的
-  `tool_name` 会在 Reasonix 与 Claude 的工具名之间互译（`bash` ↔ `Bash`、
-  `write_file` ↔ `Write` 等），因此 `"Bash"` 这类 matcher 能正确触发；Reasonix 里所有会
+  `tool_name` 会在 Rill 与 Claude 的工具名之间互译（`bash` ↔ `Bash`、
+  `write_file` ↔ `Write` 等），因此 `"Bash"` 这类 matcher 能正确触发；Rill 里所有会
   启动子代理的工具（`task`、`read_only_task`、`parallel_tasks`，以及专用的
   `explore`/`research`/`review`/`security_review` 包装工具）都会映射到 Claude 唯一的
   `Agent` 工具，matcher 里旧名 `Task` 依然可用。`tool_input` 里字段名不同的键也会改名——
   每个映射后的 `Agent` 载荷都会包含 Claude 必填的 `prompt` 和 `description`；若
-  Reasonix 调用省略了可选描述，会补一个稳定的操作标签。
+  Rill 调用省略了可选描述，会补一个稳定的操作标签。
   `Read`/`Write`/`Edit`/`MultiEdit` 的 `path` 改成 `file_path`，`NotebookEdit` 的
   `path` 改成 `notebook_path`，`Skill` 的 `name`/`arguments` 改成 `skill`/`args`，
   当前 `TaskOutput`/`TaskStop` 的 `job_id` 改成 `task_id`，专用子代理包装
@@ -276,15 +276,15 @@ Reasonix 的对应实现，并不代表导入 Hook 的每一种运行时决策�
   映射为 `TaskOutput`，单任务等待时包含 `task_id`，无限等待时省略可选的
   `timeout`，而不是谎报 0 毫秒预算。`AskUserQuestion` 会补省略的
   `multiSelect:false` 和空选项描述，`TodoWrite` 会用任务内容补省略的 `activeForm`；
-  `NotebookEdit` 则会从 Reasonix 接受的别名补 `new_source`，删除或空单元格操作补空串。
+  `NotebookEdit` 则会从 Rill 接受的别名补 `new_source`，删除或空单元格操作补空串。
   相对的 `file_path`/`notebook_path` 会按载荷 `cwd` 解析为绝对路径，
   与 Claude 文件工具契约一致，前缀匹配的防护 Hook 检查的就是工具实际访问的路径。
   `Bash` 的 `tool_response` 按 Claude 的 `{stdout, stderr, interrupted}` 形态下发
-  （Reasonix 的合并输出放在 `stdout`，失败错误文本作为 `stderr`），官方
+  （Rill 的合并输出放在 `stdout`，失败错误文本作为 `stderr`），官方
   security-guidance 插件的 commit/push 检查读取的正是这些字段；其他工具的结果仍按
   原样透传。导入 Hook 的
   stdin 使用 Claude 兼容的 snake_case 载荷（包括 `hook_event_name`）。宿主会在启动
-  进程前展开 `${CLAUDE_PLUGIN_ROOT}` 和 `${REASONIX_PLUGIN_ROOT}`，也兼容不带花括号的
+  进程前展开 `${CLAUDE_PLUGIN_ROOT}` 和 `${RILLAGENT_PLUGIN_ROOT}`，也兼容不带花括号的
   `$NAME` 与 Windows `%NAME%` 写法，因此插件相对路径不再依赖目标 shell 的环境变量
   语法。Windows 上显式声明的裸 `sh -c`/`bash -c` hook 会复用 Git for Windows Bash
   探测，即使 Bash 不在 `cmd.exe` 的 `PATH` 中也能执行；带目录的显式解释器路径保持
@@ -297,25 +297,25 @@ Reasonix 的对应实现，并不代表导入 Hook 的每一种运行时决策�
   （拒绝或自动批准，而不只是发通知），通过退出码 2 或
   `hookSpecificOutput.decision.behavior` 实现，与 Claude 官方语义保持一致。
   `updatedInput` 暂未应用到实际工具调用参数；Hook 的 `if` 条件和 `asyncRewake`
-  字段也不会被求值。声明其中之一、声明 `Stop`/`SubagentStop` hook（Reasonix 中
+  字段也不会被求值。声明其中之一、声明 `Stop`/`SubagentStop` hook（Rill 中
   不能阻止本轮结束），或 matcher 覆盖三种无法无损表达的输入时，插件都会报告
-  部分兼容并附具体警告：`WebFetch.prompt`、Reasonix 以 `cell_number` 调用时的
-  `NotebookEdit.cell_id`，以及 Reasonix `wait` 同时覆盖多个/全部任务时的
+  部分兼容并附具体警告：`WebFetch.prompt`、Rill 以 `cell_number` 调用时的
+  `NotebookEdit.cell_id`，以及 Rill `wait` 同时覆盖多个/全部任务时的
   `TaskOutput.task_id`。每类结构性缺口在每个 hooks 文件里只报告一次，
   通配 matcher 的插件每类缺口只会看到一条警告，而不是每个 hook 一条。
 - 插件根目录 `.mcp.json` 会映射为已安装 MCP。Claude 的 `local` 会转换为 stdio；
   中文等显示名称会生成稳定内部 ID；重复声明会去重。导入服务器默认
   `auto_start=false`，由用户按需连接，避免启动时改变提供给模型的工具 schema。
 
-不支持的 Claude hook item type 会跳过并产生 warning。Reasonix 不会执行第三方安装脚本。
+不支持的 Claude hook item type 会跳过并产生 warning。Rill 不会执行第三方安装脚本。
 
 插件 hook 会收到这些环境变量：
 
-- `REASONIX_PLUGIN_ROOT`
-- `REASONIX_PLUGIN_NAME`
-- `REASONIX_PLUGIN_VERSION`
-- `REASONIX_HOME`
-- `REASONIX_WORKSPACE_ROOT`
+- `RILLAGENT_PLUGIN_ROOT`
+- `RILLAGENT_PLUGIN_NAME`
+- `RILLAGENT_PLUGIN_VERSION`
+- `RILLAGENT_HOME`
+- `RILLAGENT_WORKSPACE_ROOT`
 - `CLAUDE_PROJECT_DIR`
 - `CLAUDE_PLUGIN_ROOT`
 

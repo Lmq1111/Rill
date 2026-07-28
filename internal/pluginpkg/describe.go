@@ -9,8 +9,8 @@ import (
 
 // InstalledNames returns installed plugin package names sorted for completion
 // menus and lightweight management views.
-func InstalledNames(reasonixHome string) ([]string, error) {
-	st, err := LoadState(reasonixHome)
+func InstalledNames(rillHome string) ([]string, error) {
+	st, err := LoadState(rillHome)
 	if err != nil {
 		return nil, err
 	}
@@ -23,13 +23,13 @@ func InstalledNames(reasonixHome string) ([]string, error) {
 }
 
 // InstalledListText returns a compact session-facing view of installed plugins.
-func InstalledListText(reasonixHome string) (string, error) {
-	st, err := LoadState(reasonixHome)
+func InstalledListText(rillHome string) (string, error) {
+	st, err := LoadState(rillHome)
 	if err != nil {
 		return "", err
 	}
 	if len(st.Plugins) == 0 {
-		return "plugins: none installed\ninstall: reasonix plugin install <source> --yes, or use Settings -> Plugins", nil
+		return "plugins: none installed\ninstall: rillagent plugin install <source> --yes, or use Settings -> Plugins", nil
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "plugins (%d):\n", len(st.Plugins))
@@ -39,7 +39,7 @@ func InstalledListText(reasonixHome string) (string, error) {
 			state = "enabled"
 		}
 		summary := p.Description
-		counts := pluginCapabilityText(reasonixHome, p)
+		counts := pluginCapabilityText(rillHome, p)
 		if summary != "" && counts != "" {
 			summary = counts + " - " + oneLine(summary)
 		} else if counts != "" {
@@ -58,15 +58,15 @@ func InstalledListText(reasonixHome string) (string, error) {
 }
 
 // InstalledShowText returns the usage-oriented details for one installed plugin.
-func InstalledShowText(reasonixHome, name string) (string, error) {
-	p, ok, err := FindInstalled(reasonixHome, name)
+func InstalledShowText(rillHome, name string) (string, error) {
+	p, ok, err := FindInstalled(rillHome, name)
 	if err != nil {
 		return "", err
 	}
 	if !ok {
 		return fmt.Sprintf("plugin %q is not installed", name), nil
 	}
-	root := ResolveRoot(reasonixHome, p.Root)
+	root := ResolveRoot(rillHome, p.Root)
 	pkg, warnings, err := ParseDir(root)
 	if err != nil {
 		return "", err
@@ -95,8 +95,8 @@ func InstalledShowText(reasonixHome, name string) (string, error) {
 	return strings.TrimRight(b.String(), "\n"), nil
 }
 
-func FindInstalled(reasonixHome, name string) (InstalledPlugin, bool, error) {
-	st, err := LoadState(reasonixHome)
+func FindInstalled(rillHome, name string) (InstalledPlugin, bool, error) {
+	st, err := LoadState(rillHome)
 	if err != nil {
 		return InstalledPlugin{}, false, err
 	}
@@ -108,8 +108,8 @@ func FindInstalled(reasonixHome, name string) (InstalledPlugin, bool, error) {
 	return InstalledPlugin{}, false, nil
 }
 
-func pluginCapabilityText(reasonixHome string, p InstalledPlugin) string {
-	root := ResolveRoot(reasonixHome, p.Root)
+func pluginCapabilityText(rillHome string, p InstalledPlugin) string {
+	root := ResolveRoot(rillHome, p.Root)
 	pkg, _, err := ParseDir(root)
 	if err != nil {
 		return "invalid: " + err.Error()

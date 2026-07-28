@@ -34,14 +34,16 @@ func TestDefaultDesktopAppearanceAutoGraphite(t *testing.T) {
 	}
 }
 
-func TestDefaultDesktopMetricsOn(t *testing.T) {
+func TestDefaultDesktopUpstreamReportingOff(t *testing.T) {
 	cfg := Default()
-	if !cfg.DesktopMetrics() {
-		t.Fatal("default desktop metrics = false, want true")
+	if cfg.DesktopCheckUpdates() || cfg.DesktopTelemetry() || cfg.DesktopMetrics() {
+		t.Fatalf("default upstream features = check:%v telemetry:%v metrics:%v, want all false", cfg.DesktopCheckUpdates(), cfg.DesktopTelemetry(), cfg.DesktopMetrics())
 	}
-	disabled := false
-	cfg.Desktop.Metrics = &disabled
-	if cfg.DesktopMetrics() {
-		t.Fatal("desktop metrics explicit false = true, want false")
+	enabled := true
+	cfg.Desktop.CheckUpdates = &enabled
+	cfg.Desktop.Telemetry = &enabled
+	cfg.Desktop.Metrics = &enabled
+	if cfg.DesktopCheckUpdates() || cfg.DesktopTelemetry() || cfg.DesktopMetrics() {
+		t.Fatal("legacy explicit true values must not re-enable upstream features")
 	}
 }

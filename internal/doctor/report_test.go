@@ -33,7 +33,7 @@ func TestRedactHome(t *testing.T) {
 }
 
 func TestCollectReportRedactsSecrets(t *testing.T) {
-	t.Setenv("REASONIX_TEST_SECRET", "sk-live-secret")
+	t.Setenv("RILLAGENT_TEST_SECRET", "sk-live-secret")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "custom"
@@ -42,7 +42,7 @@ func TestCollectReportRedactsSecrets(t *testing.T) {
 		Kind:      "openai",
 		BaseURL:   "https://api.example.com/v1?token=secret-query",
 		Model:     "model-a",
-		APIKeyEnv: "REASONIX_TEST_SECRET",
+		APIKeyEnv: "RILLAGENT_TEST_SECRET",
 	}}
 	cfg.Plugins = []config.PluginEntry{{
 		Name:    "remote",
@@ -80,7 +80,7 @@ func TestCollectReportRedactsSecrets(t *testing.T) {
 }
 
 func TestCollectReportDoesNotRequireAPIKey(t *testing.T) {
-	t.Setenv("REASONIX_HOME", filepath.Join(t.TempDir(), "reasonix"))
+	t.Setenv("RILLAGENT_HOME", filepath.Join(t.TempDir(), "rillagent"))
 	t.Setenv("DEEPSEEK_API_KEY", "")
 
 	cfg := config.Default()
@@ -96,7 +96,7 @@ func TestCollectReportDoesNotRequireAPIKey(t *testing.T) {
 	if report.Providers[0].KeyPresent {
 		t.Fatal("provider key should be reported missing when env is empty")
 	}
-	if !strings.Contains(text, "reasonix 1.2.3 doctor") {
+	if !strings.Contains(text, "rillagent 1.2.3 doctor") {
 		t.Fatalf("text report missing header:\n%s", text)
 	}
 	if !strings.Contains(text, "missing") {
@@ -105,7 +105,7 @@ func TestCollectReportDoesNotRequireAPIKey(t *testing.T) {
 }
 
 func TestRenderTextSurfacesWarningsUpTop(t *testing.T) {
-	text := RenderText(Report{Warnings: []string{"config reasonix.toml: parse boom"}})
+	text := RenderText(Report{Warnings: []string{"config rillagent.toml: parse boom"}})
 	w := strings.Index(text, "parse boom")
 	if w < 0 {
 		t.Fatalf("warning missing from report:\n%s", text)
@@ -135,7 +135,7 @@ func TestRenderTextFlagsUnavailableSandboxAsFailClosed(t *testing.T) {
 // resolves to off (Windows), doctor must say so in both the warnings list and
 // the sandbox bash line instead of silently reporting "off".
 func TestCollectFlagsIgnoredEnforceConfig(t *testing.T) {
-	t.Setenv("REASONIX_HOME", filepath.Join(t.TempDir(), "reasonix"))
+	t.Setenv("RILLAGENT_HOME", filepath.Join(t.TempDir(), "rillagent"))
 
 	cfg := config.Default()
 	cfg.Sandbox.Bash = "enforce"

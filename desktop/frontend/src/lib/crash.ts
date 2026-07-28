@@ -169,7 +169,7 @@ async function collectLongTaskFrames(
   }
 }
 
-const PERF_REPORTED_STORAGE_KEY = "reasonix:perf-reported";
+const PERF_REPORTED_STORAGE_KEY = "rillagent:perf-reported";
 
 // Idempotent per pressure label: once a category is reported (persisted per build) or
 // dismissed (session only), stop re-surfacing it so a steady slowdown can't spam prompts.

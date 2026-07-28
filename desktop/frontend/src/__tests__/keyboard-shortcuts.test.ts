@@ -3,7 +3,9 @@
 import { JSDOM } from "jsdom";
 
 import {
+  decodeDesktopShortcuts,
   defaultShortcutCombo,
+  encodeDesktopShortcuts,
   formatShortcutCombo,
   formatShortcutComboParts,
   isCloseTabShortcut,
@@ -81,6 +83,21 @@ eq(matchesShortcut(event("l", { metaKey: true }), "selection.addToChat", "darwin
 eq(matchesShortcut(event("l", { ctrlKey: true }), "selection.addToChat", "windows"), true, "Ctrl+L adds the selection to chat on Windows");
 eq(matchesShortcut(event("l", { ctrlKey: true, metaKey: true }), "selection.addToChat", "darwin"), false, "extra modifiers do not trigger the selection shortcut");
 eq(shortcutConflict("app.newSession", { key: "l", ctrl: true }, "linux")?.action, "selection.addToChat", "rebinding another action onto Ctrl+L conflicts with the selection shortcut");
+{
+  const encoded = encodeDesktopShortcuts({
+    "app.newSession": { key: "N", meta: true, shift: true },
+    "commandPalette.open": { key: "p", ctrl: true },
+  });
+  eq(encoded["app.newSession"], JSON.stringify({ key: "n", ctrl: false, meta: true, alt: false, shift: true }), "encodes normalized shortcuts for backend persistence");
+  const decoded = decodeDesktopShortcuts({
+    ...encoded,
+    "unknown.action": JSON.stringify({ key: "x", meta: true }),
+    "settings.open": "not-json",
+  });
+  eq(formatShortcutCombo(decoded["app.newSession"]!, "darwin"), "⌘⇧N", "decodes persisted shortcuts after restart");
+  eq(Object.prototype.hasOwnProperty.call(decoded, "unknown.action"), false, "ignores unknown persisted shortcut actions");
+  eq(Object.prototype.hasOwnProperty.call(decoded, "settings.open"), false, "ignores malformed persisted shortcut payloads");
+}
 eq(topicShortcutIndexFromEvent(event("1", { metaKey: true }), "darwin"), 0, "Cmd+1 maps to the first topic shortcut on macOS");
 eq(topicShortcutIndexFromEvent(event("1", { ctrlKey: true }), "darwin"), null, "Ctrl+1 is not a topic shortcut on macOS");
 eq(topicShortcutIndexFromEvent(event("9", { ctrlKey: true }), "windows"), 8, "Ctrl+9 maps to the ninth topic shortcut on Windows");

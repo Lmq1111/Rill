@@ -12,7 +12,7 @@ import (
 
 func TestInspectInvalidProjectConfigIsReadOnlyByDefault(t *testing.T) {
 	root := t.TempDir()
-	path := filepath.Join(root, "reasonix.toml")
+	path := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(path, []byte("[broken\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestInspectInvalidProjectConfigIsReadOnlyByDefault(t *testing.T) {
 
 func TestInspectCanQuarantineInvalidProjectConfig(t *testing.T) {
 	root := t.TempDir()
-	path := filepath.Join(root, "reasonix.toml")
+	path := filepath.Join(root, "rillagent.toml")
 	if err := os.WriteFile(path, []byte("[broken\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -41,14 +41,14 @@ func TestInspectCanQuarantineInvalidProjectConfig(t *testing.T) {
 	if report.Checks[1].Exists || !report.Checks[1].Valid {
 		t.Fatalf("project check after repair = %+v", report.Checks[1])
 	}
-	if matches, _ := filepath.Glob(path + ".reasonix-quarantine-*"); len(matches) != 1 {
+	if matches, _ := filepath.Glob(path + ".rillagent-quarantine-*"); len(matches) != 1 {
 		t.Fatalf("quarantine matches = %v", matches)
 	}
 }
 
 func TestRepairRestoresLastKnownGoodGlobalConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	path := filepath.Join(home, "config.toml")
 	original := []byte("default_model = \"deepseek-flash\"\n")
 	if err := os.WriteFile(path, original, 0o600); err != nil {
@@ -78,7 +78,7 @@ func TestRepairRestoresLastKnownGoodGlobalConfig(t *testing.T) {
 
 func TestConfigSnapshotsRotateAndVerifyHash(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	path := filepath.Join(home, "config.toml")
 	for i := 0; i < configSnapshotRetention+2; i++ {
 		content := []byte("default_model = \"model-" + string(rune('a'+i)) + "\"\n")
@@ -106,7 +106,7 @@ func TestConfigSnapshotsRotateAndVerifyHash(t *testing.T) {
 
 func TestUndoRepairRestoresQuarantinedConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	path := filepath.Join(home, "config.toml")
 	bad := []byte("[broken\n")
 	if err := os.WriteFile(path, bad, 0o600); err != nil {
@@ -129,7 +129,7 @@ func TestUndoRepairRestoresQuarantinedConfig(t *testing.T) {
 
 func TestConfigRepairCommitsWhenAuditLogFails(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	path := config.UserConfigPath()
 	bad := []byte("[broken\n")
 	if err := os.WriteFile(path, bad, 0o600); err != nil {
@@ -152,7 +152,7 @@ func TestConfigRepairCommitsWhenAuditLogFails(t *testing.T) {
 
 func TestUndoRejectsTamperedRepairTarget(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	previous := filepath.Join(home, "unrelated.previous")
 	if err := os.WriteFile(previous, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
@@ -170,8 +170,8 @@ func TestUndoRejectsTamperedRepairTarget(t *testing.T) {
 func TestSnapshotUndoAcrossSeparateStateHome(t *testing.T) {
 	home := t.TempDir()
 	stateHome := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	t.Setenv("REASONIX_STATE_HOME", stateHome)
+	t.Setenv("RILLAGENT_HOME", home)
+	t.Setenv("RILLAGENT_STATE_HOME", stateHome)
 	path := filepath.Join(home, "config.toml")
 	if err := os.WriteFile(path, []byte("default_model = \"before\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestSnapshotUndoAcrossSeparateStateHome(t *testing.T) {
 // brings back the original symlink node itself.
 func TestRestoreConfigSnapshotPreservesSymlinkThroughUndo(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dest := config.UserConfigPath()
 	dotfiles := filepath.Join(t.TempDir(), "dotfiles-config.toml")
 	if err := os.WriteFile(dotfiles, []byte("default_model = \"good\"\n"), 0o600); err != nil {
@@ -268,7 +268,7 @@ func TestRestoreConfigSnapshotPreservesSymlinkThroughUndo(t *testing.T) {
 // bare cross-device rename would fail and silently drop config.toml.
 func TestRestoreConfigSnapshotCrossDeviceCleanupKeepsPlainConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dest := config.UserConfigPath()
 	original := []byte("default_model = \"original\"\n")
 	if err := os.WriteFile(dest, original, 0o600); err != nil {
@@ -309,7 +309,7 @@ func TestRestoreConfigSnapshotCrossDeviceCleanupKeepsPlainConfig(t *testing.T) {
 // impossible rename and leaving dest as the half-restored plain file.
 func TestRestoreConfigSnapshotCrossDeviceCleanupRestoresSymlink(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dest := config.UserConfigPath()
 	dotfiles := filepath.Join(t.TempDir(), "dotfiles-config.toml")
 	if err := os.WriteFile(dotfiles, []byte("default_model = \"linked\"\n"), 0o600); err != nil {
@@ -359,7 +359,7 @@ func TestRestoreConfigSnapshotCrossDeviceCleanupRestoresSymlink(t *testing.T) {
 // log stays unwritable.
 func TestRestoreConfigSnapshotCommitsWhenAuditLogFails(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	dest := config.UserConfigPath()
 	original := []byte("default_model = \"original\"\n")
 	if err := os.WriteFile(dest, original, 0o600); err != nil {

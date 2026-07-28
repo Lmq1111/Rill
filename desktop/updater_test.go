@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -46,12 +45,12 @@ func TestNormalizeVersion(t *testing.T) {
 
 func TestUpdateSiblingNamesCoverEveryReplacedEntryPoint(t *testing.T) {
 	windows := strings.Join(updateSiblingNames("windows"), "\x00")
-	for _, want := range []string{"reasonix-guard.exe", "reasonix-launcher.exe", "reasonix-update-helper.exe", "Reasonix.exe"} {
+	for _, want := range []string{"rill-guard.exe", "rill-launcher.exe", "rill-update-helper.exe", "Rill.exe"} {
 		if !strings.Contains(windows, want) {
 			t.Errorf("Windows release unit omits %q: %q", want, windows)
 		}
 	}
-	if got := updateSiblingNames("linux"); len(got) != 1 || got[0] != "reasonix-guard" {
+	if got := updateSiblingNames("linux"); len(got) != 1 || got[0] != "rill-guard" {
 		t.Fatalf("Linux release unit = %q", got)
 	}
 	if got := updateSiblingNames("darwin"); got != nil {
@@ -91,12 +90,12 @@ func TestEvaluate(t *testing.T) {
 	if full.Latest != "v1.1.0" || full.Notes != "notes" || full.AssetSize != 999 {
 		t.Errorf("metadata not carried: %+v", full)
 	}
-	if full.CanSelfUpdate != (runtime.GOOS != "darwin") {
-		t.Errorf("CanSelfUpdate = %v on %s", full.CanSelfUpdate, runtime.GOOS)
+	if full.CanSelfUpdate || !full.ManualOnly || full.DownloadURL != downloadPage() {
+		t.Errorf("evaluate did not preserve manual-only Rill policy: %+v", full)
 	}
 }
 
-func TestChannelSelectsDistinctPointers(t *testing.T) {
+func TestManifestEndpointsRemainDisabledForEveryChannel(t *testing.T) {
 	orig := channel
 	t.Cleanup(func() { channel = orig })
 
@@ -104,46 +103,14 @@ func TestChannelSelectsDistinctPointers(t *testing.T) {
 	stable := manifestEndpoints()
 	channel = "canary"
 	canary := manifestEndpoints()
-
-	for _, u := range stable {
-		if strings.Contains(u, "canary") {
-			t.Errorf("stable endpoint leaks into canary: %q", u)
-		}
-	}
-	if !strings.Contains(stable[0], "/latest/latest.json") {
-		t.Errorf("stable primary = %q, want the latest/ pointer", stable[0])
-	}
-	if stable[1] != releaseGatewayBase+"/stable/latest.json" {
-		t.Errorf("stable fallback = %q, want the release gateway", stable[1])
-	}
-	// GitHub is stable's explicit last resort only (#6005: both first-party
-	// endpoints share one Cloudflare zone). Stable desktop releases own the
-	// repo-wide latest release and carry latest.json directly; no other slot may
-	// lean on repository-wide latest.
-	if len(stable) != 3 || stable[2] != githubManifestFallback {
-		t.Errorf("stable endpoints = %q, want the GitHub compatibility manifest last", stable)
-	}
-	for _, u := range append(stable[:2:2], canary...) {
-		if strings.Contains(u, "/releases/latest") {
-			t.Errorf("manifest endpoint uses GitHub's repository-wide latest release: %q", u)
-		}
-	}
-	for _, u := range canary {
-		if strings.Contains(u, "/latest/") {
-			t.Errorf("canary endpoint hits the stable latest/ pointer: %q", u)
-		}
-	}
-	if !strings.Contains(canary[0], "/canary/latest.json") {
-		t.Errorf("canary primary = %q, want the canary/ pointer", canary[0])
-	}
-	if canary[1] != releaseGatewayBase+"/canary/latest.json" {
-		t.Errorf("canary fallback = %q, want the release gateway", canary[1])
+	if len(stable) != 0 || len(canary) != 0 {
+		t.Fatalf("manifest endpoints re-enabled: stable=%q canary=%q", stable, canary)
 	}
 	if strings.Contains(downloadPage(), "/releases/latest") {
 		t.Errorf("download page should not use GitHub's repository-wide latest release: %q", downloadPage())
 	}
-	if downloadPage() != "https://reasonix.io/?download=desktop#start" {
-		t.Errorf("download page = %q, want the desktop install deep link", downloadPage())
+	if downloadPage() != "https://github.com/Lmq1111/Rill/releases" {
+		t.Errorf("download page = %q, want the Rill releases page", downloadPage())
 	}
 }
 
@@ -169,7 +136,7 @@ func TestSaveCachedUpdateMarksEvaluateDownloaded(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -200,7 +167,7 @@ func TestCachedUpdateRejectsTamperedArtifact(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -227,7 +194,7 @@ func TestCachedUpdateRejectsDifferentChannel(t *testing.T) {
 
 	data := []byte("verified artifact")
 	asset := update.Asset{
-		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Reasonix-linux-amd64.tar.gz",
+		URL:    "https://dl.reasonix.io/desktop-v9.9.9/Rill-linux-amd64.tar.gz",
 		Size:   int64(len(data)),
 		SHA256: sha256Hex(data),
 	}
@@ -257,11 +224,11 @@ func TestCheckSHA256(t *testing.T) {
 }
 
 func TestExtractBinary(t *testing.T) {
-	want := []byte("#!/bin/sh\necho reasonix\n")
+	want := []byte("#!/bin/sh\necho rillagent\n")
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	files := map[string][]byte{"README": []byte("ignore me"), "reasonix-desktop": want}
+	files := map[string][]byte{"README": []byte("ignore me"), "rill-desktop": want}
 	for name, body := range files {
 		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
 			t.Fatal(err)
@@ -273,7 +240,7 @@ func TestExtractBinary(t *testing.T) {
 	tw.Close()
 	gz.Close()
 
-	got, err := extractBinary(buf.Bytes(), "reasonix-desktop")
+	got, err := extractBinary(buf.Bytes(), "rill-desktop")
 	if err != nil {
 		t.Fatalf("extractBinary: %v", err)
 	}

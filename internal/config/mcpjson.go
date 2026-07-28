@@ -14,14 +14,14 @@ import (
 	"reasonix/internal/mcpdiag"
 )
 
-// mcpJSONFile is the project-root file Claude Code calls .mcp.json. Reasonix reads
+// mcpJSONFile is the project-root file Claude Code calls .mcp.json. Rill reads
 // it so an MCP server already configured for Claude works here unchanged — the
 // server specs map field-for-field onto PluginEntry.
 const mcpJSONFile = ".mcp.json"
 
 // mcpServerSpec mirrors one entry of Claude Code's "mcpServers" map. The field
 // names and semantics match PluginEntry: command/args/env describe a local
-// stdio server; type/url/headers describe a remote one. Reasonix also accepts
+// stdio server; type/url/headers describe a remote one. Rill also accepts
 // timeout fields as MCP call policy extensions.
 type mcpServerSpec struct {
 	Type                     string                   `json:"type"`
@@ -92,19 +92,12 @@ func specsToEntries(specs map[string]mcpServerSpec, skip map[string]bool) []Plug
 	return entries
 }
 
-// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.reasonix/config.json.
+// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.rillagent/config.json.
 func legacyConfigPath() string {
-	if IsolatedHomeDir() != "" {
-		return ""
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".reasonix", "config.json")
+	return ""
 }
 
-// loadLegacyMCP reads the v0.x ~/.reasonix/config.json and returns its enabled
+// loadLegacyMCP reads the v0.x ~/.rillagent/config.json and returns its enabled
 // MCP servers as PluginEntry values — both the canonical mcpServers map and the
 // older `mcp` string list (mcpServers wins on a name collision, matching v0.x;
 // servers listed in mcpDisabled are skipped) — so upgrading from v0.x keeps MCP
@@ -217,8 +210,8 @@ func pluginEntryFromMCPSpec(name string, s mcpServerSpec) PluginEntry {
 }
 
 // mergeMCPJSON appends servers from .mcp.json that the TOML config did not
-// already declare. reasonix.toml's [[plugins]] win on a name collision: it is the
-// Reasonix-specific, more explicit of the two, so it overrides the shared,
+// already declare. rillagent.toml's [[plugins]] win on a name collision: it is the
+// Rill-specific, more explicit of the two, so it overrides the shared,
 // checked-in .mcp.json rather than the other way round.
 func (c *Config) mergeMCPJSON(entries []PluginEntry) {
 	have := make(map[string]bool, len(c.Plugins))
@@ -365,7 +358,7 @@ func setMCPJSONToolPolicies(server map[string]json.RawMessage, key string, value
 		}
 	}
 
-	// An omitted Reasonix policy means remove only approval_mode. Other clients
+	// An omitted Rill policy means remove only approval_mode. Other clients
 	// may own additional fields on the same tool entry, so keep those intact.
 	for name, raw := range tools {
 		if _, keep := values[name]; keep {

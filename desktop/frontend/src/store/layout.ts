@@ -18,7 +18,7 @@ import { loadLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from "../lib/l
 
 import { applySetState } from "./setState";
 
-const SIDEBAR_COLLAPSED_KEY = "reasonix.sidebar.collapsed";
+const SIDEBAR_COLLAPSED_KEY = "rillagent.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
 export const SIDEBAR_MIN_WIDTH = 264;
 export const CREATION_SIDEBAR_MIN_WIDTH = 236;
@@ -40,7 +40,7 @@ export const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 // Creation tree mode may render below the classic 280 floor when the viewport squeezes.
 export const CREATION_RIGHT_DOCK_MIN_RENDER_WIDTH = 236;
 export const RIGHT_DOCK_MAX_WIDTH = 860;
-const WORKSPACE_PANEL_OPEN_KEY = "reasonix.workspacePanel.open";
+const WORKSPACE_PANEL_OPEN_KEY = "rillagent.workspacePanel.open";
 // First-launch default when no preference is stored (matches post-#6371 UX).
 const WORKSPACE_PANEL_DEFAULT_OPEN = true;
 

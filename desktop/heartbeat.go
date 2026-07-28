@@ -1,7 +1,7 @@
 // Heartbeat task engine — scheduled AI prompts that create or update topics.
 //
 // Each task is a prompt submitted to a dedicated topic on a schedule.
-// The config file under the Reasonix user state directory is human- and
+// The config file under the Rill user state directory is human- and
 // AI-editable; the engine runs the schedule in a background goroutine and
 // exposes Wails bindings on App for the frontend panel.
 //
@@ -11,9 +11,11 @@
 package main
 
 import (
+	cryptorand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,21 +31,26 @@ import (
 
 // HeartbeatTask defines a single scheduled prompt.
 type HeartbeatTask struct {
-	ID                     string `json:"id"`
-	Title                  string `json:"title"`    // user-visible label
-	Prompt                 string `json:"prompt"`   // the prompt to submit
-	Interval               string `json:"interval"` // e.g. "5m", "1h", "30s"
-	Enabled                bool   `json:"enabled"`
-	Scope                  string `json:"scope,omitempty"`                  // "global" or "project"
-	WorkspaceRoot          string `json:"workspaceRoot,omitempty"`          // project root path when scope="project"
-	TopicID                string `json:"topicId,omitempty"`                // created topic, reused on re-run
-	LastRunAt              int64  `json:"lastRunAt,omitempty"`              // unix millis
-	NewConversationEachRun bool   `json:"newConversationEachRun,omitempty"` // true = create new topic every run
-	CreatedAt              int64  `json:"createdAt,omitempty"`
-	ApprovalMode           string `json:"approvalMode"`              // "ask" | "auto" | "yolo"; empty defaults to "yolo"
-	TimeWindowStart        string `json:"timeWindowStart,omitempty"` // "HH:MM" — interval tasks only run after this time (inclusive)
-	TimeWindowEnd          string `json:"timeWindowEnd,omitempty"`   // "HH:MM" — interval tasks only run before this time (exclusive)
-	NotifyChannels         *bool  `json:"notifyChannels,omitempty"`  // true = push to bot channels; nil/false = skip
+	ID                     string   `json:"id"`
+	Title                  string   `json:"title"`    // user-visible label
+	Prompt                 string   `json:"prompt"`   // the prompt to submit
+	Interval               string   `json:"interval"` // e.g. "5m", "1h", "30s"
+	Enabled                bool     `json:"enabled"`
+	Scope                  string   `json:"scope,omitempty"`                  // "global" or "project"
+	WorkspaceRoot          string   `json:"workspaceRoot,omitempty"`          // project root path when scope="project"
+	TopicID                string   `json:"topicId,omitempty"`                // created topic, reused on re-run
+	LastRunAt              int64    `json:"lastRunAt,omitempty"`              // unix millis
+	NewConversationEachRun bool     `json:"newConversationEachRun,omitempty"` // true = create new topic every run
+	CreatedAt              int64    `json:"createdAt,omitempty"`
+	ApprovalMode           string   `json:"approvalMode"`               // "ask" | "auto" | "yolo"; empty defaults to "yolo"
+	TimeWindowStart        string   `json:"timeWindowStart,omitempty"`  // "HH:MM" — interval tasks only run after this time (inclusive)
+	TimeWindowEnd          string   `json:"timeWindowEnd,omitempty"`    // "HH:MM" — interval tasks only run before this time (exclusive)
+	NotifyChannels         *bool    `json:"notifyChannels,omitempty"`   // true = push to bot channels; nil/false = skip
+	NotifyChannelIDs       []string `json:"notifyChannelIds,omitempty"` // selected bot connection IDs; empty keeps legacy all-channel behavior
+	TimeZone               string   `json:"timeZone,omitempty"`         // IANA name, "UTC", or "Local"
+	BiweeklyStart          string   `json:"biweeklyStart,omitempty"`    // selected start week as YYYY-MM-DD
+	LastRunStatus          string   `json:"lastRunStatus,omitempty"`    // "success" | "failed"
+	LastRunError           string   `json:"lastRunError,omitempty"`
 }
 
 // heartbeatConfig is the on-disk format.
@@ -273,8 +280,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 			meta, err := e.app.CreateTopic(scope, workspaceRoot, title)
 			if err != nil {
 				log.Printf("[heartbeat] CreateTopic(%q): %v", t.Title, err)
-				t.LastRunAt = time.Now().UnixMilli()
-				return t
+				return heartbeatTaskFailed(t, err.Error())
 			}
 			topicID = meta.ID
 			t.TopicID = topicID // always persist the latest topic
@@ -292,8 +298,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 			meta, err := e.app.CreateTopic(scope, workspaceRoot, title)
 			if err != nil {
 				log.Printf("[heartbeat] CreateTopic(%q): %v", t.Title, err)
-				t.LastRunAt = time.Now().UnixMilli()
-				return t
+				return heartbeatTaskFailed(t, err.Error())
 			}
 			topicID = meta.ID
 			t.TopicID = topicID
@@ -311,8 +316,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	}
 	if err != nil {
 		log.Printf("[heartbeat] OpenTab(%q): %v", t.Title, err)
-		t.LastRunAt = time.Now().UnixMilli()
-		return t
+		return heartbeatTaskFailed(t, err.Error())
 	}
 
 	// Wait for the tab's controller to be built (it's started
@@ -327,11 +331,11 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	}
 	if ctrl == nil {
 		log.Printf("[heartbeat] controller not ready for %q, skipping", t.Title)
-		return t // don't update LastRunAt — retry next tick
+		return heartbeatTaskFailed(t, "controller not ready; task will retry")
 	}
 	if heartbeatControllerBusy(ctrl) {
 		log.Printf("[heartbeat] controller busy for %q, skipping", t.Title)
-		return t // don't change approval mode for an existing turn — retry next tick
+		return heartbeatTaskFailed(t, "controller busy; task will retry")
 	}
 	if t.NewConversationEachRun && pendingSubmitted {
 		e.mu.Lock()
@@ -356,14 +360,14 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	// real-time alongside the desktop UI.
 	var botForwarder event.Sink
 	if t.NotifyChannels != nil && *t.NotifyChannels {
-		botForwarder = e.newBotForwarder(tabMeta.ID)
+		botForwarder = e.newBotForwarder(tabMeta.ID, t.NotifyChannelIDs)
 	}
 
 	// Submit as a plain user turn so scheduled prompts cannot invoke desktop
 	// shell or slash-command handlers such as "!cmd", "/clear", or "/compact".
 	if !e.app.submitUserTurnToTabWithSink(tabMeta.ID, t.Prompt, botForwarder) {
 		log.Printf("[heartbeat] submit skipped for %q", t.Title)
-		return t
+		return heartbeatTaskFailed(t, "prompt submission was rejected; task will retry")
 	}
 
 	// After a successful submit, keep the topic as an in-flight guard. The next
@@ -378,9 +382,17 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	}
 
 	t.LastRunAt = time.Now().UnixMilli()
+	t.LastRunStatus = "success"
+	t.LastRunError = ""
 	if t.CreatedAt == 0 {
 		t.CreatedAt = t.LastRunAt
 	}
+	return t
+}
+
+func heartbeatTaskFailed(t HeartbeatTask, message string) HeartbeatTask {
+	t.LastRunStatus = "failed"
+	t.LastRunError = strings.TrimSpace(message)
 	return t
 }
 
@@ -409,11 +421,81 @@ func (e *HeartbeatEngine) ReloadTasks() []HeartbeatTask {
 func (e *HeartbeatEngine) ReplaceTasks(tasks []HeartbeatTask) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.tasks = tasks
-	e.prunePendingTopicsLocked(tasks)
-	err := e.saveTasks(tasks)
+	normalized, err := normalizeHeartbeatTasks(tasks)
+	if err != nil {
+		return err
+	}
+	if err := e.saveTasks(normalized); err != nil {
+		return err
+	}
+	e.tasks = normalized
+	e.prunePendingTopicsLocked(normalized)
 	e.noteConfigModLocked()
-	return err
+	return nil
+}
+
+func normalizeHeartbeatTasks(tasks []HeartbeatTask) ([]HeartbeatTask, error) {
+	normalized := normalizeHeartbeatTaskIDs(tasks)
+	for i := range normalized {
+		task := &normalized[i]
+		task.TimeZone = strings.TrimSpace(task.TimeZone)
+		if task.TimeZone == "" {
+			task.TimeZone = "Local"
+		}
+		if _, err := heartbeatTaskLocation(*task); err != nil {
+			return nil, fmt.Errorf("task %q time zone: %w", task.Title, err)
+		}
+		seenChannels := make(map[string]bool, len(task.NotifyChannelIDs))
+		channelIDs := task.NotifyChannelIDs[:0]
+		for _, id := range task.NotifyChannelIDs {
+			id = strings.TrimSpace(id)
+			if id == "" || seenChannels[id] {
+				continue
+			}
+			seenChannels[id] = true
+			channelIDs = append(channelIDs, id)
+		}
+		task.NotifyChannelIDs = channelIDs
+		if schedule, ok := parseHeartbeatSchedule(task.Interval); ok && schedule.kind == "biweekly" {
+			if strings.TrimSpace(task.BiweeklyStart) == "" {
+				return nil, fmt.Errorf("task %q must select a biweekly start week", task.Title)
+			}
+			if _, err := time.Parse("2006-01-02", task.BiweeklyStart); err != nil {
+				return nil, fmt.Errorf("task %q has invalid biweekly start week", task.Title)
+			}
+		}
+	}
+	return normalized, nil
+}
+
+func normalizeHeartbeatTaskIDs(tasks []HeartbeatTask) []HeartbeatTask {
+	normalized := append([]HeartbeatTask(nil), tasks...)
+	used := make(map[string]bool, len(normalized))
+	for i := range normalized {
+		id := strings.TrimSpace(normalized[i].ID)
+		if id == "" || id == "new" || used[id] {
+			for {
+				id = generateHeartbeatID()
+				if !used[id] {
+					break
+				}
+			}
+		}
+		normalized[i].ID = id
+		used[id] = true
+	}
+	return normalized
+}
+
+func generateHeartbeatID() string {
+	b := make([]byte, 6)
+	if _, err := cryptorand.Read(b); err != nil {
+		n := time.Now().UnixNano()
+		for i := range b {
+			b[i] = byte(n >> (i * 8))
+		}
+	}
+	return hex.EncodeToString(b)
 }
 
 func (e *HeartbeatEngine) prunePendingTopicsLocked(tasks []HeartbeatTask) {
@@ -434,24 +516,34 @@ func (e *HeartbeatEngine) prunePendingTopicsLocked(tasks []HeartbeatTask) {
 }
 
 // TriggerNow runs a single task immediately by ID.
-func (e *HeartbeatEngine) TriggerNow(id string) {
+func (e *HeartbeatEngine) TriggerNow(id string) (HeartbeatTask, error) {
 	e.mu.Lock()
 	tasks := append([]HeartbeatTask(nil), e.tasks...)
 	e.mu.Unlock()
 	updates := make(map[string]HeartbeatTask, 1)
+	var result HeartbeatTask
 	for i, t := range tasks {
 		if t.ID == id {
 			tasks[i] = e.executeTask(t)
 			updates[id] = tasks[i]
+			result = tasks[i]
 			break
 		}
 	}
 	if len(updates) == 0 {
-		return
+		return HeartbeatTask{}, fmt.Errorf("heartbeat task %q not found", id)
 	}
 	e.mu.Lock()
 	e.mergeRunUpdatesLocked(updates)
 	e.mu.Unlock()
+	if result.LastRunStatus != "success" {
+		message := strings.TrimSpace(result.LastRunError)
+		if message == "" {
+			message = "task did not start; it remains available for retry"
+		}
+		return result, fmt.Errorf("%s", message)
+	}
+	return result, nil
 }
 
 func (e *HeartbeatEngine) mergeRunUpdatesLocked(updates map[string]HeartbeatTask) {
@@ -484,6 +576,8 @@ func (e *HeartbeatEngine) mergeRunUpdatesLocked(updates map[string]HeartbeatTask
 		if tasks[i].CreatedAt == 0 && update.CreatedAt != 0 {
 			tasks[i].CreatedAt = update.CreatedAt
 		}
+		tasks[i].LastRunStatus = update.LastRunStatus
+		tasks[i].LastRunError = update.LastRunError
 	}
 	e.tasks = tasks
 	e.prunePendingTopicsLocked(tasks)
@@ -512,14 +606,22 @@ func parseInterval(s string) (time.Duration, error) {
 }
 
 func heartbeatTaskDueAt(t HeartbeatTask, now time.Time) bool {
-	if scheduled, ok := previousHeartbeatScheduleAt(t, now); ok {
+	taskNow := now
+	if strings.TrimSpace(t.TimeZone) != "" {
+		location, err := heartbeatTaskLocation(t)
+		if err != nil {
+			return false
+		}
+		taskNow = now.In(location)
+	}
+	if scheduled, ok := previousHeartbeatScheduleAt(t, taskNow); ok {
 		if t.CreatedAt != 0 && scheduled.Before(time.UnixMilli(t.CreatedAt)) {
 			return false
 		}
 		if t.LastRunAt != 0 && !time.UnixMilli(t.LastRunAt).Before(scheduled) {
 			return false
 		}
-		return !scheduled.After(now)
+		return !scheduled.After(taskNow)
 	}
 
 	d, err := parseInterval(t.Interval)
@@ -537,7 +639,7 @@ func heartbeatTaskDueAt(t HeartbeatTask, now time.Time) bool {
 		}
 		return true
 	}
-	if now.Sub(time.UnixMilli(baseMillis)) < d {
+	if taskNow.Sub(time.UnixMilli(baseMillis)) < d {
 		return false
 	}
 
@@ -545,10 +647,22 @@ func heartbeatTaskDueAt(t HeartbeatTask, now time.Time) bool {
 	// falls within the configured window. If outside, defer until the next
 	// tick that falls within the window.
 	if hasTimeWindow {
-		return heartbeatWithinTimeWindow(t, now)
+		return heartbeatWithinTimeWindow(t, taskNow)
 	}
 
 	return true
+}
+
+func heartbeatTaskLocation(t HeartbeatTask) (*time.Location, error) {
+	zone := strings.TrimSpace(t.TimeZone)
+	if zone == "" || strings.EqualFold(zone, "local") {
+		return time.Local, nil
+	}
+	location, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, fmt.Errorf("unknown location %q", zone)
+	}
+	return location, nil
 }
 
 // heartbeatWithinTimeWindow returns true when now falls within the task's
@@ -720,11 +834,16 @@ func previousHeartbeatYearlyAt(s heartbeatSchedule, now time.Time) time.Time {
 }
 
 func heartbeatScheduleAnchor(t HeartbeatTask, now time.Time) time.Time {
+	if raw := strings.TrimSpace(t.BiweeklyStart); raw != "" {
+		if day, err := time.ParseInLocation("2006-01-02", raw, now.Location()); err == nil {
+			return weekStart(day)
+		}
+	}
 	if t.CreatedAt != 0 {
-		return time.UnixMilli(t.CreatedAt)
+		return time.UnixMilli(t.CreatedAt).In(now.Location())
 	}
 	if t.LastRunAt != 0 {
-		return time.UnixMilli(t.LastRunAt)
+		return time.UnixMilli(t.LastRunAt).In(now.Location())
 	}
 	return now
 }
@@ -813,7 +932,9 @@ func weeksBetween(a, b time.Time) int {
 	if b.Before(a) {
 		a, b = b, a
 	}
-	return int(b.Sub(a).Hours() / 24 / 7)
+	calendarA := time.Date(a.Year(), a.Month(), a.Day(), 0, 0, 0, 0, time.UTC)
+	calendarB := time.Date(b.Year(), b.Month(), b.Day(), 0, 0, 0, 0, time.UTC)
+	return int(calendarB.Sub(calendarA).Hours() / 24 / 7)
 }
 
 // ── Wails bindings on App ───────────────────────────────────────────────────
@@ -843,26 +964,21 @@ func (a *App) HeartbeatSaveTasks(tasks []HeartbeatTask) error {
 }
 
 // HeartbeatTriggerNow immediately executes the task with the given ID.
-func (a *App) HeartbeatTriggerNow(id string) {
+func (a *App) HeartbeatTriggerNow(id string) (HeartbeatTask, error) {
 	if a.heartbeat == nil {
-		return
+		return HeartbeatTask{}, fmt.Errorf("heartbeat engine is not running")
 	}
-	a.heartbeat.TriggerNow(id)
+	return a.heartbeat.TriggerNow(id)
 }
 
 // HeartbeatGenerateID returns a random id for new tasks.
 func (a *App) HeartbeatGenerateID() string {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, 12)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(b)
+	return generateHeartbeatID()
 }
 
 // newBotForwarder builds event forwarding for a heartbeat turn. The caller
 // attaches it only after acquiring the tab's turn-admission gate.
-func (e *HeartbeatEngine) newBotForwarder(tabID string) event.Sink {
+func (e *HeartbeatEngine) newBotForwarder(tabID string, selectedChannelIDs []string) event.Sink {
 	runtime := e.app.botRuntime
 	if runtime == nil || !runtime.Running() {
 		return nil
@@ -872,7 +988,7 @@ func (e *HeartbeatEngine) newBotForwarder(tabID string) event.Sink {
 		log.Printf("[heartbeat] load config for bot forward: %v", err)
 		return nil
 	}
-	targets := runtime.ForwardTargets(cfg)
+	targets := filterHeartbeatForwardTargets(runtime.ForwardTargets(cfg), selectedChannelIDs)
 	if len(targets) == 0 {
 		return nil // no session-mapped channels to forward to
 	}
@@ -882,4 +998,23 @@ func (e *HeartbeatEngine) newBotForwarder(tabID string) event.Sink {
 	}
 	log.Printf("[heartbeat] bot forwarding attached: %d target(s) for tab %s", len(targets), tabID)
 	return newBotEventForwarder(runtime, targets)
+}
+
+func filterHeartbeatForwardTargets(targets []botForwardTarget, selectedChannelIDs []string) []botForwardTarget {
+	if len(selectedChannelIDs) == 0 {
+		return targets
+	}
+	selected := make(map[string]bool, len(selectedChannelIDs))
+	for _, id := range selectedChannelIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			selected[id] = true
+		}
+	}
+	filtered := make([]botForwardTarget, 0, len(targets))
+	for _, target := range targets {
+		if selected[target.ConnID] {
+			filtered = append(filtered, target)
+		}
+	}
+	return filtered
 }

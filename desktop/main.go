@@ -1,4 +1,4 @@
-// Command reasonix-desktop is the Wails shell around the Reasonix kernel: a native
+// Command rill-desktop is the Wails shell around the Rill kernel: a native
 // window hosting a webview frontend, with the Go-side control.Controller bound
 // directly to the UI (no HTTP hop — bindings in, runtime events out). It lives in
 // a nested module (reasonix/desktop) so the CGO/WebKit desktop build never touches
@@ -21,11 +21,13 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
 	// Blank imports wire compile-time built-ins into their registries, exactly as
-	// cmd/reasonix does — boot.Build resolves providers/tools from these registries.
+	// cmd/rillagent does — boot.Build resolves providers/tools from these registries.
+	"reasonix/internal/brand"
 	"reasonix/internal/config"
 	_ "reasonix/internal/provider/anthropic"
 	_ "reasonix/internal/provider/openai"
 	"reasonix/internal/repair"
+	"reasonix/internal/secrets"
 	_ "reasonix/internal/tool/builtin"
 )
 
@@ -37,7 +39,7 @@ import (
 var assets embed.FS
 
 // version is injected at build time via `wails build -ldflags "-X main.version=..."`,
-// mirroring cmd/reasonix/main.go. The auto-updater reads it (App.Version) to compare
+// mirroring cmd/rillagent/main.go. The auto-updater reads it (App.Version) to compare
 // against the published manifest; an un-injected dev build stays "dev" and never
 // prompts to update.
 var version = "dev"
@@ -52,7 +54,7 @@ var channel = "stable"
 var macSelfUpdate = "false"
 
 const (
-	disableWebview2GPUEnv  = "REASONIX_DESKTOP_DISABLE_WEBVIEW2_GPU"
+	disableWebview2GPUEnv  = "RILLAGENT_DESKTOP_DISABLE_WEBVIEW2_GPU"
 	linuxDRIRenderNodeGlob = "/dev/dri/renderD*"
 )
 
@@ -92,6 +94,7 @@ func linuxWebviewGpuPolicy(pattern string) linux.WebviewGpuPolicy {
 }
 
 func main() {
+	secrets.SanitizeProcessEnvironment()
 	launch := parseDesktopLaunchArgs(os.Args[1:])
 	if config.SafeModeRequested() {
 		launch.SafeMode = true
@@ -101,7 +104,7 @@ func main() {
 		launch.SafeMode = true
 	}
 	if launch.SafeMode {
-		_ = os.Setenv("REASONIX_SAFE_MODE", "1")
+		_ = os.Setenv("RILLAGENT_SAFE_MODE", "1")
 	}
 	// Begin runs before the Wails single-instance gate, but it refuses to
 	// overwrite the recorded state while its owner PID is alive, so a duplicate
@@ -133,7 +136,7 @@ func main() {
 	}
 
 	err := wails.Run(&options.App{
-		Title:     "Reasonix",
+		Title:     brand.ProductName,
 		Width:     width,
 		Height:    height,
 		Frameless: goruntime.GOOS == "windows",
@@ -182,7 +185,7 @@ func main() {
 			WebviewGpuIsDisabled: windowsWebview2GPUDisabled(),
 		},
 		Linux: &linux.Options{
-			ProgramName: "Reasonix",
+			ProgramName: brand.ProductName,
 			// WebKitGTK GPU compositing is inconsistent across distros/drivers and
 			// is the one real cross-platform rough edge for a Go+webview stack:
 			// "always" can yield blank or flickering webviews on some setups, so

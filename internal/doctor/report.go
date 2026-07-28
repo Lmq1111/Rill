@@ -122,11 +122,11 @@ func Collect(opts Options) Report {
 	}
 	cwd, _ := os.Getwd()
 	sourcePath := config.SourcePath()
-	// Settings UIs and `reasonix config` edit the user-level config, but a
-	// project reasonix.toml outranks it. Users who toggle the sandbox off in
+	// Settings UIs and `rillagent config` edit the user-level config, but a
+	// project rillagent.toml outranks it. Users who toggle the sandbox off in
 	// Settings while the project file pins [sandbox] read the no-op as "bash is
 	// broken" (#5961, #6046) — surface the layering explicitly.
-	if sourcePath != "" && filepath.Base(sourcePath) == "reasonix.toml" {
+	if sourcePath != "" && filepath.Base(sourcePath) == "rillagent.toml" {
 		if raw, err := fileencoding.ReadFileUTF8(sourcePath); err == nil && tomlHasSandboxTable(raw) {
 			warnings = append(warnings, "project "+redactHome(sourcePath)+" sets [sandbox]; it overrides user-level Settings -> Sandbox for this workspace — edit the project file to change sandbox behavior here")
 		}
@@ -224,7 +224,7 @@ func Collect(opts Options) Report {
 
 func RenderText(r Report) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "reasonix %s doctor\n", r.Version)
+	fmt.Fprintf(&b, "rillagent %s doctor\n", r.Version)
 	fmt.Fprintf(&b, "  system       %s/%s\n", r.OS, r.Arch)
 	if r.CWD != "" {
 		fmt.Fprintf(&b, "  cwd          %s\n", r.CWD)

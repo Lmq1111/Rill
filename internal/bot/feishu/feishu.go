@@ -738,7 +738,7 @@ func (a *adapter) sdkClient() (*lark.Client, error) {
 	opts := []lark.ClientOptionFunc{
 		lark.WithLogLevel(larkcore.LogLevelError),
 		lark.WithReqTimeout(15 * time.Second),
-		lark.WithSource("reasonix"),
+		lark.WithSource("rillagent"),
 	}
 	if feishuDomain(a.cfg.Domain) == "lark" {
 		opts = append(opts, lark.WithOpenBaseUrl(lark.LarkBaseUrl), lark.WithOAuthBaseUrl(lark.OAuthBaseUrlLark))

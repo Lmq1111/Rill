@@ -125,7 +125,7 @@ function localized(value, lang) {
 
 function refsSuffix(refs = []) {
   if (!refs.length) return "";
-  return ` (${refs.map((ref) => `[#${ref}](https://github.com/esengine/DeepSeek-Reasonix/pull/${ref})`).join(", ")})`;
+  return ` (${refs.map((ref) => `[#${ref}](https://github.com/Lmq1111/Rill/pull/${ref})`).join(", ")})`;
 }
 
 function renderItems(items, lang) {
@@ -140,8 +140,8 @@ export function renderGitHubRelease(release, lang = "zh") {
     `> ${localized(release.summary, lang)}`,
     "",
     isZh
-      ? `[English →](https://reasonix.io/changelog/v${release.version}/?lang=en) · [网页版完整更新日志 →](https://reasonix.io/changelog/v${release.version}/)`
-      : `[中文 →](https://reasonix.io/changelog/v${release.version}/?lang=zh) · [Full release notes →](https://reasonix.io/changelog/v${release.version}/?lang=en)`,
+      ? `[Release →](https://github.com/Lmq1111/Rill/releases/tag/rill-v${release.version})`
+      : `[Release →](https://github.com/Lmq1111/Rill/releases/tag/rill-v${release.version})`,
     "",
   ];
 
@@ -156,7 +156,7 @@ export function renderGitHubRelease(release, lang = "zh") {
   lines.push(
     `## ${isZh ? "概览" : "Overview"}`,
     "",
-    `**Reasonix v${release.version} — ${localized(release.title, lang)}**`,
+    `**Rill v${release.version} — ${localized(release.title, lang)}**`,
     "",
     localized(release.summary, lang),
     "",

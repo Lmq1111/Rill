@@ -320,6 +320,42 @@ func TestSwitchWorkspaceReaddsRemovedProject(t *testing.T) {
 	}
 }
 
+func TestCreateWorkspaceCreatesDirectoryAndRegistersDefaultTopic(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	root := filepath.Join(t.TempDir(), "new-project")
+	app := NewApp()
+	installNoopRuntimeEvents(app)
+
+	got, err := app.CreateWorkspace(root)
+	if err != nil {
+		t.Fatalf("CreateWorkspace: %v", err)
+	}
+	if got != normalizeProjectRoot(root) {
+		t.Fatalf("CreateWorkspace root = %q, want %q", got, normalizeProjectRoot(root))
+	}
+	if info, err := os.Stat(root); err != nil || !info.IsDir() {
+		t.Fatalf("created workspace stat = %+v, %v", info, err)
+	}
+	projects := loadProjectsFile().Projects
+	if len(projects) != 1 || projects[0].Root != normalizeProjectRoot(root) || len(projects[0].Topics) != 1 {
+		t.Fatalf("registered projects = %+v", projects)
+	}
+}
+
+func TestCreateWorkspaceRejectsExistingPath(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	root := t.TempDir()
+	app := NewApp()
+	installNoopRuntimeEvents(app)
+
+	if _, err := app.CreateWorkspace(root); err == nil {
+		t.Fatal("CreateWorkspace succeeded for an existing path")
+	}
+	if got := loadProjectsFile().Projects; len(got) != 0 {
+		t.Fatalf("existing path was registered: %+v", got)
+	}
+}
+
 // flipPathASCIICase returns the path with the case of every ASCII letter
 // swapped — on Windows an equivalent spelling of the same folder that
 // normalizeProjectRoot cannot fold away.
@@ -521,7 +557,7 @@ func TestDialogDefaultDirectoryFallsBackFromMissingWorkspace(t *testing.T) {
 
 func TestDialogDefaultDirectoryUsesFileParent(t *testing.T) {
 	dir := t.TempDir()
-	file := filepath.Join(dir, "reasonix.toml")
+	file := filepath.Join(dir, "rillagent.toml")
 	if err := os.WriteFile(file, []byte("default_model = \"x\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -680,7 +716,7 @@ func TestReadFileMediaPreview(t *testing.T) {
 	if image.Body != "" {
 		t.Fatalf("media preview should have empty body, got %q", image.Body)
 	}
-	if !strings.HasPrefix(image.URL, "/__reasonix_workspace_media/") || !strings.HasSuffix(image.URL, "/shot.PNG") {
+	if !strings.HasPrefix(image.URL, "/__rillagent_workspace_media/") || !strings.HasSuffix(image.URL, "/shot.PNG") {
 		t.Fatalf("unexpected media URL: %q", image.URL)
 	}
 
@@ -697,7 +733,7 @@ func TestReadFileMediaPreview(t *testing.T) {
 	if pdf.Body != "" {
 		t.Fatalf("media preview should have empty body, got %q", pdf.Body)
 	}
-	if !strings.HasPrefix(pdf.URL, "/__reasonix_workspace_media/") || !strings.HasSuffix(pdf.URL, "/report.pdf") {
+	if !strings.HasPrefix(pdf.URL, "/__rillagent_workspace_media/") || !strings.HasSuffix(pdf.URL, "/report.pdf") {
 		t.Fatalf("unexpected media URL: %q", pdf.URL)
 	}
 }
@@ -874,7 +910,7 @@ func TestMediaTokenHandlerBadToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/__reasonix_workspace_media/deadbeef/fake.png", nil)
+	req := httptest.NewRequest(http.MethodGet, "/__rillagent_workspace_media/deadbeef/fake.png", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -1279,6 +1315,53 @@ func TestWorkspaceChangesGitStatus(t *testing.T) {
 	}
 	if byPath["untracked.txt"].GitStatus != "??" {
 		t.Fatalf("untracked.txt = %+v", byPath["untracked.txt"])
+	}
+}
+
+func TestWorkspaceFileDiffReadsTrackedAndUntrackedChanges(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	orig, _ := os.Getwd()
+	defer os.Chdir(orig)
+
+	dir := t.TempDir()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "init")
+	runGit(t, "config", "user.email", "test@example.com")
+	runGit(t, "config", "user.name", "Test User")
+	if err := os.WriteFile("tracked.txt", []byte("v1\nkeep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "add", "tracked.txt")
+	runGit(t, "commit", "-m", "init")
+	if err := os.WriteFile("tracked.txt", []byte("v2\nkeep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("untracked.txt", []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tracked := (&App{}).WorkspaceFileDiff("", "tracked.txt")
+	if tracked.Err != "" || !strings.Contains(tracked.Diff, "-v1") || !strings.Contains(tracked.Diff, "+v2") {
+		t.Fatalf("tracked diff = %+v", tracked)
+	}
+	if tracked.Added != 1 || tracked.Removed != 1 {
+		t.Fatalf("tracked counts = +%d -%d, want +1 -1", tracked.Added, tracked.Removed)
+	}
+
+	untracked := (&App{}).WorkspaceFileDiff("", "untracked.txt")
+	if untracked.Err != "" || !strings.Contains(untracked.Diff, "+new") || untracked.Added != 1 {
+		t.Fatalf("untracked diff = %+v", untracked)
+	}
+}
+
+func TestWorkspaceFileDiffRejectsPathOutsideWorkspace(t *testing.T) {
+	got := (&App{}).WorkspaceFileDiff("", "../outside.txt")
+	if got.Err == "" {
+		t.Fatalf("outside path should fail: %+v", got)
 	}
 }
 

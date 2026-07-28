@@ -164,21 +164,21 @@ var managerRegistry struct {
 	items map[string]*Manager
 }
 
-func StatePath(reasonixHome string) string {
-	if strings.TrimSpace(reasonixHome) == "" {
+func StatePath(rillHome string) string {
+	if strings.TrimSpace(rillHome) == "" {
 		return ""
 	}
-	return filepath.Join(reasonixHome, StateFilename)
+	return filepath.Join(rillHome, StateFilename)
 }
 
 func NewManager(path, workspace string) *Manager {
 	return &Manager{path: path, workspaceFingerprint: WorkspaceFingerprint(workspace)}
 }
 
-// ForWorkspace returns the process-shared manager for one Reasonix home and
+// ForWorkspace returns the process-shared manager for one Rill home and
 // workspace. Controllers for sibling tabs therefore share session receipts.
-func ForWorkspace(reasonixHome, workspace string) *Manager {
-	path := StatePath(reasonixHome)
+func ForWorkspace(rillHome, workspace string) *Manager {
+	path := StatePath(rillHome)
 	workspaceFP := WorkspaceFingerprint(workspace)
 	key := path + "\x00" + workspaceFP
 	managerRegistry.Lock()
@@ -1096,7 +1096,7 @@ func digestBytes(body []byte) string {
 
 // acquireFileLock is a portable advisory lock based on exclusive creation.
 // AtomicWriteFile still provides crash-safe replacement; the lock serializes
-// independent Reasonix processes performing read-modify-write cycles.
+// independent Rill processes performing read-modify-write cycles.
 func acquireFileLock(path string, wait time.Duration) (func(), error) {
 	token := make([]byte, 16)
 	if _, err := rand.Read(token); err != nil {

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Rill
+Comment=Rill desktop — a Wails shell around the Go kernel
+Exec=rill-guard launch --detach
+Icon=rill-desktop
+Categories=Development;Utility;
+Terminal=false
+StartupWMClass=rill-desktop

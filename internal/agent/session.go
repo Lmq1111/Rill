@@ -14,10 +14,16 @@ import (
 // the run-loop goroutine stay lock-free (serial with its own writes); cross-
 // goroutine access goes through Snapshot.
 type Session struct {
-	mu             sync.RWMutex
-	Messages       []provider.Message
-	version        uint64
-	rewriteVersion int // bumped each time the log is rewritten (compact/fold)
+	mu       sync.RWMutex
+	Messages []provider.Message
+	// modelContextStart separates immutable conversation history from the
+	// provider-facing context. Zero means the full transcript is active. A
+	// positive value keeps the leading system contract plus messages appended at
+	// or after this boundary; clearing context advances it without deleting or
+	// rewriting Messages.
+	modelContextStart int
+	version           uint64
+	rewriteVersion    int // bumped each time the log is rewritten (compact/fold)
 	// persistedRewriteVersion is the highest rewriteVersion whose transcript
 	// has fully reached disk. It lives on the Session — not on the controller
 	// — so swapping session objects can never orphan or misattribute the
@@ -62,6 +68,56 @@ func (s *Session) Add(m provider.Message) {
 	s.version++
 }
 
+// ModelContextStart reports the durable history boundary used to build model
+// requests. It is an index into Messages; zero means no context was cleared.
+func (s *Session) ModelContextStart() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.modelContextStart
+}
+
+// SetModelContextStart restores a persisted model-context boundary. Invalid
+// values are clamped to the current transcript so a stale sidecar can never
+// cause a slice panic or expose messages beyond the recorded history.
+func (s *Session) SetModelContextStart(start int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if start < 0 {
+		start = 0
+	}
+	if start > len(s.Messages) {
+		start = len(s.Messages)
+	}
+	s.modelContextStart = start
+}
+
+// ModelContextSnapshot returns the provider-facing view while preserving the
+// immutable transcript. A cleared session always retains its leading system
+// messages, then resumes at the durable boundary.
+func (s *Session) ModelContextSnapshot() []provider.Message {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	start := s.modelContextStart
+	if start <= 0 {
+		return append([]provider.Message(nil), s.Messages...)
+	}
+	if start > len(s.Messages) {
+		start = len(s.Messages)
+	}
+	systemEnd := 0
+	for systemEnd < len(s.Messages) && s.Messages[systemEnd].Role == provider.RoleSystem {
+		systemEnd++
+	}
+	tailStart := start
+	if tailStart < systemEnd {
+		tailStart = systemEnd
+	}
+	out := make([]provider.Message, 0, systemEnd+len(s.Messages)-tailStart)
+	out = append(out, s.Messages[:systemEnd]...)
+	out = append(out, s.Messages[tailStart:]...)
+	return out
+}
+
 // UpdateToolCallPreview replaces the preview fields of the newest matching
 // assistant tool call. A dependent writer can only be previewed after an
 // earlier writer in the same model batch succeeds; updating under the session
@@ -104,7 +160,17 @@ func (s *Session) UpdateToolCallPreview(call provider.ToolCall) bool {
 func (s *Session) Replace(msgs []provider.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	activeTail := 0
+	if s.modelContextStart > 0 && s.modelContextStart <= len(s.Messages) {
+		activeTail = len(s.Messages) - s.modelContextStart
+	}
 	s.Messages = msgs
+	if s.modelContextStart > 0 {
+		if activeTail > len(msgs) {
+			activeTail = len(msgs)
+		}
+		s.modelContextStart = len(msgs) - activeTail
+	}
 	s.version++
 }
 
@@ -143,6 +209,7 @@ func (s *Session) CloneWithMessages(msgs []provider.Message) *Session {
 	}
 	return &Session{
 		Messages:                append([]provider.Message(nil), msgs...),
+		modelContextStart:       min(s.modelContextStart, len(msgs)),
 		version:                 version,
 		rewriteVersion:          s.rewriteVersion,
 		persistedRewriteVersion: s.persistedRewriteVersion,
@@ -171,6 +238,7 @@ func (s *Session) CloneWithMessagesIfCompatible(msgs []provider.Message) (*Sessi
 	}
 	return &Session{
 		Messages:                append([]provider.Message(nil), msgs...),
+		modelContextStart:       min(s.modelContextStart, len(msgs)),
 		version:                 version,
 		rewriteVersion:          s.rewriteVersion,
 		persistedRewriteVersion: s.persistedRewriteVersion,

@@ -23,7 +23,7 @@ var validDesktopExternalOpenerID = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63
 // edit.go is the programmatic mutation surface a settings UI drives: change the
 // default model, add/remove a provider, set the planner, edit permission rules,
 // add/remove an MCP server — each validated, then persisted with SaveTo. It is
-// separate from the `reasonix setup` wizard (cli) so a GUI can apply one setting at a
+// separate from the `rillagent setup` wizard (cli) so a GUI can apply one setting at a
 // time without replaying the whole interactive flow. Every mutator works on the
 // in-memory *Config; nothing writes to disk until SaveTo/Save is called, so a UI
 // can stage several changes and commit once. Mutations round-trip through
@@ -193,7 +193,7 @@ func (c *Config) SetProviderEffort(name, effort string) error {
 	return fmt.Errorf("set provider effort: no provider %q", name)
 }
 
-// SetLanguage pins the CLI UI/model language; empty/auto clears the override so runtime detection falls back to REASONIX_LANG / locale.
+// SetLanguage pins the CLI UI/model language; empty/auto clears the override so runtime detection falls back to RILLAGENT_LANG / locale.
 func (c *Config) SetLanguage(lang string) error {
 	switch strings.ToLower(strings.TrimSpace(lang)) {
 	case "", "auto":
@@ -264,6 +264,48 @@ func (c *Config) SetDesktopAppearance(theme, style string) error {
 		return fmt.Errorf("desktop theme style %q: must be graphite|aurora|slate|carbon|nocturne|amber", style)
 	}
 	c.Desktop.ThemeStyle = normalized
+	return nil
+}
+
+// SetDesktopVisualPreferences validates the complete appearance payload before
+// mutating config so the desktop can persist theme, typography and zoom in one
+// authoritative write.
+func (c *Config) SetDesktopVisualPreferences(theme, style, fontFamily, monoFontFamily, textSize string, zoomFactor float64) error {
+	next := *c
+	if err := next.SetDesktopAppearance(theme, style); err != nil {
+		return err
+	}
+	switch strings.ToLower(strings.TrimSpace(fontFamily)) {
+	case "system", "pingfang", "noto", "inter":
+		next.Desktop.FontFamily = strings.ToLower(strings.TrimSpace(fontFamily))
+	default:
+		return fmt.Errorf("desktop font family %q: must be system|pingfang|noto|inter", fontFamily)
+	}
+	switch strings.ToLower(strings.TrimSpace(monoFontFamily)) {
+	case "system", "jetbrains", "fira", "sfmono":
+		next.Desktop.MonoFontFamily = strings.ToLower(strings.TrimSpace(monoFontFamily))
+	default:
+		return fmt.Errorf("desktop mono font family %q: must be system|jetbrains|fira|sfmono", monoFontFamily)
+	}
+	switch strings.ToLower(strings.TrimSpace(textSize)) {
+	case "small", "default", "large", "xlarge", "xxlarge":
+		next.Desktop.TextSize = strings.ToLower(strings.TrimSpace(textSize))
+	default:
+		return fmt.Errorf("desktop text size %q: must be small|default|large|xlarge|xxlarge", textSize)
+	}
+	if zoomFactor < 0.5 || zoomFactor > 2 {
+		return fmt.Errorf("desktop zoom factor %.2f: must be between 0.5 and 2", zoomFactor)
+	}
+	next.Desktop.ZoomFactor = zoomFactor
+	c.Desktop = next.Desktop
+	return nil
+}
+
+func (c *Config) SetDesktopZoomFactor(zoomFactor float64) error {
+	if zoomFactor < 0.5 || zoomFactor > 2 {
+		return fmt.Errorf("desktop zoom factor %.2f: must be between 0.5 and 2", zoomFactor)
+	}
+	c.Desktop.ZoomFactor = zoomFactor
 	return nil
 }
 
@@ -364,10 +406,11 @@ func (c *Config) SetDesktopStatusBarItems(items []string) error {
 	return nil
 }
 
-// SetDesktopCheckUpdates sets whether the desktop app checks for updates on
-// startup. Manual checks remain available in Settings regardless of this value.
+// SetDesktopCheckUpdates retains binding compatibility while keeping background
+// update checks permanently disabled.
 func (c *Config) SetDesktopCheckUpdates(enabled bool) error {
-	c.Desktop.CheckUpdates = &enabled
+	disabled := false
+	c.Desktop.CheckUpdates = &disabled
 	return nil
 }
 
@@ -377,16 +420,28 @@ func (c *Config) SetColdResumePrune(enabled bool) error {
 	return nil
 }
 
-// SetDesktopTelemetry sets whether the desktop sends the anonymous launch ping.
+// SetDesktopTelemetry retains binding compatibility while keeping telemetry off.
 func (c *Config) SetDesktopTelemetry(enabled bool) error {
-	c.Desktop.Telemetry = &enabled
+	disabled := false
+	c.Desktop.Telemetry = &disabled
 	return nil
 }
 
-// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics.
+// SetDesktopMetrics retains binding compatibility while keeping metrics off.
 func (c *Config) SetDesktopMetrics(enabled bool) error {
-	c.Desktop.Metrics = &enabled
+	disabled := false
+	c.Desktop.Metrics = &disabled
 	return nil
+}
+
+// SetDesktopShortcuts persists backend-confirmed desktop shortcut overrides.
+// Payload validation lives at the desktop binding boundary where the JSON
+// representation is known; config retains an opaque defensive copy.
+func (c *Config) SetDesktopShortcuts(shortcuts map[string]string) {
+	c.Desktop.Shortcuts = make(map[string]string, len(shortcuts))
+	for action, combo := range shortcuts {
+		c.Desktop.Shortcuts[action] = combo
+	}
 }
 
 // SetUICloseBehavior is kept for callers compiled against the old edit API.
@@ -805,7 +860,7 @@ func (c *Config) ClearPluginAuthentication(name string) (PluginEntry, bool, erro
 // ClearPluginAuthenticationInSource clears auth material in the file that actually
 // owns the MCP server. Load() merges user/project TOML and project .mcp.json into
 // one Config, so callers must not mutate that merged view and Save() it back: a
-// .mcp.json-only server would otherwise be serialized into reasonix.toml or the
+// .mcp.json-only server would otherwise be serialized into rillagent.toml or the
 // user config. Source priority mirrors Load(): project TOML, user TOML, then the
 // project .mcp.json entry if TOML did not define that server.
 func ClearPluginAuthenticationInSource(name string) (PluginEntry, bool, string, error) {
@@ -834,9 +889,9 @@ func pluginTOMLSourcePath(name string) string {
 }
 
 func pluginTOMLSourcePathForRoot(root, name string) string {
-	projectTOML := "reasonix.toml"
+	projectTOML := "rillagent.toml"
 	if resolved := resolveRoot(root); resolved != "." {
-		projectTOML = filepath.Join(resolved, "reasonix.toml")
+		projectTOML = filepath.Join(resolved, "rillagent.toml")
 	}
 	paths := append([]string{projectTOML}, userConfigCandidatePaths()...)
 	for _, path := range paths {
@@ -1017,7 +1072,7 @@ func planLegacyMCPDisable(path, name string) (configSourceEdit, bool, error) {
 // config source that can contribute it for root. Removing all matching TOML
 // declarations prevents a lower-priority duplicate from reappearing after the
 // higher-priority entry is deleted. Every edit is planned before the first write,
-// and legacy JSON receives a disable marker for older Reasonix versions.
+// and legacy JSON receives a disable marker for older Rill versions.
 func RemovePluginFromSourcesForRoot(root, name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -1046,9 +1101,9 @@ func RemovePluginFromSourcesForRoot(root, name string) (bool, error) {
 	}
 
 	resolvedRoot := resolveRoot(root)
-	projectTOML := "reasonix.toml"
+	projectTOML := "rillagent.toml"
 	if resolvedRoot != "." {
-		projectTOML = filepath.Join(resolvedRoot, "reasonix.toml")
+		projectTOML = filepath.Join(resolvedRoot, "rillagent.toml")
 	}
 	isUserPath := false
 	for _, path := range userPaths {
@@ -1150,10 +1205,10 @@ func validMCPApprovalMode(mode string, allowEmpty bool) bool {
 
 // SaveTo writes the configuration to path as annotated TOML, atomically: it
 // writes a sibling temp file then renames, so a crash mid-write can't leave a
-// half-written reasonix.toml that fails to parse on next load. Parent directories
+// half-written rillagent.toml that fails to parse on next load. Parent directories
 // are created as needed.
 //
-// For project configs (./reasonix.toml) the write is incremental: only sections
+// For project configs (./rillagent.toml) the write is incremental: only sections
 // and fields that differ from built-in defaults are written, so the file never
 // accumulates fields that override the user's global config. User configs still
 // write the full annotated template since they are the user's own settings store.
@@ -1311,7 +1366,7 @@ func SaveMinimalProjectReasoningLanguage(path, lang string) (string, error) {
 	if err := cfg.SetReasoningLanguage(lang); err != nil {
 		return "", err
 	}
-	body := fmt.Sprintf(`# Reasonix project configuration.
+	body := fmt.Sprintf(`# Rill project configuration.
 # Project-local overrides are merged over the user config.
 
 [agent]
@@ -1677,31 +1732,31 @@ func isUserConfigPath(path string) bool {
 	return false
 }
 
-// IsUserConfigPath reports whether path is one of Reasonix's current or legacy
+// IsUserConfigPath reports whether path is one of Rill's current or legacy
 // user-global config locations. Other paths use project-scoped rendering.
 func IsUserConfigPath(path string) bool {
 	return isUserConfigPath(path)
 }
 
 // Save writes the configuration back to the file it was loaded from
-// (SourcePath), or to ./reasonix.toml when none exists yet — the conventional
+// (SourcePath), or to ./rillagent.toml when none exists yet — the conventional
 // project-local target a fresh GUI session would create.
 func (c *Config) Save() error {
 	path := SourcePath()
 	if path == "" {
-		path = "reasonix.toml"
+		path = "rillagent.toml"
 	}
 	return c.SaveTo(path)
 }
 
 // SaveForRoot saves root's project config when it exists, falling back to the
-// user's global config when root has no reasonix.toml. Existing project files
+// user's global config when root has no rillagent.toml. Existing project files
 // are edited from their own TOML only, never from a runtime user+project merge.
 func (c *Config) SaveForRoot(root string) error {
 	root = resolveRoot(root)
-	projectTOML := "reasonix.toml"
+	projectTOML := "rillagent.toml"
 	if root != "." {
-		projectTOML = filepath.Join(root, "reasonix.toml")
+		projectTOML = filepath.Join(root, "rillagent.toml")
 	}
 	if _, err := os.Stat(projectTOML); err == nil {
 		projectCfg := LoadForEditWithoutCredentials(projectTOML)

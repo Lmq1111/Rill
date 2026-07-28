@@ -63,7 +63,7 @@ implemented, already resolved), explain that briefly and end your reply with a
 final line containing exactly [no_changes]. Never emit that marker when any
 work, verification, or follow-up remains.`
 
-const executorHandoffMarker = "Reasonix executor handoff"
+const executorHandoffMarker = "Rill executor handoff"
 
 // plannerFallbackNotice is shown when the planner fails and the turn degrades
 // to executor-only instead of failing outright.
@@ -79,7 +79,7 @@ const plannerAskStartMarker = "<planner-ask>"
 const plannerAskEndMarker = "</planner-ask>"
 
 // PlannerPromptWithContext appends cache-stable standing context, such as loaded
-// REASONIX.md / AGENTS.md memory, to the planner's smaller system prompt.
+// RILL.md / AGENTS.md memory, to the planner's smaller system prompt.
 func PlannerPromptWithContext(context string) string {
 	context = strings.TrimSpace(context)
 	if context == "" {
@@ -249,7 +249,7 @@ func (c *Coordinator) SetSandboxEscapeApprover(g sandbox.EscapeApprover) {
 	}
 }
 
-// SetConfigWriteApprover propagates Reasonix-managed config write approvals to
+// SetConfigWriteApprover propagates Rill-managed config write approvals to
 // both tool-using agents in two-model mode.
 func (c *Coordinator) SetConfigWriteApprover(g tool.ConfigWriteApprover) {
 	if c == nil {

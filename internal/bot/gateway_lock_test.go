@@ -356,7 +356,7 @@ func TestBotGatewayStopCancelsConcurrentStart(t *testing.T) {
 // sessionOptionsForMessage and the project/session index builders read them.
 // Run with -race; a lock-free read is a concurrent map read/write crash.
 func TestBotGatewayToolApprovalModeConcurrentWithConfigReaders(t *testing.T) {
-	t.Setenv("REASONIX_HOME", t.TempDir())
+	t.Setenv("RILLAGENT_HOME", t.TempDir())
 	gw := &BotGateway{
 		cfg: GatewayConfig{
 			WorkspaceRoot: t.TempDir(),

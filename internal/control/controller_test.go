@@ -41,7 +41,7 @@ func isolateControlConfigHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("RILLAGENT_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
@@ -532,25 +532,25 @@ func TestResumeRestoresRunningAutoResearchGoalFromSidecar(t *testing.T) {
 	}
 	path := filepath.Join(root, "session.jsonl")
 	taskID := "investigate-runtime-resume"
-	if err := os.MkdirAll(filepath.Join(root, ".reasonix", "autoresearch", taskID, "state"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".rillagent", "autoresearch", taskID, "state"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".reasonix", "autoresearch", taskID, "logs"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".rillagent", "autoresearch", taskID, "logs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".reasonix", "autoresearch", taskID, "state", "task_spec.json"), []byte(`{"id":"investigate-runtime-resume","goal":"investigate runtime resume","status":"running","created_at":"2026-06-30T00:00:00Z","updated_at":"2026-06-30T00:00:00Z","success_criteria":[{"id":"criterion-1","description":"resume keeps AutoResearch active","required":true}]}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".rillagent", "autoresearch", taskID, "state", "task_spec.json"), []byte(`{"id":"investigate-runtime-resume","goal":"investigate runtime resume","status":"running","created_at":"2026-06-30T00:00:00Z","updated_at":"2026-06-30T00:00:00Z","success_criteria":[{"id":"criterion-1","description":"resume keeps AutoResearch active","required":true}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".reasonix", "autoresearch", taskID, "state", "progress.json"), []byte(`{"task_id":"investigate-runtime-resume","iteration":2,"current_direction":"verify resume","stale_count":1,"pivot_count":0,"updated_at":"2026-06-30T00:00:00Z"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".rillagent", "autoresearch", taskID, "state", "progress.json"), []byte(`{"task_id":"investigate-runtime-resume","iteration":2,"current_direction":"verify resume","stale_count":1,"pivot_count":0,"updated_at":"2026-06-30T00:00:00Z"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".reasonix", "autoresearch", taskID, "state", "directions_tried.json"), []byte(`{"task_id":"investigate-runtime-resume","directions":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".rillagent", "autoresearch", taskID, "state", "directions_tried.json"), []byte(`{"task_id":"investigate-runtime-resume","directions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".reasonix", "autoresearch", taskID, "state", "findings.jsonl"), nil, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".rillagent", "autoresearch", taskID, "state", "findings.jsonl"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".reasonix", "autoresearch", taskID, "logs", "heartbeat.jsonl"), nil, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".rillagent", "autoresearch", taskID, "logs", "heartbeat.jsonl"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(goalStatePath(path), []byte(`{"goal":"investigate runtime resume","status":"running","researchMode":1,"autoResearchTaskID":"investigate-runtime-resume"}`), 0o644); err != nil {
@@ -2102,7 +2102,7 @@ func TestTwoModelPlannerApprovalUsesHostGate(t *testing.T) {
 		t.Fatal("executor did not run after approval")
 	}
 	reqText := requestMessagesText(execProv.requests[0].Messages)
-	if !strings.Contains(reqText, "Reasonix executor handoff") || !strings.Contains(reqText, "Edit main.go") {
+	if !strings.Contains(reqText, "Rill executor handoff") || !strings.Contains(reqText, "Edit main.go") {
 		t.Fatalf("approved executor request missing planner handoff:\n%s", reqText)
 	}
 }
@@ -2271,7 +2271,7 @@ func TestTwoModelShortChoiceReplySkipsPlanner(t *testing.T) {
 	if !strings.Contains(reqText, "1. Subagent-Driven") {
 		t.Fatalf("executor request lost the previous assistant options:\n%s", reqText)
 	}
-	if strings.Contains(reqText, "Reasonix executor handoff") {
+	if strings.Contains(reqText, "Rill executor handoff") {
 		t.Fatalf("short choice reply should not be wrapped as a planner handoff:\n%s", reqText)
 	}
 	if got := lastUserMessage(execProv.requests[0].Messages); got != "1" {
@@ -2465,7 +2465,7 @@ func TestRemoveMCPServerRemovesUnconnectedLazyPlaceholder(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("AppData", filepath.Join(home, "AppData", "Roaming"))
 	t.Chdir(dir)
-	if err := os.WriteFile("reasonix.toml", []byte(`
+	if err := os.WriteFile("rillagent.toml", []byte(`
 [[plugins]]
 name = "mock"
 command = "mock-mcp"
@@ -2509,9 +2509,9 @@ func TestRemoveMCPServerKeepsRuntimeOnlyToolsWhenPersistenceRemovalFails(t *test
 
 func TestRemoveMCPServerRejectsPluginManagedTools(t *testing.T) {
 	home := isolateControlConfigHome(t)
-	reasonixHome := filepath.Join(home, ".reasonix")
-	t.Setenv("REASONIX_HOME", reasonixHome)
-	root := filepath.Join(reasonixHome, "plugins", "superpowers")
+	rillHome := filepath.Join(home, ".rillagent")
+	t.Setenv("RILLAGENT_HOME", rillHome)
+	root := filepath.Join(rillHome, "plugins", "superpowers")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -2524,11 +2524,11 @@ func TestRemoveMCPServerRejectsPluginManagedTools(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{
 		Name:         "superpowers",
 		Root:         "plugins/superpowers",
 		Version:      "1.0.0",
-		ManifestKind: "reasonix",
+		ManifestKind: "rillagent",
 		Enabled:      true,
 	}); err != nil {
 		t.Fatal(err)
@@ -3417,7 +3417,7 @@ func TestApprovalPersistentBashPrefixRememberRule(t *testing.T) {
 		}),
 		OnRemember: func(rule string) RememberResult {
 			remembered = rule
-			return RememberResult{Rule: rule, Path: "reasonix.toml", Saved: true}
+			return RememberResult{Rule: rule, Path: "rillagent.toml", Saved: true}
 		},
 	})
 	go func() {
@@ -3431,7 +3431,7 @@ func TestApprovalPersistentBashPrefixRememberRule(t *testing.T) {
 	if remembered != "Bash(go test:*)" {
 		t.Fatalf("remembered rule = %q, want Bash(go test:*)", remembered)
 	}
-	if len(notices) != 1 || !strings.Contains(notices[0], "Bash(go test:*)") || !strings.Contains(notices[0], "reasonix.toml") {
+	if len(notices) != 1 || !strings.Contains(notices[0], "Bash(go test:*)") || !strings.Contains(notices[0], "rillagent.toml") {
 		t.Fatalf("notices = %v, want saved rule notice", notices)
 	}
 }
@@ -3455,7 +3455,7 @@ func TestPlanModeReadOnlyTrustApprovalPersistsBashCommandTrust(t *testing.T) {
 		}),
 		OnRememberPlanModeReadOnlyCommand: func(prefix string) PlanModeReadOnlyCommandTrustResult {
 			rememberedPrefix = prefix
-			return PlanModeReadOnlyCommandTrustResult{Prefix: prefix, Path: "reasonix.toml", Saved: true}
+			return PlanModeReadOnlyCommandTrustResult{Prefix: prefix, Path: "rillagent.toml", Saved: true}
 		},
 	})
 
@@ -3549,7 +3549,7 @@ func TestPlanModeReadOnlyTrustApprovalUsesChineseCatalog(t *testing.T) {
 	if !strings.Contains(approval.Subject, "在计划模式中信任") || !strings.Contains(approval.Subject, "gh issue view 5867") {
 		t.Fatalf("approval subject = %q, want Chinese plan-mode trust subject", approval.Subject)
 	}
-	if !strings.Contains(approval.Reason, "不在 Reasonix 内置只读集合中") {
+	if !strings.Contains(approval.Reason, "不在 Rill 内置只读集合中") {
 		t.Fatalf("approval reason = %q, want Chinese plan-mode trust reason", approval.Reason)
 	}
 
@@ -4164,7 +4164,7 @@ func TestReloadCommandsFromFilesystem(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	wsRoot := t.TempDir()
-	cmdDir := filepath.Join(wsRoot, ".reasonix", "commands")
+	cmdDir := filepath.Join(wsRoot, ".rillagent", "commands")
 	writeCmdFile(t, cmdDir, "review", "Review code", "Review $1")
 	writeCmdFile(t, cmdDir, "test", "Run tests", "Test $1")
 
@@ -4262,7 +4262,7 @@ func TestReloadCommandsDeleteFile(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	wsRoot := t.TempDir()
-	cmdDir := filepath.Join(wsRoot, ".reasonix", "commands")
+	cmdDir := filepath.Join(wsRoot, ".rillagent", "commands")
 	writeCmdFile(t, cmdDir, "alpha", "Alpha cmd", "Alpha $1")
 	writeCmdFile(t, cmdDir, "beta", "Beta cmd", "Beta $1")
 
@@ -4317,7 +4317,7 @@ func TestReloadCommandsMalformedFile(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	wsRoot := t.TempDir()
-	cmdDir := filepath.Join(wsRoot, ".reasonix", "commands")
+	cmdDir := filepath.Join(wsRoot, ".rillagent", "commands")
 	writeCmdFile(t, cmdDir, "good", "Good cmd", "Good $1")
 
 	// Write a malformed file (no valid frontmatter)
@@ -4359,8 +4359,8 @@ func TestReloadCommandsMalformedFile(t *testing.T) {
 
 // TestReloadCommandsSameNameAcrossDirs verifies that when the same command
 // name exists in multiple convention directories, the later-scanned directory
-// (higher priority) wins. ConventionDirs = [".reasonix", ".agents", ".agent",
-// ".claude"], scanned in reverse, so .reasonix is highest priority.
+// (higher priority) wins. ConventionDirs = [".rillagent", ".agents", ".agent",
+// ".claude"], scanned in reverse, so .rillagent is highest priority.
 func TestReloadCommandsSameNameAcrossDirs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -4374,9 +4374,9 @@ func TestReloadCommandsSameNameAcrossDirs(t *testing.T) {
 	claudeDir := filepath.Join(wsRoot, ".claude", "commands")
 	writeCmdFile(t, claudeDir, "greet", "Claude greet", "Hello from Claude: $1")
 
-	// Higher priority: .reasonix/commands
-	reasonixDir := filepath.Join(wsRoot, ".reasonix", "commands")
-	writeCmdFile(t, reasonixDir, "greet", "Reasonix greet", "Hello from Reasonix: $1")
+	// Higher priority: .rillagent/commands
+	reasonixDir := filepath.Join(wsRoot, ".rillagent", "commands")
+	writeCmdFile(t, reasonixDir, "greet", "Rill greet", "Hello from Rill: $1")
 
 	reg := tool.NewRegistry()
 	c := New(Options{
@@ -4401,13 +4401,13 @@ func TestReloadCommandsSameNameAcrossDirs(t *testing.T) {
 		t.Fatalf("expected exactly 1 'greet' command, got %d", count)
 	}
 
-	// The winning version should be from .reasonix (highest priority)
+	// The winning version should be from .rillagent (highest priority)
 	sent, ok := c.CustomCommand("/greet world")
 	if !ok {
 		t.Fatal("/greet should be found")
 	}
-	if !strings.Contains(sent, "Hello from Reasonix") {
-		t.Errorf("expected .reasonix version to win, got render: %q", sent)
+	if !strings.Contains(sent, "Hello from Rill") {
+		t.Errorf("expected .rillagent version to win, got render: %q", sent)
 	}
 }
 
@@ -4417,10 +4417,10 @@ func TestReloadCommandsUsesCanonicalPluginNameAlongsideProjectShortName(t *testi
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
-	reasonixHome := filepath.Join(home, ".reasonix")
-	t.Setenv("REASONIX_HOME", reasonixHome)
+	rillHome := filepath.Join(home, ".rillagent")
+	t.Setenv("RILLAGENT_HOME", rillHome)
 
-	pluginRoot := filepath.Join(reasonixHome, "plugins", "pwf")
+	pluginRoot := filepath.Join(rillHome, "plugins", "pwf")
 	if err := os.MkdirAll(filepath.Join(pluginRoot, ".claude-plugin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -4429,12 +4429,12 @@ func TestReloadCommandsUsesCanonicalPluginNameAlongsideProjectShortName(t *testi
 	}
 	writeCmdFile(t, filepath.Join(pluginRoot, "commands"), "plan", "Plugin plan", "PLUGIN $1")
 	writeCmdFile(t, filepath.Join(pluginRoot, "commands"), "status", "Plugin status", "STATUS $1")
-	if err := pluginpkg.Upsert(reasonixHome, pluginpkg.InstalledPlugin{Name: "pwf", Root: "plugins/pwf", ManifestKind: "claude", Enabled: true}); err != nil {
+	if err := pluginpkg.Upsert(rillHome, pluginpkg.InstalledPlugin{Name: "pwf", Root: "plugins/pwf", ManifestKind: "claude", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
 
 	workspace := t.TempDir()
-	writeCmdFile(t, filepath.Join(workspace, ".reasonix", "commands"), "plan", "Project plan", "PROJECT $1")
+	writeCmdFile(t, filepath.Join(workspace, ".rillagent", "commands"), "plan", "Project plan", "PROJECT $1")
 	c := New(Options{Sink: &typedNilControllerSink{}, Registry: tool.NewRegistry(), WorkspaceRoot: workspace})
 	if err := c.ReloadCommands(context.Background()); err != nil {
 		t.Fatalf("ReloadCommands: %v", err)
@@ -4479,7 +4479,7 @@ func TestReloadCommandsEmptySet(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	wsRoot := t.TempDir()
-	cmdDir := filepath.Join(wsRoot, ".reasonix", "commands")
+	cmdDir := filepath.Join(wsRoot, ".rillagent", "commands")
 	writeCmdFile(t, cmdDir, "temp", "Temp cmd", "Temp $1")
 
 	sk := skill.Skill{
@@ -4542,7 +4542,7 @@ func TestReloadCommandsDesktopManagementNotice(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	wsRoot := t.TempDir()
-	cmdDir := filepath.Join(wsRoot, ".reasonix", "commands")
+	cmdDir := filepath.Join(wsRoot, ".rillagent", "commands")
 	writeCmdFile(t, cmdDir, "hello", "Greet", "Hello $1")
 	writeCmdFile(t, cmdDir, "review", "Review code", "Review $1")
 

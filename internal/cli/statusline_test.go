@@ -226,7 +226,7 @@ func TestStatuslineKeepsGitAndEffortOutOfPersistentFooter(t *testing.T) {
 		t.Fatalf("status block lines = %d, want 2:\n%s", len(lines), strings.Join(lines, "\n"))
 	}
 	all := strings.Join(lines, "\n")
-	if strings.Contains(all, "effort auto") || strings.Contains(all, "Reasonix@codex/demo") {
+	if strings.Contains(all, "effort auto") || strings.Contains(all, "Rill@codex/demo") {
 		t.Fatalf("compact footer should omit effort and git identity:\n%s", all)
 	}
 	if !strings.Contains(lines[1], "deepseek-v4-flash") {
@@ -303,7 +303,7 @@ func renderStatuslineViewWithGitAndEffort(t *testing.T) string {
 	m.label = "deepseek-v4-flash"
 	m.effortLevel = "auto"
 	m.gitStatus = gitStatus{
-		Repo:      "Reasonix",
+		Repo:      "Rill",
 		Branch:    "codex/demo",
 		Added:     3,
 		Removed:   1,

@@ -30,6 +30,28 @@ func TestDefaultSpecsInvariants(t *testing.T) {
 	}
 }
 
+func TestLSPProcessEnvRejectsRetiredProductOverrides(t *testing.T) {
+	t.Setenv("REASONIX_HOME", "/tmp/inherited-reasonix")
+	t.Setenv("LDAGENT_HOME", "/tmp/inherited-ldagent")
+	env := lspProcessEnv(map[string]string{
+		"REASONIX_HOME":  "/tmp/explicit-reasonix",
+		"LDAGENT_HOME":   "/tmp/explicit-ldagent",
+		"RILLAGENT_HOME": "/tmp/rill",
+		"LSP_MODE":       "readonly",
+	})
+	joined := strings.Join(env, "\n")
+	for _, forbidden := range []string{"REASONIX_", "LDAGENT_", "/tmp/inherited-reasonix", "/tmp/inherited-ldagent", "/tmp/explicit-reasonix", "/tmp/explicit-ldagent"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("retired product environment leaked %q:\n%s", forbidden, joined)
+		}
+	}
+	for _, want := range []string{"RILLAGENT_HOME=/tmp/rill", "LSP_MODE=readonly"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("allowed LSP environment %q was removed:\n%s", want, joined)
+		}
+	}
+}
+
 func TestExtensionRouting(t *testing.T) {
 	m := NewManager(t.TempDir(), map[string]ServerSpec{
 		"elixir": {Command: "no-such-elixir-ls-xyz", LanguageID: "elixir", Extensions: []string{".ex", ".exs"}, InstallHint: "mix archive.install"},

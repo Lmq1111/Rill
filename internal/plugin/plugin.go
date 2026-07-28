@@ -1,4 +1,4 @@
-// Package plugin is Reasonix's MCP client. It connects to external MCP servers and
+// Package plugin is Rill's MCP client. It connects to external MCP servers and
 // adapts their tools to the tool.Tool interface, so the agent treats plugin
 // tools and built-ins uniformly. The wire protocol is JSON-RPC 2.0 in every
 // case; only the transport differs (stdio subprocess, Streamable HTTP, or the
@@ -28,7 +28,7 @@ import (
 	"reasonix/internal/tool"
 )
 
-// protocolVersion is the MCP revision Reasonix advertises during initialize.
+// protocolVersion is the MCP revision Rill advertises during initialize.
 const protocolVersion = "2024-11-05"
 
 // defaultCallTimeout is the MCP JSON-RPC call deadline applied when neither the
@@ -48,7 +48,7 @@ type Spec struct {
 	URL     string
 	Headers map[string]string
 	// DefaultCallTimeout is the global MCP call cap for this server. Zero keeps
-	// Reasonix's built-in defaultCallTimeout.
+	// Rill's built-in defaultCallTimeout.
 	DefaultCallTimeout time.Duration
 	// CallTimeout overrides DefaultCallTimeout for all calls to this server.
 	// Zero falls back to DefaultCallTimeout.
@@ -58,7 +58,7 @@ type Spec struct {
 	// model-visible mcp__server__tool names.
 	ToolTimeouts map[string]time.Duration
 	// Dir, when set, is the working directory of a stdio subprocess. Empty means
-	// inherit reasonix's cwd (the default for user-configured plugins). It exists
+	// inherit rillagent's cwd (the default for user-configured plugins). It exists
 	// for cwd-aware servers like CodeGraph, which detect the project from the
 	// directory they are launched in — they must be pinned to the project root.
 	Dir string
@@ -126,7 +126,7 @@ type Spec struct {
 // transport carries JSON-RPC messages to and from one MCP server. call sends a
 // request and returns its result (correlating by id internally); notify sends a
 // fire-and-forget notification; close releases resources. Server-initiated
-// messages (notifications, requests like roots/list) are ignored — Reasonix is a
+// messages (notifications, requests like roots/list) are ignored — Rill is a
 // tools/prompts/resources consumer, not a sampling/roots provider (see SPEC §9).
 type transport interface {
 	call(ctx context.Context, method string, params any) (json.RawMessage, error)
@@ -234,7 +234,7 @@ type StartPolicy struct {
 
 	// SkipPersistence disables RecordStartup / SaveCachedSchema side effects.
 	// Use for read-only live probes (capability diagnostics) that must not
-	// write MCP stats or schema cache files under Reasonix home.
+	// write MCP stats or schema cache files under Rill home.
 	SkipPersistence bool
 }
 
@@ -1496,7 +1496,7 @@ func (c *Client) initializeSession(ctx context.Context, recordCapabilities bool)
 	res, err := c.call(ctx, "initialize", map[string]any{
 		"protocolVersion": protocolVersion,
 		"capabilities":    map[string]any{},
-		"clientInfo":      map[string]any{"name": "reasonix", "version": "dev"},
+		"clientInfo":      map[string]any{"name": "rillagent", "version": "dev"},
 	})
 	if err != nil {
 		return err

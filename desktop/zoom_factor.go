@@ -24,6 +24,9 @@ func zoomFactorPath() string {
 // value exists (first launch, missing file, corrupt JSON). Callers should fall
 // back to 1.0 (no zoom) in that case.
 func loadZoomFactor() (float64, bool) {
+	if cfg := config.LoadForEditWithoutCredentials(config.UserConfigPath()); cfg != nil && cfg.Desktop.ZoomFactor >= 0.5 && cfg.Desktop.ZoomFactor <= 2 {
+		return cfg.Desktop.ZoomFactor, true
+	}
 	path := zoomFactorPath()
 	data, err := readFileUTF8(path)
 	if err != nil {
@@ -52,21 +55,7 @@ func (a *App) GetDesktopZoomFactor() float64 {
 // SetDesktopZoomFactor persists a zoom factor for the next launch. The value
 // is clamped to [0.5, 2.0] (50% – 200%) for safety.
 func (a *App) SetDesktopZoomFactor(factor float64) error {
-	if factor < 0.5 {
-		factor = 0.5
-	}
-	if factor > 2.0 {
-		factor = 2.0
-	}
-	path := zoomFactorPath()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.Marshal(DesktopZoomFactor{ZoomFactor: factor})
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o644)
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopZoomFactor(factor) })
 }
 
 // RestartApplication saves the zoom and restarts the whole process so the new

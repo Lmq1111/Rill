@@ -19,7 +19,7 @@ import (
 )
 
 var safeTaskID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
-var explicitTaskPath = regexp.MustCompile(`\.reasonix/autoresearch/([A-Za-z0-9][A-Za-z0-9._-]*)/?`)
+var explicitTaskPath = regexp.MustCompile(`\.rillagent/autoresearch/([A-Za-z0-9][A-Za-z0-9._-]*)/?`)
 
 type Store struct {
 	workspaceRoot string
@@ -34,7 +34,7 @@ func NewStore(workspaceRoot string) *Store {
 	}
 	return &Store{
 		workspaceRoot: workspaceRoot,
-		root:          filepath.Join(workspaceRoot, ".reasonix", "autoresearch"),
+		root:          filepath.Join(workspaceRoot, ".rillagent", "autoresearch"),
 		taskLocks:     map[string]*sync.Mutex{},
 	}
 }

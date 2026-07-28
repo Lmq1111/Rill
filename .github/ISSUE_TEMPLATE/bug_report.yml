@@ -1,29 +1,29 @@
 name: Bug report
-description: Report a bug in DeepSeek-Reasonix
+description: Report a bug in Rill
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for filing a bug. Pick which version line you're on below — it gets
-        labeled (`v1`/`v2`) automatically, no maintainer action needed.
+        Thanks for filing a bug. Please include the exact Rill version and a
+        minimal reproduction below.
   - type: dropdown
     id: version-line
     attributes:
       label: Version line
       description: Which line are you running?
       options:
-        - "v2 — Go rewrite (1.x), main-v2 (active development)"
-        - "v1 — Legacy TypeScript (0.x), maintenance only"
+        - "Rill v0.1.x"
+        - "Development build"
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: Exact version
-      description: Output of `reasonix --version`.
-      placeholder: e.g. 1.0.0
+      description: Output of `rillagent --version`.
+      placeholder: e.g. 0.1.0
     validations:
       required: true
   - type: textarea

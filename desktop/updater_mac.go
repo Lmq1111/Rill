@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"reasonix/internal/brand"
 	"reasonix/internal/repair"
 )
 
-const macBundleID = "com.wails.reasonix-desktop"
+const macBundleID = brand.BundleID
 
 func applyMac(zipPath, targetVersion string) error {
 	if !macSelfUpdateAllowed() {
@@ -22,7 +23,7 @@ func applyMac(zipPath, targetVersion string) error {
 	if err != nil {
 		return err
 	}
-	staging, err := os.MkdirTemp("", "reasonix-mac-update-*")
+	staging, err := os.MkdirTemp("", "rill-mac-update-*")
 	if err != nil {
 		return err
 	}
@@ -42,11 +43,11 @@ func applyMac(zipPath, targetVersion string) error {
 	if err := verifyMacApp(nextApp); err != nil {
 		return err
 	}
-	backupApp := currentApp + ".reasonix-update-backup"
+	backupApp := currentApp + ".rillagent-update-backup"
 	if _, err := repair.PrepareAppBundleUpdate(version, targetVersion, currentApp, backupApp); err != nil {
 		return err
 	}
-	script := filepath.Join(staging, "install-reasonix-update.sh")
+	script := filepath.Join(staging, "install-rill-update.sh")
 	body := fmt.Sprintf(`#!/bin/sh
 set -eu
 old_app=%q
@@ -103,7 +104,7 @@ func currentMacAppBundle() (string, error) {
 }
 
 func findMacApp(root string) (string, error) {
-	direct := filepath.Join(root, "Reasonix.app")
+	direct := filepath.Join(root, "Rill.app")
 	if _, err := os.Stat(filepath.Join(direct, "Contents", "Info.plist")); err == nil {
 		return direct, nil
 	}

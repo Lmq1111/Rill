@@ -83,8 +83,10 @@ import type {
   UpdateProgress,
   WireEvent,
   WorkspaceChangesView,
+  WorkspaceFileDiffView,
   GitCommitView,
   GitCommitDetailView,
+  GeneralSettingsInput,
   WorkspaceView,
 } from "./types";
 
@@ -140,7 +142,7 @@ export interface AppBindings {
   HeartbeatListTasks(): Promise<unknown>;
   HeartbeatReloadTasks(): Promise<unknown>;
   HeartbeatSaveTasks(tasks: unknown): Promise<void>;
-  HeartbeatTriggerNow(id: string): Promise<void>;
+  HeartbeatTriggerNow(id: string): Promise<unknown>;
   HeartbeatGenerateID(): Promise<string>;
   Submit(input: string): Promise<void>;
   SubmitToTab(tabID: string, input: string): Promise<void>;
@@ -182,6 +184,8 @@ export interface AppBindings {
   NewSessionForTab(tabID: string): Promise<void>;
   ClearSession(): Promise<void>;
   ClearSessionForTab(tabID: string): Promise<void>;
+  ClearModelContext(): Promise<void>;
+  ClearModelContextForTab(tabID: string): Promise<void>;
   History(): Promise<HistoryMessage[]>;
   HistoryForTab(tabID: string): Promise<HistoryMessage[]>;
   HistoryPage(beforeTurn: number, limit: number): Promise<HistoryPage>;
@@ -198,6 +202,7 @@ export interface AppBindings {
   SummarizeUpTo(turn: number): Promise<void>;
   SummarizeUpToForTab(tabID: string, turn: number): Promise<void>;
   ListSessions(): Promise<SessionMeta[]>;
+  ListAllSessions(): Promise<SessionMeta[]>;
   ListTrashedSessions(): Promise<SessionMeta[]>;
   ResumeSession(path: string): Promise<HistoryMessage[]>;
   ResumeSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
@@ -206,9 +211,11 @@ export interface AppBindings {
   OpenChannelSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
   OpenChannelSessionPageForTab(tabID: string, path: string, limit: number): Promise<HistoryPage>;
   PreviewSession(path: string): Promise<HistoryMessage[]>;
+  PreviewTrashedSession(path: string): Promise<HistoryMessage[]>;
   DeleteSession(path: string): Promise<void>;
   DeleteRecoveryCopy(path: string): Promise<void>;
   RestoreSession(path: string): Promise<void>;
+  RestoreSessionToProject(path: string, workspaceRoot: string): Promise<void>;
   PurgeTrashedSession(path: string): Promise<void>;
   PurgeRecoveryCopy(path: string): Promise<void>;
   RenameSession(path: string, title: string): Promise<void>;
@@ -216,6 +223,7 @@ export interface AppBindings {
   ListWorkspaces(): Promise<WorkspaceView[]>;
   PickWorkspace(): Promise<string>;
   SwitchWorkspace(path: string): Promise<string>;
+  CreateWorkspace(path: string): Promise<string>;
   RemoveWorkspace(path: string): Promise<void>;
   ContextUsage(): Promise<ContextInfo>;
   ContextUsageForTab(tabID: string): Promise<ContextInfo>;
@@ -265,6 +273,7 @@ export interface AppBindings {
   DeleteSubagentProfile(name: string, scope: string): Promise<void>;
   SetSubagentProfileModel(name: string, ref: string): Promise<void>;
   SetSubagentProfileEffort(name: string, level: string): Promise<void>;
+  SetSubagentProfileOverrides(name: string, ref: string, level: string): Promise<void>;
   TrySubagentProfile(input: SubagentProfileInput, task: string): Promise<string>;
   CancelTrySubagentProfile(): Promise<void>;
   SetMCPServerEnabled(name: string, enabled: boolean): Promise<void>;
@@ -277,6 +286,7 @@ export interface AppBindings {
   ReadFile(rel: string): Promise<FilePreview>;
   ReadFileForTab(tabID: string, rel: string): Promise<FilePreview>;
   WorkspaceChanges(tabID: string): Promise<WorkspaceChangesView>;
+  WorkspaceFileDiff(tabID: string, path: string): Promise<WorkspaceFileDiffView>;
   GitBranches(): Promise<string[]>;
   GitCheckout(branch: string): Promise<void>;
   WorkspaceGitHistory(tabID: string, path: string): Promise<GitCommitView[]>;
@@ -347,6 +357,7 @@ export interface AppBindings {
   SetProviderKey(apiKeyEnv: string, value: string): Promise<string>;
   ClearProviderKey(apiKeyEnv: string): Promise<void>;
   SetPermissionMode(mode: string): Promise<void>;
+  SetPermissions(mode: string, allow: string[], ask: string[], deny: string[]): Promise<void>;
   AddPermissionRule(list: string, rule: string): Promise<void>;
   RemovePermissionRule(list: string, rule: string): Promise<void>;
   ReloadSettings(): Promise<void>;
@@ -362,11 +373,13 @@ export interface AppBindings {
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
   TestBotConnection(id: string, target?: string): Promise<BotConnectionDiagnostic>;
   SetCloseBehavior(mode: string): Promise<void>;
+  SetGeneralSettings(input: GeneralSettingsInput): Promise<void>;
   SetDisplayMode(mode: string): Promise<void>;
   SetStatusBarStyle(style: string): Promise<void>;
   SetStatusBarItems(items: string[]): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
+  SetDesktopVisualPreferences(theme: string, style: string, fontFamily: string, monoFontFamily: string, textSize: string, zoomFactor: number): Promise<void>;
   SetDesktopLayoutStyle(style: string): Promise<void>;
   SetDesktopZoomFactor(factor: number): Promise<void>;
   GetDesktopZoomFactor(): Promise<number>;
@@ -374,6 +387,7 @@ export interface AppBindings {
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
   SetDesktopMetrics(enabled: boolean): Promise<void>;
+  SetDesktopShortcuts(shortcuts: Record<string, string>): Promise<void>;
   SetMemoryCompilerEnabled(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
@@ -391,6 +405,7 @@ export interface AppBindings {
   InstallUpdate(): Promise<void>;
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
+  OpenRillReleases(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
   ConnectKey(apiKey: string): Promise<string>;
   // Crash overlay "Send report" (desktop/crash_app.go): scrubs user paths, attaches
@@ -676,7 +691,7 @@ function bridgeBreadcrumb(method: string): string {
   if (/^(AddSkillPath|RemoveSkillPath|RefreshSkills|SetSkillEnabled|AcceptSkillSuggestion|AvailableSubagentTools|CreateSubagentProfile|UpdateSubagentProfile|DeleteSubagentProfile|SetSubagentProfileModel|SetSubagentProfileEffort|TrySubagentProfile|CancelTrySubagentProfile)/.test(method))
     return `skill ${method}`;
   if (/^(MinimiseMainWindow|ToggleMaximiseMainWindow|IsMainWindowMaximised|CloseMainWindow)$/.test(method)) return `window ${method}`;
-  if (/^(OpenProjectTab|OpenGlobalTab|OpenTopicSession|EnsureBlankTab|ActivateTopic|EnsureBlankSurface|SetActiveTab|CloseTab|ReorderTabs|CreateTopic|RenameTopic|DeleteTopic|TrashTopic|RenameProject|RemoveWorkspace|SwitchWorkspace|PickWorkspace|DeliveryWorktreeAvailability|CreateDeliveryWorktree)/.test(method))
+  if (/^(OpenProjectTab|OpenGlobalTab|OpenTopicSession|EnsureBlankTab|ActivateTopic|EnsureBlankSurface|SetActiveTab|CloseTab|ReorderTabs|CreateTopic|RenameTopic|DeleteTopic|TrashTopic|RenameProject|RemoveWorkspace|SwitchWorkspace|CreateWorkspace|PickWorkspace|DeliveryWorktreeAvailability|CreateDeliveryWorktree)/.test(method))
     return `nav ${method}`;
   return "";
 }
@@ -796,7 +811,7 @@ function browserPreviewEffectiveShell(prefer = "auto"): "bash" | "git-bash" | "p
   return browserPlatformOverride() === "windows" ? "git-bash" : "bash";
 }
 
-function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" {
+function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_escape" | "notice" | "startup_failed" | "model_unavailable" | "settings_write_failed" {
   if (typeof window === "undefined") return "demo";
   const value = new URLSearchParams(window.location.search).get("mock")?.trim().toLowerCase();
   if (value === "fresh" || value === "empty" || value === "first-run") return "fresh";
@@ -804,6 +819,9 @@ function mockScenario(): "demo" | "fresh" | "running" | "guidance" | "sandbox_es
   if (value === "running" || value === "busy" || value === "streaming") return "running";
   if (value === "sandbox_escape" || value === "sandbox-escape" || value === "sandboxescape") return "sandbox_escape";
   if (value === "notice" || value === "notices" || value === "notice-preview") return "notice";
+  if (value === "startup_failed" || value === "startup-failed") return "startup_failed";
+  if (value === "model_unavailable" || value === "model-unavailable") return "model_unavailable";
+  if (value === "settings_write_failed" || value === "settings-write-failed") return "settings_write_failed";
   return "demo";
 }
 
@@ -901,7 +919,7 @@ const mockProviderPresetTemplates: MockProviderPresetTemplate[] = [
   mockPreset("stepfun", "StepFun", "StepFun coding-plan OpenAI-compatible endpoint.", "STEPFUN_API_KEY", mockProviderTemplate({ name: "stepfun", kind: "openai", baseUrl: "https://api.stepfun.com/step_plan/v1", models: mockStepFunModels, default: "step-3.7-flash", apiKeyEnv: "STEPFUN_API_KEY", supportedEfforts: ["low", "medium", "high"], defaultEffort: "medium" })),
   mockPreset("stepfun-anthropic", "StepFun Anthropic", "StepFun coding-plan Anthropic-compatible endpoint.", "STEPFUN_API_KEY", mockProviderTemplate({ name: "stepfun-anthropic", kind: "anthropic", baseUrl: "https://api.stepfun.com/step_plan", models: mockStepFunModels, default: "step-3.7-flash", apiKeyEnv: "STEPFUN_API_KEY", thinking: "adaptive", supportedEfforts: ["low", "medium", "high"], defaultEffort: "medium" })),
   mockPreset("novita", "NovitaAI", "NovitaAI OpenAI-compatible multi-model gateway.", "NOVITA_API_KEY", mockProviderTemplate({ name: "novita", kind: "openai", baseUrl: "https://api.novita.ai/openai/v1", models: mockNovitaModels, default: "zai-org/glm-5.2", apiKeyEnv: "NOVITA_API_KEY" })),
-  mockPreset("gmi", "GMI Cloud", "GMI Cloud direct multi-model OpenAI-compatible gateway.", "GMI_API_KEY", mockProviderTemplate({ name: "gmi", kind: "openai", baseUrl: "https://api.gmi-serving.com/v1", models: mockGMIModels, default: "zai-org/GLM-5.2-FP8", apiKeyEnv: "GMI_API_KEY", headers: { "User-Agent": "Reasonix" } })),
+  mockPreset("gmi", "GMI Cloud", "GMI Cloud direct multi-model OpenAI-compatible gateway.", "GMI_API_KEY", mockProviderTemplate({ name: "gmi", kind: "openai", baseUrl: "https://api.gmi-serving.com/v1", models: mockGMIModels, default: "zai-org/GLM-5.2-FP8", apiKeyEnv: "GMI_API_KEY", headers: { "User-Agent": "Rill" } })),
   mockPreset("vercel-ai-gateway", "Vercel AI Gateway", "Vercel AI Gateway via Anthropic-compatible Messages API.", "AI_GATEWAY_API_KEY", mockProviderTemplate({ name: "vercel-ai-gateway", kind: "anthropic", baseUrl: "https://ai-gateway.vercel.sh", models: mockVercelModels, visionModels: ["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.4", "openai/gpt-5.4-pro", "moonshotai/kimi-k2.7-code"], default: "anthropic/claude-sonnet-4.6", apiKeyEnv: "AI_GATEWAY_API_KEY", authHeader: true, contextWindow: 1000000 })),
   mockPreset("huggingface", "HuggingFace Router", "HuggingFace Inference Router OpenAI-compatible endpoint.", "HF_TOKEN", mockProviderTemplate({ name: "huggingface", kind: "openai", baseUrl: "https://router.huggingface.co/v1", models: ["zai-org/GLM-5.2", "deepseek-ai/DeepSeek-V3.2", "Qwen/Qwen3.5-72B-Instruct"], default: "zai-org/GLM-5.2", apiKeyEnv: "HF_TOKEN" })),
   mockPreset("nvidia", "NVIDIA NIM", "NVIDIA NIM OpenAI-compatible accelerated inference endpoint.", "NVIDIA_API_KEY", mockProviderTemplate({ name: "nvidia", kind: "openai", baseUrl: "https://integrate.api.nvidia.com/v1", models: ["nvidia/nemotron-3-nano-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b", "deepseek-ai/deepseek-v4-pro", "qwen/qwen3.5-397b-a17b"], default: "nvidia/nemotron-3-nano-30b-a3b", apiKeyEnv: "NVIDIA_API_KEY" })),
@@ -953,11 +971,15 @@ function mockExternalOpenerIconDataURL(color: string, label: string): string {
 
 function makeMockApp(): AppBindings {
   const scenario = mockScenario();
+  const mockRuntimeStorageKey = `rill.mock.runtime.${scenario}`;
   const freshMock = scenario === "fresh";
   const guidanceMock = scenario === "guidance";
   const runningMock = scenario === "running" || guidanceMock;
   const sandboxEscapeMock = scenario === "sandbox_escape";
   const noticePreviewMock = scenario === "notice";
+  const startupFailedMock = scenario === "startup_failed";
+  const modelUnavailableMock = scenario === "model_unavailable";
+  const settingsWriteFailedMock = scenario === "settings_write_failed";
   const mockAttachmentDataURLs = new Map<string, string>();
   let cancelled = false;
   let pendingAskPreview = false;
@@ -966,13 +988,28 @@ function makeMockApp(): AppBindings {
   // backend drain contract: only non-fresh tools auto-allow; plan/sandbox
   // escape prompts stay pending and visible.
   let pendingApprovalPreviewPrompt: { id: string; tool: string } | undefined;
-  const globalWorkspaceRoot = "~/Library/Application Support/reasonix/global-workspace";
+  const globalWorkspaceRoot = "~/.rillagent/global-workspace";
   let cwd = freshMock ? globalWorkspaceRoot : "~/projects/joyquant-db"; // mutable so PickWorkspace is visible in dev
-  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/reasonix", "~/projects/blade"];
+  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/rillagent", "~/projects/blade"];
   let mockEffort = "auto";
   let mockDesktopZoomFactor = 1.0;
   const day = 86_400_000;
   const t0 = Date.now();
+  let mockHeartbeatTasks: Array<Record<string, unknown>> = [{
+    id: "mock-heartbeat-daily",
+    title: "每日构建产物巡检",
+    prompt: "检查最新构建产物是否完整，并汇报异常。",
+    interval: "24h|daily@08:00",
+    enabled: true,
+    scope: "project",
+    workspaceRoot: "~/projects/joyquant-db",
+    approvalMode: "auto",
+    newConversationEachRun: false,
+    notifyChannels: false,
+    notifyChannelIds: [],
+    timeZone: "Asia/Shanghai",
+    createdAt: Date.now(),
+  }];
   // Mutable so MCP add/remove/retry are observable in browser dev.
   let capServers: ServerView[] = [
     {
@@ -1029,7 +1066,7 @@ function makeMockApp(): AppBindings {
     },
     { name: "research", description: "Combine web_fetch + code reading in an isolated subagent", scope: "builtin", runAs: "subagent", enabled: true, allowedTools: ["read_file", "ls", "glob", "grep", "code_index", "web_fetch"], invocation: "/research", invocationMode: "auto" },
     { name: "review", description: "Review the staged diff", scope: "project", runAs: "inline", enabled: false, invocation: "/review" },
-    { name: "init", description: "Scaffold a REASONIX.md for this repo", scope: "builtin", runAs: "inline", enabled: true, invocation: "/init" },
+    { name: "init", description: "Scaffold a RILL.md for this repo", scope: "builtin", runAs: "inline", enabled: true, invocation: "/init" },
     {
       name: "my-formatter", description: "Formats code the way I like it", scope: "global", runAs: "subagent", enabled: true,
       model: "deepseek-pro", effort: "high", allowedTools: ["read_file", "edit_file"], color: "amber", invocation: "/my-formatter", invocationMode: "manual",
@@ -1037,7 +1074,7 @@ function makeMockApp(): AppBindings {
     },
   ];
   let capSkillRoots: SkillRootView[] = [
-    { dir: "~/projects/reasonix/.reasonix/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
+    { dir: "~/projects/rillagent/.rillagent/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
     {
       dir: "~/my-skills",
       scope: "custom",
@@ -1049,7 +1086,7 @@ function makeMockApp(): AppBindings {
       skillItems: [{ name: "review", description: "Review the staged diff", scope: "custom", runAs: "inline" }],
     },
     {
-      dir: "~/.reasonix/skills",
+      dir: "~/.rillagent/skills",
       scope: "global",
       priority: 6,
       status: "ok",
@@ -1058,7 +1095,7 @@ function makeMockApp(): AppBindings {
       skills: 2,
       skillItems: [
         { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "global", runAs: "subagent" },
-        { name: "init", description: "Scaffold a REASONIX.md for this repo", scope: "global", runAs: "inline" },
+        { name: "init", description: "Scaffold a RILL.md for this repo", scope: "global", runAs: "inline" },
       ],
     },
   ];
@@ -1079,10 +1116,10 @@ function makeMockApp(): AppBindings {
   };
   // Mutable so delete/rename are observable in browser dev.
   const sessions: SessionMeta[] = [
-    { path: "/mock/sessions/a.jsonl", preview: "fix the login bug in auth.go", turns: 12, createdAt: t0 - 2 * day, lastActivityAt: t0 - 3_600_000, modTime: t0 - 3_600_000, current: true, open: true },
-    { path: "/mock/sessions/b-recovery-0123456789abcdef.jsonl", preview: "refactor the payment module", turns: 5, createdAt: t0 - 3 * day, lastActivityAt: t0 - 6 * 3_600_000, modTime: t0 - 6 * 3_600_000, current: false, open: true, recovered: true, recoveryCopy: true },
-    { path: "/mock/sessions/c.jsonl", preview: "write the README and badges", turns: 8, createdAt: t0 - 4 * day, lastActivityAt: t0 - day - 3_600_000, modTime: t0 - day - 3_600_000, current: false, open: false },
-    { path: "/mock/sessions/d.jsonl", preview: "explain the plugin host design", turns: 3, createdAt: t0 - 5 * day, lastActivityAt: t0 - 4 * day, modTime: t0 - 4 * day, current: false, open: false },
+    { path: "/mock/sessions/a.jsonl", preview: "fix the login bug in auth.go", turns: 12, createdAt: t0 - 2 * day, lastActivityAt: t0 - 3_600_000, modTime: t0 - 3_600_000, current: true, open: true, scope: "project", workspaceRoot: "~/projects/joyquant-db", sessionSource: "local" },
+    { path: "/mock/sessions/b-recovery-0123456789abcdef.jsonl", preview: "refactor the payment module", turns: 5, createdAt: t0 - 3 * day, lastActivityAt: t0 - 6 * 3_600_000, modTime: t0 - 6 * 3_600_000, current: false, open: true, recovered: true, recoveryCopy: true, scope: "project", workspaceRoot: "~/projects/joyquant-db", sessionSource: "local" },
+    { path: "/mock/sessions/c.jsonl", preview: "write the README and badges", turns: 8, createdAt: t0 - 4 * day, lastActivityAt: t0 - day - 3_600_000, modTime: t0 - day - 3_600_000, current: false, open: false, scope: "project", workspaceRoot: "~/projects/joyquant-sys", sessionSource: "local" },
+    { path: "/mock/sessions/d.jsonl", preview: "explain the plugin host design", turns: 3, createdAt: t0 - 5 * day, lastActivityAt: t0 - 4 * day, modTime: t0 - 4 * day, current: false, open: false, scope: "global", sessionSource: "local" },
   ];
   const trashedSessions: SessionMeta[] = [
     {
@@ -1159,9 +1196,9 @@ function makeMockApp(): AppBindings {
       proxyMode: "auto",
       proxyUrl: "",
       noProxy: "",
-      proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
+      proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "", passwordSet: false },
     },
-    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 0, maxSubagentDepth: 2, systemPrompt: "You are Reasonix, a coding agent.", coldResumePrune: true, reasoningLanguage: "auto" },
+    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 0, maxSubagentDepth: 2, systemPrompt: "You are Rill, a coding agent.", coldResumePrune: true, reasoningLanguage: "auto" },
     bot: {
       enabled: !freshMock,
       model: "",
@@ -1180,7 +1217,7 @@ function makeMockApp(): AppBindings {
       control: {
         enabled: false,
         addr: "127.0.0.1:37913",
-        tokenEnv: "REASONIX_BOT_CONTROL_TOKEN",
+        tokenEnv: "RILLAGENT_BOT_CONTROL_TOKEN",
       },
       pairing: {
         enabled: true,
@@ -1309,7 +1346,13 @@ function makeMockApp(): AppBindings {
     telemetry: true,
     metrics: true,
     memoryCompilerEnabled: true,
-    configPath: "~/projects/reasonix/reasonix.toml",
+    expandThinking: false,
+    desktopShortcuts: {},
+    desktopFontFamily: "system",
+    desktopMonoFontFamily: "system",
+    desktopTextSize: "default",
+    desktopZoomFactor: 1,
+    configPath: "~/projects/rillagent/rillagent.toml",
     providerKinds: ["openai", "anthropic"],
     autoApproveTools: false,
     bypass: false,
@@ -1318,7 +1361,7 @@ function makeMockApp(): AppBindings {
   const hookSettings: Record<string, HooksSettingsView> = {
     global: {
       scope: "global",
-      path: "~/.reasonix/settings.json",
+      path: "~/.rillagent/settings.json",
       projectRoot: "",
       trusted: true,
       events: hookEvents,
@@ -1328,7 +1371,7 @@ function makeMockApp(): AppBindings {
     },
     project: {
       scope: "project",
-      path: "./.reasonix/settings.json",
+      path: "./.rillagent/settings.json",
       projectRoot: "/mock/project",
       trusted: false,
       events: hookEvents,
@@ -1339,7 +1382,7 @@ function makeMockApp(): AppBindings {
     provider.apiKeyEnv === "DEEPSEEK_API_KEY" ? { ...provider, keySet: !freshMock } : provider,
   );
   if (freshMock) {
-    settings.configPath = "~/.config/reasonix/config.toml";
+    settings.configPath = "~/.rillagent/config.toml";
   }
   const mockNow = Date.now();
   const mockProjectTree: ProjectNode[] = freshMock ? [] : [
@@ -1503,19 +1546,33 @@ function makeMockApp(): AppBindings {
     });
     return out;
   };
+	  let persistedMockHistory: Record<string, HistoryMessage[]> = {};
+	  if (typeof sessionStorage !== "undefined") {
+	    try {
+	      const stored = JSON.parse(sessionStorage.getItem(mockRuntimeStorageKey) ?? "null") as {
+	        history?: Record<string, HistoryMessage[]>;
+	        heartbeatTasks?: Array<Record<string, unknown>>;
+	      } | null;
+	      if (stored?.history && typeof stored.history === "object") persistedMockHistory = stored.history;
+	      if (Array.isArray(stored?.heartbeatTasks)) mockHeartbeatTasks = stored.heartbeatTasks;
+	    } catch {
+	      // Ignore stale browser-dev state and fall back to the deterministic fixture.
+	    }
+	  }
 	  const mockTopicHistory = (topicId: string): HistoryMessage[] => {
+	    let fixture: HistoryMessage[];
 	    switch (topicId) {
       case "topic_product":
-        return [
+        fixture = [
           {
             role: "user",
             content: [
-              "[[reasonix-im]]",
+              "[[rillagent-im]]",
               "provider=lark",
               "label=Feishu / Lark",
               "sender=ou_mock_user_001",
               "chat=p2p 会话",
-              "[[/reasonix-im]]",
+              "[[/rillagent-im]]",
               "你可以做什么",
             ].join("\n"),
           },
@@ -1524,17 +1581,18 @@ function makeMockApp(): AppBindings {
             content: "这是 Global 范围下的 IM 会话。我可以先处理不依赖项目文件的问答、计划和信息整理；需要进入项目时，再由桌面端显式绑定或迁移到项目话题。",
           },
         ];
+        break;
       case "topic_ai":
-        return [
+        fixture = [
           {
             role: "user",
             content: [
-              "[[reasonix-im]]",
+              "[[rillagent-im]]",
               "provider=weixin",
               "label=微信",
               "sender=wxid_mock_user_001",
               "chat=单聊",
-              "[[/reasonix-im]]",
+              "[[/rillagent-im]]",
               "帮我整理一下今天要做的事",
             ].join("\n"),
           },
@@ -1543,42 +1601,57 @@ function makeMockApp(): AppBindings {
             content: "可以。我会先在 Global 范围里整理任务清单；如果某条任务需要读取项目文件，再切到你授权的项目话题处理。",
           },
         ];
+        break;
       case "topic_dev_standard":
-        return mockLongTranscriptHistory();
+        fixture = mockLongTranscriptHistory();
+        break;
       case "topic_p3b_pd":
-        return [
+        fixture = [
           { role: "user", content: "把 p3b P&D 的范围和风险重新整理成可执行计划。" },
           { role: "phase", content: "分析需求范围" },
         ];
+        break;
       case "topic_p3a_pd":
-        return [
+        fixture = [
           { role: "user", content: "复盘 p3a 的技术方案，先不要写文件，先说明你的判断。" },
         ];
+        break;
       case "topic_hotfix":
-        return [
+        fixture = [
           { role: "user", content: "检查 post-p3-hotfix 的回归风险，重点看最近的 shell 输出和 git 改动。" },
           { role: "assistant", content: "", reasoning: "我先定位最近一次 hotfix 的上下文，然后用只读命令检查状态；左侧保持“思考中”，工具细节在这里展开。" },
         ];
+        break;
       case "topic_sys_coord":
-        return [
+        fixture = [
           { role: "user", content: "准备执行 joyquant-sys 的同步脚本，但需要我确认后再运行。" },
           { role: "assistant", content: "", reasoning: "这个动作会运行脚本并可能刷新本地缓存，所以需要先等用户确认。" },
         ];
+        break;
       case "topic_sys_standard":
-        return [
+        fixture = [
           { role: "user", content: "继续制定 SYS 项目开发规范，先停在当前检查点。" },
           { role: "assistant", content: "已暂停在规范整理阶段。当前保留了目录约定、分支策略和待确认的发布检查项；继续时可以从这里恢复。" },
           { role: "notice", level: "info", content: "会话已暂停：未继续执行命令，等待用户恢复或切换任务。" },
         ];
+        break;
       case "topic_sys_exception":
-        return [
+        fixture = [
           { role: "user", content: "演练异常处理流程，看看失败时界面怎么提示。" },
           { role: "assistant", content: "我尝试校验恢复脚本时遇到异常，已停止继续执行。" },
           { role: "notice", level: "warn", content: "运行异常：恢复脚本缺少必要环境变量 JOYQUANT_SYS_TOKEN。请补齐配置后重试。" },
         ];
+        break;
       default:
-        return [];
+	        fixture = [];
 	    }
+	    let userTurn = 0;
+	    return [...fixture, ...(persistedMockHistory[topicId] ?? [])].map((message) => {
+	      if (message.role !== "user") return message;
+	      const checkpointTurn = message.checkpointTurn ?? userTurn;
+	      userTurn += 1;
+	      return { ...message, checkpointTurn };
+	    });
 	  };
 	  const mockHistoryPage = (messages: HistoryMessage[], beforeTurn = 0, limit = 60): HistoryPage => {
 	    const totalTurns = messages.reduce((count, message) => count + (message.role === "user" ? 1 : 0), 0);
@@ -1678,9 +1751,9 @@ function makeMockApp(): AppBindings {
     {
       id: "tab_notice_preview",
       scope: "project",
-      workspaceRoot: "~/projects/reasonix",
-      workspaceName: "reasonix",
-      workspacePath: "~/projects/reasonix",
+      workspaceRoot: "~/projects/rillagent",
+      workspaceName: "rillagent",
+      workspacePath: "~/projects/rillagent",
       gitBranch: "codex/compact-chat-notices-i18n",
       topicId: "topic_notice_preview",
       topicTitle: "Compact notice preview",
@@ -1693,7 +1766,7 @@ function makeMockApp(): AppBindings {
       toolApprovalMode: "ask",
       tokenMode: "full",
       active: true,
-      cwd: "~/projects/reasonix",
+      cwd: "~/projects/rillagent",
     },
   ] : freshMock ? [
     {
@@ -1774,6 +1847,38 @@ function makeMockApp(): AppBindings {
       cwd: "~/projects/joyquant-db",
     },
   ];
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(mockRuntimeStorageKey) ?? "null") as {
+        tabs?: TabMeta[];
+      } | null;
+      if (Array.isArray(stored?.tabs) && stored.tabs.length > 0) mockTabs = stored.tabs;
+    } catch {
+      // Ignore stale browser-dev state and fall back to the deterministic fixture.
+    }
+  }
+  if (startupFailedMock) {
+    mockTabs = mockTabs.map((tab) => tab.active ? { ...tab, ready: false, startupErr: "controlled startup failure" } : tab);
+  }
+  const persistMockRuntime = () => {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(mockRuntimeStorageKey, JSON.stringify({ tabs: mockTabs, history: persistedMockHistory, heartbeatTasks: mockHeartbeatTasks }));
+  };
+  const appendMockHistory = (tabId: string, display: string, input = display) => {
+    const tab = mockTabs.find((item) => item.id === tabId);
+    if (!tab?.topicId) return;
+    const text = display.trim();
+    const submitText = input.trim();
+    if (!text) return;
+    persistedMockHistory = {
+      ...persistedMockHistory,
+      [tab.topicId]: [
+        ...(persistedMockHistory[tab.topicId] ?? []),
+        { role: "user", content: text, submitText: text === submitText ? undefined : submitText, createdAt: Date.now() },
+      ],
+    };
+    persistMockRuntime();
+  };
   if (sandboxEscapeMock) {
     window.setTimeout(() => {
       if (pendingApprovalPreview) return;
@@ -2043,9 +2148,9 @@ function makeMockApp(): AppBindings {
           tool: {
             id: parentId,
             name: "explore",
-            args: JSON.stringify({ task: "在 Reasonix 前端中检查工具调用图标和嵌套调用展示" }),
+            args: JSON.stringify({ task: "在 Rill 前端中检查工具调用图标和嵌套调用展示" }),
             readOnly: true,
-            profile: { model: "mock-reasonix", effort: "high" },
+            profile: { model: "mock-rillagent", effort: "high" },
           },
         });
         for (let i = 1; i <= 30; i += 1) {
@@ -2143,21 +2248,26 @@ function makeMockApp(): AppBindings {
           emitMockTurnDone();
         },
         async SubmitToTab(_tabID, input) {
+          appendMockHistory(_tabID, input);
           await withMockTabScope(_tabID, () => this.Submit(input));
         },
         async SubmitDisplay(_display, input) {
           await this.Submit(input);
         },
         async SubmitDisplayToTab(_tabID, display, input) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitDeliveryRecoveryToTab(_tabID, display, input) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitInvocationsToTab(_tabID, display, input, _invocations) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async SubmitEditedDisplayToTab(_tabID, display, input, _original) {
+          appendMockHistory(_tabID, display, input);
           await withMockTabScope(_tabID, () => this.SubmitDisplay(display, input));
         },
         async RunShell(command) {
@@ -2321,6 +2431,10 @@ function makeMockApp(): AppBindings {
         async NewSessionForTab() {},
         async ClearSession() {},
         async ClearSessionForTab() {},
+        async ClearModelContext() {},
+        async ClearModelContextForTab(tabID: string) {
+          if (typeof sessionStorage !== "undefined") sessionStorage.setItem(`rill.mock.model-context-cleared.${tabID}`, "1");
+        },
     async Checkpoints() {
       return [
         { turn: 0, prompt: "你好呀", files: ["src/App.tsx"], fileCount: 1, turnFileCount: 1, time: Date.now() - 30_000, canCode: true, canConversation: true },
@@ -2330,7 +2444,9 @@ function makeMockApp(): AppBindings {
       return this.Checkpoints();
     },
     async Rewind() {},
-    async RewindForTab() {},
+    async RewindForTab(tabID, turn) {
+      if (typeof sessionStorage !== "undefined") sessionStorage.setItem("rill.mock.last-rewind", `${tabID}:${turn}`);
+    },
     async Fork() {
       const active = mockTabs.find((tab) => tab.active) ?? mockTabs[0];
       const tab: TabMeta = {
@@ -2380,6 +2496,9 @@ function makeMockApp(): AppBindings {
     async ListSessions() {
       return sessions.map((s) => ({ ...s }));
     },
+    async ListAllSessions() {
+      return sessions.map((s) => ({ ...s }));
+    },
     async ListTrashedSessions() {
       return trashedSessions.map((s) => ({ ...s }));
     },
@@ -2423,6 +2542,9 @@ function makeMockApp(): AppBindings {
         { role: "compaction", content: "", trigger: "manual", messages: 3, summary: "Mock preview preserved the latest task, tool result, and answer summary." },
       ];
     },
+    async PreviewTrashedSession(path: string) {
+      return this.PreviewSession(path);
+    },
     async DeleteSession(path: string) {
       const i = sessions.findIndex((s) => s.path === path);
       if (i >= 0) {
@@ -2448,6 +2570,14 @@ function makeMockApp(): AppBindings {
           path: s.path.replace("/mock/sessions/.trash/", "/mock/sessions/"),
           deletedAt: undefined,
         });
+      }
+    },
+    async RestoreSessionToProject(path: string, workspaceRoot: string) {
+      await this.RestoreSession(path);
+      const restored = sessions.find((session) => session.path.split(/[\\/]/).pop() === path.split(/[\\/]/).pop());
+      if (restored) {
+        restored.scope = "project";
+        restored.workspaceRoot = workspaceRoot;
       }
     },
     async PurgeTrashedSession(path: string) {
@@ -2482,9 +2612,12 @@ function makeMockApp(): AppBindings {
     async PickWorkspace() {
       // Browser dev has no native dialog; simulate picking a folder and re-root so
       // the topbar folder chip visibly changes.
-      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/reasonix" : "~/projects/another-project");
+      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/rillagent" : "~/projects/another-project");
     },
     async SwitchWorkspace(path: string) {
+      return mockSwitchWorkspace(path);
+    },
+    async CreateWorkspace(path: string) {
       return mockSwitchWorkspace(path);
     },
     async RemoveWorkspace(path: string) {
@@ -2495,8 +2628,10 @@ function makeMockApp(): AppBindings {
         async ContextUsage() {
           return { used: 42124, window: 128000, sessionTokens: 34479, compactRatio: 0.8 };
         },
-        async ContextUsageForTab() {
-          return this.ContextUsage();
+        async ContextUsageForTab(tabID: string) {
+          const base = await this.ContextUsage();
+          const cleared = typeof sessionStorage !== "undefined" && sessionStorage.getItem(`rill.mock.model-context-cleared.${tabID}`) === "1";
+          return { ...base, used: cleared ? 0 : base.used, modelContextCleared: cleared, modelContextStart: cleared ? 1 : 0 };
         },
         async Balance() {
       // Mirror the active mock provider: deepseek-flash carries a balance_url.
@@ -2583,7 +2718,7 @@ function makeMockApp(): AppBindings {
             findingCount: 1,
             openCriteria: [],
             blocker: "",
-            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+            taskPath: "/tmp/mock/.rillagent/autoresearch/mock-autoresearch",
             nextRequiredAction: "continue with the next evidence-producing step",
           };
         },
@@ -2601,7 +2736,7 @@ function makeMockApp(): AppBindings {
             findingCount: 1,
             openCriteria: [],
             blocker: "",
-            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+            taskPath: "/tmp/mock/.rillagent/autoresearch/mock-autoresearch",
             nextRequiredAction: "continue with the next evidence-producing step",
           };
         },
@@ -2619,7 +2754,7 @@ function makeMockApp(): AppBindings {
             findingCount: 1,
             openCriteria: [],
             blocker: "",
-            taskPath: "/tmp/mock/.reasonix/autoresearch/mock-autoresearch",
+            taskPath: "/tmp/mock/.rillagent/autoresearch/mock-autoresearch",
             nextRequiredAction: "continue with the next evidence-producing step",
           }];
         },
@@ -2730,7 +2865,7 @@ function makeMockApp(): AppBindings {
         },
         instructions: { docs: [{ path: "<workspace>/AGENTS.md", scope: "project", order: 1 }] },
         skills: {
-          roots: [{ path: "<workspace>/.reasonix/skills", scope: "project", status: "ok" }],
+          roots: [{ path: "<workspace>/.rillagent/skills", scope: "project", status: "ok" }],
           entries: capSkills.map((s) => ({
             name: s.name,
             description: s.description,
@@ -2811,8 +2946,8 @@ function makeMockApp(): AppBindings {
         version: "dev",
         description: "Mock plugin",
         source,
-        root: `~/.reasonix/plugins/${name}`,
-        manifestKind: "reasonix",
+        root: `~/.rillagent/plugins/${name}`,
+        manifestKind: "rillagent",
         enabled: true,
         skills: 1,
         hooks: 0,
@@ -2981,9 +3116,9 @@ function makeMockApp(): AppBindings {
       capSkills.push({
         name, description: input.description, scope: input.scope === "project" ? "project" : "global",
         runAs: "subagent", enabled: true, model: input.model, effort: input.effort,
-        allowedTools: input.allowedTools, color: input.color, invocation: `/${name}`, invocationMode: "manual",
+        allowedTools: input.allowedTools, color: input.color, body: input.systemPrompt, invocation: `/${name}`, invocationMode: "manual",
       });
-      return `~/.reasonix/skills/${name}/SKILL.md`;
+      return `~/.rillagent/skills/${name}/SKILL.md`;
     },
     async UpdateSubagentProfile(name: string, scope: string, input: SubagentProfileInput) {
       const skill = capSkills.find((s) => s.name === name && s.scope === scope);
@@ -2993,6 +3128,7 @@ function makeMockApp(): AppBindings {
       skill.model = input.model;
       skill.effort = input.effort;
       skill.allowedTools = input.allowedTools;
+      skill.body = input.systemPrompt;
     },
     async DeleteSubagentProfile(name: string, scope: string) {
       const idx = capSkills.findIndex((s) => s.name === name && s.scope === scope);
@@ -3006,6 +3142,13 @@ function makeMockApp(): AppBindings {
     async SetSubagentProfileEffort(name: string, level: string) {
       const skill = capSkills.find((s) => s.name === name);
       if (skill) skill.configuredEffort = level || undefined;
+    },
+    async SetSubagentProfileOverrides(name: string, ref: string, level: string) {
+      const skill = capSkills.find((s) => s.name === name);
+      if (skill) {
+        skill.configuredModel = ref || undefined;
+        skill.configuredEffort = level || undefined;
+      }
     },
     async CancelTrySubagentProfile() {},
     async TrySubagentProfile(input: SubagentProfileInput, task: string) {
@@ -3102,8 +3245,8 @@ function makeMockApp(): AppBindings {
     },
     async ReadFile(rel: string) {
       const samples: Record<string, string> = {
-        "README.md": "# Reasonix\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
-        "go.mod": "module reasonix\n\ngo 1.23\n",
+        "README.md": "# Rill\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
+        "go.mod": "module rillagent\n\ngo 1.23\n",
         "desktop/file.go": "package desktop\n\nfunc main() {\n\tprintln(\"workspace preview\")\n}\n",
         "internal/event.go": "package internal\n\n// mock file used by the browser dev seam\n",
       };
@@ -3135,6 +3278,12 @@ function makeMockApp(): AppBindings {
           { path: "internal/control/controller.go", sources: ["session"], turns: [1], latestTime: Date.now() - 120_000 },
         ],
       };
+    },
+    async WorkspaceFileDiff(_tabID: string, path: string) {
+      const diff = path === "README.md"
+        ? "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,2 @@\n # Rill\n+Let intelligence flow."
+        : `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new`;
+      return { path, diff, added: 1, removed: path === "README.md" ? 0 : 1, binary: false, truncated: false };
     },
     async GitBranches() {
       return ["main", "dev", "feature/branch-switcher"];
@@ -3185,17 +3334,17 @@ function makeMockApp(): AppBindings {
       console.info("mock RevealPath", path);
     },
     async SavePastedImage(dataUrl: string) {
-      const path = `.reasonix/attachments/mock-${mockAttachmentDataURLs.size + 1}.png`;
+      const path = `.rillagent/attachments/mock-${mockAttachmentDataURLs.size + 1}.png`;
       mockAttachmentDataURLs.set(path, dataUrl);
       return path;
     },
     async SaveClipboardImage() {
-      const path = `.reasonix/attachments/mock-clipboard-${mockAttachmentDataURLs.size + 1}.png`;
+      const path = `.rillagent/attachments/mock-clipboard-${mockAttachmentDataURLs.size + 1}.png`;
       mockAttachmentDataURLs.set(path, mockPreviewImageDataURL);
       return path;
     },
     async SavePastedFile(name: string, dataUrl: string) {
-      const path = `.reasonix/attachments/mock-${name}`;
+      const path = `.rillagent/attachments/mock-${name}`;
       mockAttachmentDataURLs.set(path, dataUrl);
       return path;
     },
@@ -3222,9 +3371,9 @@ function makeMockApp(): AppBindings {
       const hasExt = /\.\w{1,6}$/i.test(name);
       if (!hasExt) {
         const tokenName = name.replace(/[^\w.-]+/g, "-") || "folder";
-        return { kind: "workspace" as const, path: `__reasonix_external_folder/mock/${tokenName}`, isDir: true, displayPath: path };
+        return { kind: "workspace" as const, path: `__rillagent_external_folder/mock/${tokenName}`, isDir: true, displayPath: path };
       }
-      const attachmentPath = `.reasonix/attachments/mock-${name}`;
+      const attachmentPath = `.rillagent/attachments/mock-${name}`;
       mockAttachmentDataURLs.set(attachmentPath, mockPreviewImageDataURL);
       return { kind: "attachment" as const, path: attachmentPath };
     },
@@ -3232,11 +3381,13 @@ function makeMockApp(): AppBindings {
       return mockAttachmentDataURLs.get(path) ?? mockPreviewImageDataURL;
     },
         async Models() {
+          if (modelUnavailableMock) return [];
           const active = mockTabs.find((tab) => tab.active) ?? mockTabs[0];
           const current = mockTabModelRef(active);
           return mockModelCatalog.map((model) => ({ ...model, current: model.ref === current }));
         },
         async ModelsForTab(tabID) {
+          if (modelUnavailableMock) return [];
           const tab = mockTabs.find((item) => item.id === tabID) ?? mockTabs.find((item) => item.active) ?? mockTabs[0];
           const current = mockTabModelRef(tab);
           return mockModelCatalog.map((model) => ({ ...model, current: model.ref === current }));
@@ -3270,16 +3421,16 @@ function makeMockApp(): AppBindings {
     async Memory() {
       return {
         available: true,
-        storeDir: "~/.config/reasonix/projects/-mock/memory",
-        storeGlobalDir: "~/.config/reasonix/memory/global",
+        storeDir: "~/.rillagent/projects/-mock/memory",
+        storeGlobalDir: "~/.rillagent/memory/global",
         docs: [
           {
-            path: "REASONIX.md",
+            path: "RILL.md",
             scope: "project",
-            body: "# Reasonix project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
+            body: "# Rill project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
           },
           {
-            path: "~/.config/reasonix/REASONIX.md",
+            path: "~/.rillagent/RILL.md",
             scope: "user",
             body: t("mock.memoryBody"),
           },
@@ -3298,14 +3449,14 @@ function makeMockApp(): AppBindings {
             description: "Superseded planning note",
             type: "project",
             body: "This plan was archived after the implementation changed.",
-            path: "~/.config/reasonix/projects/-mock/memory/.archive/20260612-021500.000-old-plan.md",
+            path: "~/.rillagent/projects/-mock/memory/.archive/20260612-021500.000-old-plan.md",
             archivedAt: "2026-06-12T02:15:00Z",
           },
         ],
         scopes: [
-          { scope: "user", path: "~/.config/reasonix/REASONIX.md" },
-          { scope: "project", path: "REASONIX.md" },
-          { scope: "local", path: "REASONIX.local.md" },
+          { scope: "user", path: "~/.rillagent/RILL.md" },
+          { scope: "project", path: "RILL.md" },
+          { scope: "local", path: "RILL.local.md" },
         ],
       };
     },
@@ -3325,11 +3476,11 @@ function makeMockApp(): AppBindings {
         ],
         skills: [
           {
-            id: "skill-reasonix-pr-followup",
-            name: "reasonix-pr-followup",
-            description: "Review or update a Reasonix GitHub PR, address feedback, verify, and publish safely.",
+            id: "skill-rillagent-pr-followup",
+            name: "rillagent-pr-followup",
+            description: "Review or update a Rill GitHub PR, address feedback, verify, and publish safely.",
             scope: "project",
-            body: "# Reasonix PR Followup\n\nUse this skill for repeated Reasonix PR work.\n\n## Workflow\n\n1. Confirm branch and PR state.\n2. Inspect the diff.\n3. Fix actionable feedback.\n4. Verify and update the PR.\n",
+            body: "# Rill PR Followup\n\nUse this skill for repeated Rill PR work.\n\n## Workflow\n\n1. Confirm branch and PR state.\n2. Inspect the diff.\n3. Fix actionable feedback.\n4. Verify and update the PR.\n",
             reason: "recent history repeatedly touched PR workflows",
             evidence: ["mock-pr-session: 提交到pr，并更新内容", "mock-review-session: 解决该pr下机器人提出来的问题"],
           },
@@ -3345,7 +3496,7 @@ function makeMockApp(): AppBindings {
     },
     async AcceptSkillSuggestion(suggestion: SkillSuggestion) {
       emit({ kind: "notice", level: "info", text: `created suggested skill → ${suggestion.name}` });
-      return `.reasonix/skills/${suggestion.name}/SKILL.md`;
+      return `.rillagent/skills/${suggestion.name}/SKILL.md`;
     },
     async MemorySuggestionsForTab(_tabID: string) {
       return this.MemorySuggestions();
@@ -3361,7 +3512,7 @@ function makeMockApp(): AppBindings {
     },
     async Remember(_scope: string, _note: string) {
       emit({ kind: "notice", level: "info", text: `remembered → ${_scope}` });
-      return `${_scope} REASONIX.md (mock): ${_note}`;
+      return `${_scope} RILL.md (mock): ${_note}`;
     },
     async RememberForTab(_tabID: string, scope: string, note: string) {
       return this.Remember(scope, note);
@@ -3533,6 +3684,9 @@ function makeMockApp(): AppBindings {
     async SetPermissionMode(mode: string) {
       settings.permissions.mode = mode;
     },
+    async SetPermissions(mode: string, allow: string[], ask: string[], deny: string[]) {
+      settings.permissions = { mode, allow: [...allow], ask: [...ask], deny: [...deny] };
+    },
     async AddPermissionRule(list: string, rule: string) {
       const k = list as "allow" | "ask" | "deny";
       if (settings.permissions[k] && !settings.permissions[k].includes(rule)) settings.permissions[k].push(rule);
@@ -3583,12 +3737,21 @@ function makeMockApp(): AppBindings {
         async BotRuntimeStatus() {
           const qqRunning = settings.bot.qq.enabled && settings.bot.qq.appId.trim() && settings.bot.qq.secretSet;
           const runningConnections = (qqRunning ? 1 : 0) + settings.bot.connections.filter((connection) => connection.enabled && connection.status === "connected").length;
+          const adapters = settings.bot.connections.map((connection) => ({
+            id: connection.id,
+            status: connection.enabled && connection.status === "connected" ? "running" : connection.status === "error" ? "error" : "disabled",
+            startedAt: connection.enabled && connection.status === "connected" ? new Date(t0).toISOString() : "",
+            lastSyncAt: connection.updatedAt,
+            lastErrorAt: connection.lastError ? connection.updatedAt : "",
+            lastError: connection.lastError,
+          }));
           return {
             running: settings.bot.enabled && runningConnections > 0,
             status: settings.bot.enabled && runningConnections > 0 ? "running" : "stopped",
             message: settings.bot.enabled && runningConnections > 0 ? `${runningConnections} bot connection(s) running` : "bot runtime is not started",
             connections: runningConnections,
             startedAt: settings.bot.enabled && runningConnections > 0 ? new Date(t0).toISOString() : "",
+            adapters,
           };
         },
         async StartBotConnectionInstall(provider: string, domain: string) {
@@ -3599,7 +3762,7 @@ function makeMockApp(): AppBindings {
             provider: normalizedProvider,
             domain: normalizedDomain,
             installId: `mock-${normalizedProvider}-${normalizedDomain}`,
-            url: "https://example.com/reasonix-bot-qr",
+            url: "https://example.com/rillagent-bot-qr",
             deviceCode: "MOCKDEVICE",
             userCode: normalizedProvider === "weixin" ? "" : "MOCK-CODE",
             interval: 3,
@@ -3652,6 +3815,19 @@ function makeMockApp(): AppBindings {
         async SetCloseBehavior(mode: string) {
           settings.closeBehavior = mode === "quit" ? "quit" : "background";
         },
+        async SetGeneralSettings(input: GeneralSettingsInput) {
+          if (settingsWriteFailedMock) throw new Error("controlled settings write failure");
+          settings.desktopLanguage = input.language === "en" || input.language === "zh" ? input.language : "";
+          settings.desktopLayoutStyle = input.layoutStyle;
+          settings.closeBehavior = input.closeBehavior;
+          settings.displayMode = input.displayMode;
+          settings.expandThinking = input.expandThinking;
+          settings.defaultToolApprovalMode = input.defaultToolApprovalMode;
+          settings.autoPlan = input.autoPlan;
+          settings.memoryCompilerEnabled = input.memoryCompilerEnabled;
+          settings.statusBarStyle = input.statusBarStyle;
+          settings.statusBarItems = [...input.statusBarItems];
+        },
         async SetDisplayMode(mode: string) {
           settings.displayMode = mode;
         },
@@ -3667,6 +3843,15 @@ function makeMockApp(): AppBindings {
         async SetDesktopAppearance(theme: string, style: string) {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
+        },
+        async SetDesktopVisualPreferences(theme: string, style: string, fontFamily: string, monoFontFamily: string, textSize: string, zoomFactor: number) {
+          settings.desktopTheme = theme;
+          settings.desktopThemeStyle = style;
+          settings.desktopFontFamily = fontFamily;
+          settings.desktopMonoFontFamily = monoFontFamily;
+          settings.desktopTextSize = textSize;
+          settings.desktopZoomFactor = zoomFactor;
+          mockDesktopZoomFactor = zoomFactor;
         },
         async SetDesktopLayoutStyle(style: string) {
           settings.desktopLayoutStyle = style === "workbench" || style === "creation" ? style : "classic";
@@ -3686,13 +3871,16 @@ function makeMockApp(): AppBindings {
         async SetDesktopTelemetry(enabled: boolean) {
           settings.telemetry = enabled;
         },
-        async SetDesktopMetrics(enabled: boolean) {
-          settings.metrics = enabled;
-        },
+    async SetDesktopMetrics(enabled: boolean) {
+      settings.metrics = enabled;
+    },
+    async SetDesktopShortcuts(shortcuts: Record<string, string>) {
+      settings.desktopShortcuts = JSON.parse(JSON.stringify(shortcuts)) as Record<string, string>;
+    },
         async SetMemoryCompilerEnabled(enabled: boolean) {
           settings.memoryCompilerEnabled = enabled;
         },
-        async SetExpandThinking(_on: boolean) {},
+        async SetExpandThinking(on: boolean) { settings.expandThinking = on; },
         async MigrateDesktopPreferences(language: string, theme: string, style: string) {
           if (!settings.desktopLanguage) settings.desktopLanguage = language === "en" || language === "zh" || language === "zh-TW" ? language : "";
           if (!settings.desktopTheme && !settings.desktopThemeStyle) {
@@ -3711,10 +3899,29 @@ function makeMockApp(): AppBindings {
       settings.agent = { ...settings.agent, reasoningLanguage: normalized };
     },
     // ── Heartbeat mock ──
-    async HeartbeatListTasks() { return []; },
-    async HeartbeatReloadTasks() { return []; },
-    async HeartbeatSaveTasks(_tasks: unknown) {},
-    async HeartbeatTriggerNow(_id: string) {},
+    async HeartbeatListTasks() { return structuredClone(mockHeartbeatTasks); },
+    async HeartbeatReloadTasks() { return structuredClone(mockHeartbeatTasks); },
+    async HeartbeatSaveTasks(tasks: unknown) {
+      if (!Array.isArray(tasks)) throw new Error("heartbeat tasks must be an array");
+      mockHeartbeatTasks = structuredClone(tasks) as Array<Record<string, unknown>>;
+      persistMockRuntime();
+    },
+    async HeartbeatTriggerNow(id: string) {
+      const index = mockHeartbeatTasks.findIndex((task) => task.id === id);
+      if (index < 0) throw new Error(`heartbeat task ${id} not found`);
+      const current = mockHeartbeatTasks[index];
+      if (typeof current.prompt === "string" && current.prompt.includes("[fail-once]") && current.lastRunStatus !== "failed") {
+        const failed = { ...current, lastRunStatus: "failed", lastRunError: "controlled transient heartbeat failure" };
+        mockHeartbeatTasks = mockHeartbeatTasks.map((task, taskIndex) => taskIndex === index ? failed : task);
+        persistMockRuntime();
+        throw new Error("controlled transient heartbeat failure");
+      }
+      const topicId = typeof current.topicId === "string" && current.topicId ? current.topicId : "topic_dev_standard";
+      const updated = { ...current, topicId, lastRunAt: Date.now(), lastRunStatus: "success", lastRunError: "" };
+      mockHeartbeatTasks = mockHeartbeatTasks.map((task, taskIndex) => taskIndex === index ? updated : task);
+      persistMockRuntime();
+      return structuredClone(updated);
+    },
     async HeartbeatGenerateID() { return "mock-" + Date.now().toString(36); },
     async SetTrayLocale(_locale: "en" | "zh" | "zh-TW") {},
     async SetAutoApproveTools(on: boolean) {
@@ -3752,7 +3959,7 @@ function makeMockApp(): AppBindings {
       emitUpdater({ phase: "verifying", received: total, total });
       await delay(500);
       emitUpdater({ phase: "downloaded", received: total, total });
-      return { version: "v1.1.0", channel: "stable", path: "/tmp/reasonix-update", size: total, sha256: "mock" };
+      return { version: "v1.1.0", channel: "stable", path: "/tmp/rillagent-update", size: total, sha256: "mock" };
     },
     async InstallUpdate() {
       const total = 12_345_678;
@@ -3767,7 +3974,12 @@ function makeMockApp(): AppBindings {
     },
     async OpenDownloadPage() {
       if (typeof window !== "undefined") {
-        window.open("https://reasonix.io/?download=desktop#start", "_blank", "noopener");
+        window.open("https://github.com/Lmq1111/Rill/releases", "_blank", "noopener");
+      }
+    },
+    async OpenRillReleases() {
+      if (typeof window !== "undefined") {
+        window.open("https://github.com/Lmq1111/Rill/releases", "_blank", "noopener");
       }
     },
     // Dev seam: drives the overlay flow in the browser until ConnectKey sets the
@@ -3795,6 +4007,7 @@ function makeMockApp(): AppBindings {
       if (existing) {
         const active = { ...existing, active: true, running: mockTopicRunsInScenario(_topicID) };
         mockTabs = mockTabs.map((tab) => (tab.id === existing.id ? active : { ...tab, active: false }));
+        persistMockRuntime();
         return { ...active };
       }
       const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
@@ -3820,6 +4033,7 @@ function makeMockApp(): AppBindings {
         cwd: workspaceRoot,
       };
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
+      persistMockRuntime();
       return { ...tab };
     },
     async DeliveryWorktreeAvailability(workspaceRoot: string) {
@@ -3830,12 +4044,31 @@ function makeMockApp(): AppBindings {
     async CreateDeliveryWorktree(workspaceRoot: string) {
       if (!workspaceRoot) throw new Error("project folder is required");
       const suffix = Date.now().toString(36);
-      const isolatedRoot = `/mock/reasonix-worktrees/${suffix}/${workspaceRoot.split("/").filter(Boolean).pop() ?? "project"}`;
+      const isolatedRoot = `/mock/rillagent-worktrees/${suffix}/${workspaceRoot.split("/").filter(Boolean).pop() ?? "project"}`;
       const topicID = `topic_worktree_${suffix}`;
+      const sourceProject = mockProjectTree.find((node) => node.kind === "project" && node.root === workspaceRoot);
+      mockProjectTree.unshift({
+        key: `project_${isolatedRoot}`,
+        kind: "project",
+        label: `${sourceProject?.label || baseName(workspaceRoot)}·隔离`,
+        root: isolatedRoot,
+        projectColor: sourceProject?.projectColor,
+        isolatedWorktree: true,
+        children: [{
+          key: `topic_${topicID}`,
+          kind: "topic",
+          label: t("mock.newSession"),
+          root: isolatedRoot,
+          topicId: topicID,
+          projectColor: sourceProject?.projectColor,
+          open: true,
+        }],
+      });
       const tab = await this.OpenProjectTab(isolatedRoot, topicID);
       tab.isolatedWorktree = true;
-      tab.gitBranch = `reasonix/delivery-${suffix}`;
+      tab.gitBranch = `rill/delivery-${suffix}`;
       mockTabs = mockTabs.map((candidate) => candidate.id === tab.id ? { ...tab } : candidate);
+      persistMockRuntime();
       return {
         workspaceRoot: isolatedRoot,
         worktreeRoot: isolatedRoot,
@@ -3849,6 +4082,7 @@ function makeMockApp(): AppBindings {
       const existing = mockTabs.find((tab) => tab.scope === "global" && tab.topicId === _topicID);
       if (existing) {
         setMockActiveTab(existing.id);
+        persistMockRuntime();
         return { ...existing, active: true };
       }
       const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
@@ -3872,6 +4106,7 @@ function makeMockApp(): AppBindings {
         cwd: "",
       };
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
+      persistMockRuntime();
       return { ...tab };
     },
     async OpenTopicSession(scope: string, workspaceRoot: string, topicID: string, sessionPath: string) {
@@ -3880,6 +4115,7 @@ function makeMockApp(): AppBindings {
         : await this.OpenGlobalTab(topicID);
       const active = { ...tab, sessionPath };
       mockTabs = mockTabs.map((item) => (item.id === tab.id ? active : item));
+      persistMockRuntime();
       return { ...active };
     },
     async EnsureBlankTab(scope: string, workspaceRoot: string) {
@@ -3893,6 +4129,7 @@ function makeMockApp(): AppBindings {
       );
       if (existing) {
         setMockActiveTab(existing.id);
+        persistMockRuntime();
         return { ...existing, active: true };
       }
       const topic = await this.CreateTopic(targetScope, targetRoot, "");
@@ -3905,22 +4142,28 @@ function makeMockApp(): AppBindings {
           ? await this.OpenProjectTab(workspaceRoot, topicID)
           : await this.OpenGlobalTab(topicID);
       mockTabs = mockTabs.filter((item) => item.id === tab.id).map((item) => ({ ...item, active: true }));
+      persistMockRuntime();
       return { ...mockTabs[0] };
     },
     async EnsureBlankSurface(scope: string, workspaceRoot: string) {
       const tab = await this.EnsureBlankTab(scope, workspaceRoot);
       mockTabs = mockTabs.filter((item) => item.id === tab.id).map((item) => ({ ...item, active: true }));
+      persistMockRuntime();
       return { ...mockTabs[0] };
     },
     async SetActiveTab(_tabID: string) {
       setMockActiveTab(_tabID);
+      persistMockRuntime();
       const tab = mockTabs.find((item) => item.id === _tabID);
       if (tab) queueMockTopicRuntime(tab);
     },
     async ReorderTabs(_tabIDs: string[]) {
       const byId = new Map(mockTabs.map((tab) => [tab.id, tab]));
       const ordered = _tabIDs.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
-      if (ordered.length === mockTabs.length) mockTabs = ordered;
+      if (ordered.length === mockTabs.length) {
+        mockTabs = ordered;
+        persistMockRuntime();
+      }
     },
     async CloseTab(_tabID: string) {
       if (mockTabs.length <= 1) return;
@@ -3929,6 +4172,7 @@ function makeMockApp(): AppBindings {
       if (wasActive && mockTabs.length > 0 && !mockTabs.some((tab) => tab.active)) {
         mockTabs[mockTabs.length - 1] = { ...mockTabs[mockTabs.length - 1], active: true };
       }
+      persistMockRuntime();
     },
     async ListProjectTree() {
       return cloneProjectTree();

@@ -9,9 +9,9 @@ import (
 func TestSafeModeIgnoresBrokenUserAndProjectConfig(t *testing.T) {
 	home := t.TempDir()
 	root := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	t.Setenv("REASONIX_SAFE_MODE", "1")
-	for _, path := range []string{filepath.Join(home, "config.toml"), filepath.Join(root, "reasonix.toml")} {
+	t.Setenv("RILLAGENT_HOME", home)
+	t.Setenv("RILLAGENT_SAFE_MODE", "1")
+	for _, path := range []string{filepath.Join(home, "config.toml"), filepath.Join(root, "rillagent.toml")} {
 		if err := os.WriteFile(path, []byte("[broken\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -27,7 +27,7 @@ func TestSafeModeIgnoresBrokenUserAndProjectConfig(t *testing.T) {
 
 func TestRecoveryDefaultsDoNotReadOrRewriteMalformedConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
+	t.Setenv("RILLAGENT_HOME", home)
 	path := filepath.Join(home, "config.toml")
 	bad := []byte("[broken\n")
 	if err := os.WriteFile(path, bad, 0o600); err != nil {
@@ -48,8 +48,8 @@ func TestRecoveryDefaultsDoNotReadOrRewriteMalformedConfig(t *testing.T) {
 
 func TestSafeModeForcesReportingOff(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("REASONIX_HOME", home)
-	t.Setenv("REASONIX_SAFE_MODE", "1")
+	t.Setenv("RILLAGENT_HOME", home)
+	t.Setenv("RILLAGENT_SAFE_MODE", "1")
 	optIn := "[desktop]\ntelemetry = true\nmetrics = true\n"
 	if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte(optIn), 0o600); err != nil {
 		t.Fatal(err)

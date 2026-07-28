@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -28,6 +29,7 @@ type workspaceChangeAccumulator struct {
 }
 
 const workspaceGitBranchCacheTTL = 2 * time.Second
+const workspaceFileDiffLimit = 2 << 20
 
 type workspaceGitBranchCacheEntry struct {
 	branch     string
@@ -126,6 +128,96 @@ func (a *App) WorkspaceChanges(tabID string) WorkspaceChangesView {
 		return strings.ToLower(a.Path) < strings.ToLower(b.Path)
 	})
 	return out
+}
+
+// WorkspaceFileDiff returns a bounded, read-only diff for one current
+// workspace path. It includes staged and unstaged tracked changes and builds a
+// /dev/null-style patch for untracked files without exposing their absolute
+// local path in the returned headers.
+func (a *App) WorkspaceFileDiff(tabID, path string) WorkspaceFileDiffView {
+	out := WorkspaceFileDiffView{Path: strings.TrimSpace(path)}
+	base, err := a.workspaceBaseForTab(tabID)
+	if err != nil {
+		out.Err = err.Error()
+		return out
+	}
+
+	clean := filepath.Clean(filepath.FromSlash(out.Path))
+	if out.Path == "" || filepath.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		out.Err = "invalid path"
+		return out
+	}
+	out.Path = filepath.ToSlash(clean)
+
+	entries, err := workspaceGitStatus(base)
+	if err != nil {
+		out.Err = err.Error()
+		return out
+	}
+	status := ""
+	for _, entry := range entries {
+		if entry.Path == out.Path || entry.OldPath == out.Path {
+			status = entry.Status
+			break
+		}
+	}
+
+	var raw []byte
+	if status == "??" {
+		full, ok, pathErr := workspacePathForBase(base, out.Path)
+		if pathErr != nil || !ok {
+			out.Err = "invalid path"
+			return out
+		}
+		raw, err = workspaceDiffCommandOutput("diff", "--no-index", "--no-color", "--", os.DevNull, full)
+		if err == nil {
+			text := string(raw)
+			text = strings.ReplaceAll(text, filepath.ToSlash(full), out.Path)
+			text = strings.ReplaceAll(text, full, out.Path)
+			raw = []byte(text)
+		}
+	} else {
+		if _, headErr := workspaceGitOutputWithTimeout(2*time.Second, "-C", base, "rev-parse", "--verify", "HEAD"); headErr == nil {
+			raw, err = workspaceDiffCommandOutput("-C", base, "diff", "--relative", "--no-ext-diff", "--no-color", "--binary", "HEAD", "--", out.Path)
+		} else {
+			staged, stagedErr := workspaceDiffCommandOutput("-C", base, "diff", "--relative", "--cached", "--no-ext-diff", "--no-color", "--binary", "--", out.Path)
+			unstaged, unstagedErr := workspaceDiffCommandOutput("-C", base, "diff", "--relative", "--no-ext-diff", "--no-color", "--binary", "--", out.Path)
+			if stagedErr != nil {
+				err = stagedErr
+			} else if unstagedErr != nil {
+				err = unstagedErr
+			} else {
+				raw = append(staged, unstaged...)
+			}
+		}
+	}
+	if err != nil {
+		out.Err = err.Error()
+		return out
+	}
+	if len(raw) > workspaceFileDiffLimit {
+		raw = raw[:workspaceFileDiffLimit]
+		out.Truncated = true
+	}
+	out.Diff = strings.TrimSpace(string(raw))
+	out.Binary = strings.Contains(out.Diff, "Binary files ") || strings.Contains(out.Diff, "GIT binary patch")
+	for _, line := range strings.Split(out.Diff, "\n") {
+		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+			out.Added++
+		}
+		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			out.Removed++
+		}
+	}
+	return out
+}
+
+func workspaceDiffCommandOutput(args ...string) ([]byte, error) {
+	raw, err := workspaceGit(args...).Output()
+	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 1 {
+		return raw, nil
+	}
+	return raw, err
 }
 
 func (a *App) workspaceChangesTarget(tabID string) (string, control.SessionAPI, bool) {

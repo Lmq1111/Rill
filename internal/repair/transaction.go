@@ -139,7 +139,7 @@ func validateRepairChange(change RepairChange) error {
 			return fmt.Errorf("repair transaction global target is invalid")
 		}
 	case change.Scope == "project":
-		if filepath.Base(target) != "reasonix.toml" {
+		if filepath.Base(target) != "rillagent.toml" {
 			return fmt.Errorf("repair transaction project target is invalid")
 		}
 	case strings.HasPrefix(change.Scope, "derived:"):
@@ -158,7 +158,7 @@ func validateRepairChange(change RepairChange) error {
 		return nil
 	}
 	previous := filepath.Clean(change.PreviousPath)
-	if filepath.Dir(previous) == filepath.Dir(target) && strings.HasPrefix(filepath.Base(previous), filepath.Base(target)+".reasonix-") {
+	if filepath.Dir(previous) == filepath.Dir(target) && strings.HasPrefix(filepath.Base(previous), filepath.Base(target)+".rillagent-") {
 		return nil
 	}
 	if config.MemoryUserDir() == "" {
@@ -216,7 +216,7 @@ func UndoLastRepair() (*RepairTransaction, error) {
 			// Index suffix keeps redo names unique when one undo touches the
 			// same target twice (e.g. quarantine + snapshot restore): a shared
 			// name would silently overwrite the earlier redo copy.
-			redo = fmt.Sprintf("%s.reasonix-redo-%s-%d", change.TargetPath, now.Format("20060102T150405.000000000Z"), i)
+			redo = fmt.Sprintf("%s.rillagent-redo-%s-%d", change.TargetPath, now.Format("20060102T150405.000000000Z"), i)
 			if err := os.Rename(change.TargetPath, redo); err != nil {
 				return nil, fmt.Errorf("undo repair: retain current file: %w", err)
 			}

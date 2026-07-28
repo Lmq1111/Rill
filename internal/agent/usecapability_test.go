@@ -245,7 +245,7 @@ func TestReadOnlyExecutionDoesNotStartUntrustedUnconnectedMCP(t *testing.T) {
 	host := plugin.NewHost()
 	defer host.Close()
 	proxy := NewUseCapabilityTool(context.Background(), host, []plugin.Spec{{
-		Name: "lazy", Type: "stdio", Command: "reasonix-test-definitely-missing-binary",
+		Name: "lazy", Type: "stdio", Command: "rillagent-test-definitely-missing-binary",
 	}}, tool.NewRegistry(), capability.NewLedger(), nil, nil)
 	reg := tool.NewRegistry()
 	reg.Add(proxy)
@@ -301,7 +301,7 @@ func receiptReaderMCPServer(t *testing.T, schemaDrift *atomic.Bool, toolCalls *a
 }
 
 func TestReadOnlyExecutionStartsReceiptMatchedUnconnectedMCPReader(t *testing.T) {
-	t.Setenv("REASONIX_CACHE_HOME", t.TempDir())
+	t.Setenv("RILLAGENT_CACHE_HOME", t.TempDir())
 	var toolCalls atomic.Int32
 	server := receiptReaderMCPServer(t, nil, &toolCalls)
 	defer server.Close()
@@ -336,7 +336,7 @@ func TestReadOnlyExecutionStartsReceiptMatchedUnconnectedMCPReader(t *testing.T)
 }
 
 func TestReadOnlyExecutionBlocksReceiptSchemaDriftBeforeToolCall(t *testing.T) {
-	t.Setenv("REASONIX_CACHE_HOME", t.TempDir())
+	t.Setenv("RILLAGENT_CACHE_HOME", t.TempDir())
 	var schemaDrift atomic.Bool
 	var toolCalls atomic.Int32
 	server := receiptReaderMCPServer(t, &schemaDrift, &toolCalls)
@@ -595,7 +595,7 @@ func TestReviewReportRejectsNonContentEvidence(t *testing.T) {
 func TestUseCapabilityServerConnectHonorsPermissionInPlanMode(t *testing.T) {
 	host := plugin.NewHost()
 	defer host.Close()
-	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "reasonix-test-definitely-missing-binary"}}
+	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "rillagent-test-definitely-missing-binary"}}
 	reg := tool.NewRegistry()
 	uc := NewUseCapabilityTool(context.Background(), host, specs, reg, capability.NewLedger(), nil, nil)
 	reg.Add(uc)
@@ -632,7 +632,7 @@ func TestUseCapabilityServerConnectHonorsPermissionInPlanMode(t *testing.T) {
 func TestOnDemandModelNameMatchesPluginCanonicalName(t *testing.T) {
 	host := plugin.NewHost()
 	defer host.Close()
-	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "reasonix-test-definitely-missing-binary"}}
+	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "rillagent-test-definitely-missing-binary"}}
 	tl := NewUseCapabilityTool(context.Background(), host, specs, tool.NewRegistry(), capability.NewLedger(), nil, nil)
 	for _, raw := range []string{"@model/tool", "search/issues", "with space", "plain_ok"} {
 		resolved, err := tl.ResolveCall(context.Background(),
@@ -728,7 +728,7 @@ func TestUseCapabilityResolveCallIsSideEffectFree(t *testing.T) {
 	specs := []plugin.Spec{{
 		Name:              "lazy",
 		Type:              "stdio",
-		Command:           "reasonix-test-definitely-missing-binary",
+		Command:           "rillagent-test-definitely-missing-binary",
 		ReadOnlyToolNames: map[string]bool{"read_thing": true},
 	}}
 	tl := NewUseCapabilityTool(context.Background(), host, specs, tool.NewRegistry(), capability.NewLedger(), nil, nil)
@@ -772,7 +772,7 @@ func TestUseCapabilityResolveCallIsSideEffectFree(t *testing.T) {
 func TestUseCapabilityInspectDoesNotStartServer(t *testing.T) {
 	host := plugin.NewHost()
 	defer host.Close()
-	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "reasonix-test-definitely-missing-binary"}}
+	specs := []plugin.Spec{{Name: "lazy", Type: "stdio", Command: "rillagent-test-definitely-missing-binary"}}
 	tl := NewUseCapabilityTool(context.Background(), host, specs, tool.NewRegistry(), capability.NewLedger(), nil, func() capability.Catalog {
 		return capability.Catalog{Entries: []capability.Entry{{
 			ID: "mcp-server:lazy", Kind: capability.KindMCPServer, Name: "lazy", Source: "lazy", Status: capability.StatusConfigured,
@@ -881,7 +881,7 @@ func TestStrictReadOnlyFailsClosedWithoutTrustAuthority(t *testing.T) {
 	specs := []plugin.Spec{{
 		Name:              "lazy",
 		Type:              "stdio",
-		Command:           "reasonix-test-definitely-missing-binary",
+		Command:           "rillagent-test-definitely-missing-binary",
 		ReadOnlyToolNames: map[string]bool{"read_thing": true},
 	}}
 	tl := NewUseCapabilityTool(context.Background(), host, specs, tool.NewRegistry(), capability.NewLedger(), nil, nil)

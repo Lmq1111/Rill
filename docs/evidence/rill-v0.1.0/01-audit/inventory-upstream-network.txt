@@ -1,0 +1,437 @@
+./.github/workflows/e2e-bot.yml:44:      # suite, and a run --metrics-capable agent live.
+./.github/workflows/e2e-bot.yml:61:        # main-v2 build is only the fallback for heads that predate `run --metrics`.
+./.github/workflows/e2e-bot.yml:81:        # run --metrics-capable binary (build break or predates the flag).
+./.github/workflows/e2e-bot.yml:85:          src="main-v2 fallback (PR head lacks run --metrics)"
+./.github/workflows/e2e-bot.yml:87:            && "$RUNNER_TEMP/reasonix-pr" run -h 2>&1 | grep -q -- '-metrics'; then
+./.github/workflows/release-desktop.yml:343:          R2_PUBLIC_BASE: https://dl.reasonix.io
+./.github/workflows/release-desktop.yml:382:      # dl.reasonix.io serves 403 to GitHub Actions egress IPs (Cloudflare bot
+./.github/workflows/release-desktop.yml:399:          jq -e --arg version "$VERSION" --arg prefix "https://dl.reasonix.io/${TAG}/" '
+./.github/workflows/release-desktop.yml:401:            .download_page == "https://reasonix.io/?download=desktop#start" and
+./.github/workflows/release-desktop.yml:421:            key="${asset#https://dl.reasonix.io/}"
+./.github/workflows/release-desktop.yml:447:          url="https://crash.reasonix.io/v1/desktop/releases/${chan}/latest.json"
+./.github/workflows/release.yml:103:      # edge, with a Go client UA. Unlike dl.reasonix.io (whose bot protection
+./.github/workflows/release.yml:84:          # dl.reasonix.io serves 403 to GitHub Actions egress IPs (Cloudflare bot
+./.github/workflows/release.yml:92:          jq '.download_page = "https://reasonix.io/?download=desktop#start"' latest.raw.json > latest.json
+./.github/workflows/release.yml:95:              all(type == "string" and startswith("https://dl.reasonix.io/") and (contains("/releases/latest/") | not)))
+./SECURITY.md:84:  messages to logs, model providers, MCP servers, crash reports, or telemetry.
+./cmd/e2ebench/diff.go:100:	m, _ := readMetrics(metricsPath)
+./cmd/e2ebench/diff.go:76:	metricsPath := filepath.Join(o.repo, ".e2e-diff-metrics.json")
+./cmd/e2ebench/diff.go:77:	_ = os.Remove(metricsPath)
+./cmd/e2ebench/diff.go:78:	defer os.Remove(metricsPath)
+./cmd/e2ebench/diff.go:83:	args := []string{"run", "--metrics", metricsPath, "--max-steps", fmt.Sprint(o.maxSteps)}
+./cmd/e2ebench/main.go:226:	metricsPath := filepath.Join(work, ".run-metrics.json")
+./cmd/e2ebench/main.go:227:	args := []string{"run", "--metrics", metricsPath}
+./cmd/e2ebench/main.go:244:	if m, err := readMetrics(metricsPath); err == nil {
+./cmd/e2ebench/main.go:41:	// Optional Delivery capability counters (omitempty for baseline/old metrics).
+./desktop/README.md:134:`crash.reasonix.io` desktop release gateway) and shows an update banner when a
+./desktop/README.md:259:The desktop app sends one anonymous ping per launch to `crash.reasonix.io`:
+./desktop/README.md:265:`telemetry = false` under `[desktop]` in the global config. Dev builds
+./desktop/README.md:269:Aggregate quality metrics are also enabled by default and can be disabled from
+./desktop/README.md:270:Settings > Updates > "Share aggregate quality metrics", or by setting
+./desktop/README.md:271:`metrics = false` under `[desktop]`. These metrics are anonymous signal/bucket
+./desktop/README.md:275:When Memory v5 is enabled, the same aggregate metrics pipeline may include only
+./desktop/app.go:1712:	// telemetry keeps the previous session's totals and the status bar 会话费用
+./desktop/app.go:193:	metrics atomic.Pointer[metricsAggregator] // non-nil only when desktop.metrics is opted in; swapped live by SetDesktopMetrics
+./desktop/app.go:438:		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
+./desktop/app.go:455:		// Pending metrics/crash payloads stay on disk in Safe Mode: whether to
+./desktop/app.go:456:		// send or drop them depends on the user's real telemetry preference,
+./desktop/app.go:5320:		snap := tab.telemetrySnapshot()
+./desktop/app.go:6356:	if metrics := a.metrics.Load(); metrics != nil {
+./desktop/app.go:6357:		metrics.inc(signal, bucket)
+./desktop/app.go:6358:		metrics.persist()
+./desktop/cmd/sign/main.go:174:		DownloadPage: "https://reasonix.io/?download=desktop#start",
+./desktop/crash_app.go:17:var crashEndpoint = "https://crash.reasonix.io/v1/report"
+./desktop/crash_pending.go:17:// desktop.telemetry opt-out as the launch ping.
+./desktop/crash_pending.go:85:// clears it. Runs at launch alongside the ping; honours the telemetry opt-out by
+./desktop/crash_pending.go:92:	// telemetry preference, so it must neither send the pending report nor
+./desktop/frontend/src/App.tsx:3808:              void openExternal(`https://reasonix.io/changelog/v${version}/`);
+./desktop/frontend/src/components/ContextPanel.tsx:151:// independently throttled snapshot. Panel telemetry remains the all-sources
+./desktop/frontend/src/components/ContextPanel.tsx:382:  // Session-cumulative cache tokens for the top summary: all-sources telemetry
+./desktop/frontend/src/components/ContextPanel.tsx:385:  // only a fresh session's first turn before the telemetry refresh. Hit and
+./desktop/frontend/src/components/ContextPanel.tsx:478:            <div className="context-panel__source-metrics">
+./desktop/frontend/src/components/ContextPanel.tsx:525:            <div className="context-panel__session-metrics">
+./desktop/frontend/src/components/SettingsPanel.tsx:329:                      telemetry={s.telemetry !== false}
+./desktop/frontend/src/components/SettingsPanel.tsx:330:                      metrics={s.metrics !== false}
+./desktop/frontend/src/components/SettingsPanel.tsx:6870:  telemetry,
+./desktop/frontend/src/components/SettingsPanel.tsx:6871:  metrics,
+./desktop/frontend/src/components/SettingsPanel.tsx:6877:  telemetry: boolean;
+./desktop/frontend/src/components/SettingsPanel.tsx:6878:  metrics: boolean;
+./desktop/frontend/src/components/SettingsPanel.tsx:6902:          onChange={(enabled) => void applySettings(() => app.SetDesktopCheckUpdates(enabled))}
+./desktop/frontend/src/components/SettingsPanel.tsx:6907:        label={t("settings.telemetryLabel")}
+./desktop/frontend/src/components/SettingsPanel.tsx:6908:        hint={t("settings.telemetryHint")}
+./desktop/frontend/src/components/SettingsPanel.tsx:6911:          value={telemetry}
+./desktop/frontend/src/components/SettingsPanel.tsx:6918:        label={t("settings.metricsLabel")}
+./desktop/frontend/src/components/SettingsPanel.tsx:6919:        hint={t("settings.metricsHint")}
+./desktop/frontend/src/components/SettingsPanel.tsx:6922:          value={metrics}
+./desktop/frontend/src/components/SettingsPanel.tsx:6976:        <button className="btn btn--small" onClick={() => void openExternal("https://reasonix.io/changelog/")}>
+./desktop/frontend/src/components/StatusBar.tsx:192:  // All-sources telemetry first; the executor-only live counters only bridge
+./desktop/frontend/src/components/StatusBar.tsx:36:// cache tokens — the tab telemetry that accumulates ALL request sources
+./desktop/frontend/src/lib/bridge.ts:1309:    telemetry: true,
+./desktop/frontend/src/lib/bridge.ts:1310:    metrics: true,
+./desktop/frontend/src/lib/bridge.ts:3683:        async SetDesktopCheckUpdates(enabled: boolean) {
+./desktop/frontend/src/lib/bridge.ts:3687:          settings.telemetry = enabled;
+./desktop/frontend/src/lib/bridge.ts:3690:          settings.metrics = enabled;
+./desktop/frontend/src/lib/bridge.ts:3729:    async CheckUpdate() {
+./desktop/frontend/src/lib/bridge.ts:374:  SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
+./desktop/frontend/src/lib/bridge.ts:3768:    async OpenDownloadPage() {
+./desktop/frontend/src/lib/bridge.ts:3770:        window.open("https://reasonix.io/?download=desktop#start", "_blank", "noopener");
+./desktop/frontend/src/lib/bridge.ts:389:  CheckUpdate(): Promise<UpdateInfo | null>;
+./desktop/frontend/src/lib/bridge.ts:393:  OpenDownloadPage(): Promise<void>;
+./desktop/frontend/src/lib/bridge.ts:673:  if (/^(CheckUpdate|DownloadUpdate|InstallUpdate|ApplyUpdate|OpenDownloadPage)/.test(method)) return `update ${method}`;
+./desktop/frontend/src/lib/types.ts:1494:  telemetry: boolean; // anonymous launch ping (install id + version + OS)
+./desktop/frontend/src/lib/types.ts:1495:  metrics: boolean; // aggregate desktop metrics (anonymous signal/bucket counts)
+./desktop/frontend/src/lib/useController.ts:187:  // the session metrics live; state.usage stays executor-gated for the gauge.
+./desktop/frontend/src/lib/useController.ts:2212:  // Keep shared all-source telemetry live between turn boundaries. Delivery
+./desktop/frontend/src/lib/useUpdater.ts:104:    void app.OpenDownloadPage();
+./desktop/frontend/src/lib/useUpdater.ts:66:      const info = await app.CheckUpdate();
+./desktop/frontend/src/lib/useUpdater.ts:87:      void app.OpenDownloadPage();
+./desktop/frontend/src/locales/en.ts:2259:  "settings.telemetryLabel": "Anonymous usage ping",
+./desktop/frontend/src/locales/en.ts:2260:  "settings.telemetryHint": "On launch, send a random install id plus version and OS to count active installs, and — if the app crashed on a previous run — resend that crash report. Never includes conversations, keys, or file contents.",
+./desktop/frontend/src/locales/en.ts:2261:  "settings.metricsLabel": "Share aggregate quality metrics",
+./desktop/frontend/src/locales/en.ts:2262:  "settings.metricsHint": "On by default. Sends anonymous turn-end counts, updater error categories, settings preference snapshots, and Memory v5 aggregate buckets such as injection on/off, size buckets, IR count buckets, and memory graph size buckets. Includes the random install id used to de-duplicate DAU. Buckets may include normalized custom provider and model names — never conversations, prompts, keys, paths, base URLs, memory text, tool outputs, or file contents.",
+./desktop/frontend/src/locales/en.ts:2319:  "context.sessionMetrics": "Session metrics",
+./desktop/frontend/src/locales/zh-TW.ts:2388:  "settings.telemetryLabel": "匿名啟動統計",
+./desktop/frontend/src/locales/zh-TW.ts:2389:  "settings.telemetryHint": "啟動時傳送隨機安裝 ID、版本號和作業系統用於統計活躍安裝量；若上次執行發生崩潰，則在本次啟動補發該崩潰報告。絕不包含對話、金鑰或檔案內容。",
+./desktop/frontend/src/locales/zh-TW.ts:2390:  "settings.metricsLabel": "共享聚合品質指標",
+./desktop/frontend/src/locales/zh-TW.ts:2391:  "settings.metricsHint": "預設開啟。傳送匿名的輪次結束統計、更新器錯誤類別、設定偏好快照，以及 Memory v5 聚合桶，例如是否注入、大小桶、IR 數量桶和記憶圖規模桶。包含用於 DAU 去重的隨機安裝 ID。Bucket 可能包含正規化後的自訂 Provider 名和模型名——絕不包含對話、提示詞、金鑰、路徑、base URL、記憶正文、工具輸出或檔案內容。",
+./desktop/frontend/src/locales/zh.ts:2261:  "settings.telemetryLabel": "匿名启动统计",
+./desktop/frontend/src/locales/zh.ts:2262:  "settings.telemetryHint": "启动时发送随机安装 ID、版本号和操作系统用于统计活跃安装量；若上次运行发生崩溃，则在本次启动补发该崩溃报告。绝不包含对话、密钥或文件内容。",
+./desktop/frontend/src/locales/zh.ts:2263:  "settings.metricsLabel": "共享聚合质量指标",
+./desktop/frontend/src/locales/zh.ts:2264:  "settings.metricsHint": "默认开启。发送匿名的轮次结束统计、更新器错误类别、设置偏好快照，以及 Memory v5 聚合桶，例如是否注入、大小桶、IR 数量桶和记忆图规模桶。包含用于 DAU 去重的随机安装 ID。Bucket 可能包含归一化后的自定义 Provider 名和模型名——绝不包含对话、提示词、密钥、路径、base URL、记忆正文、工具输出或文件内容。",
+./desktop/frontend/src/styles.css:23148:.context-panel__session-metrics {
+./desktop/frontend/src/styles.css:23152:.context-panel__session-metrics {
+./desktop/frontend/src/styles.css:23603:.context-panel__source-metrics {
+./desktop/frontend/src/styles.css:23693:.context-panel__source-details .context-panel__source-metrics {
+./desktop/frontend/src/styles.css:23815:  .context-panel__source-metrics {
+./desktop/frontend/src/styles.css:31742:.app--creation .context-panel__session-metrics {
+./desktop/hang_watchdog.go:113:	if m := a.metrics.Load(); m != nil {
+./desktop/metrics_app.go:147:func metricsOfficialProviderHost(baseURL string) string {
+./desktop/metrics_app.go:161:		if metricsOfficialProviderHost(e.BaseURL) == "api.deepseek.com" {
+./desktop/metrics_app.go:165:		if metricsOfficialProviderHost(e.BaseURL) == "api.xiaomimimo.com" {
+./desktop/metrics_app.go:169:		if metricsOfficialProviderHost(e.BaseURL) == "token-plan-cn.xiaomimimo.com" {
+./desktop/metrics_app.go:213:func (m *metricsAggregator) observeSettingsSnapshot(c *config.Config) {
+./desktop/metrics_app.go:21:// metrics_app.go is the aggregate desktop-metrics flush: anonymous (signal,
+./desktop/metrics_app.go:237:	m.inc("settings_check_updates", boolBucket(c.DesktopCheckUpdates()))
+./desktop/metrics_app.go:251:func (m *metricsAggregator) observeBotSettingsSnapshot(c *config.Config) {
+./desktop/metrics_app.go:25:// buckets. Gated on config desktop.metrics (default on), dev-skipped.
+./desktop/metrics_app.go:276:	m := a.metrics.Load()
+./desktop/metrics_app.go:27:var metricsEndpoint = "https://crash.reasonix.io/v1/metrics"
+./desktop/metrics_app.go:286:func (m *metricsAggregator) observe(e event.Event) {
+./desktop/metrics_app.go:29:const metricsPendingFile = "metrics-pending.json"
+./desktop/metrics_app.go:30:const metricsPostTimeout = 8 * time.Second
+./desktop/metrics_app.go:318:func (m *metricsAggregator) observeMemoryCompilerStats(s *event.MemoryCompilerStats) {
+./desktop/metrics_app.go:437:func (m *metricsAggregator) persist() {
+./desktop/metrics_app.go:476:type metricsPayload struct {
+./desktop/metrics_app.go:506:	path := filepath.Join(config.MemoryUserDir(), metricsPendingFile)
+./desktop/metrics_app.go:512:	payload := metricsPayload{Version: version, OS: runtime.GOOS, Counters: flat}
+./desktop/metrics_app.go:51:// metricsAggregator accumulates one session's (signal, bucket) counts and merges
+./desktop/metrics_app.go:526:func (a *App) postMetrics(p metricsPayload) bool {
+./desktop/metrics_app.go:535:	c.Timeout = metricsPostTimeout
+./desktop/metrics_app.go:536:	req, err := http.NewRequestWithContext(a.bootContext(), http.MethodPost, metricsEndpoint, bytes.NewReader(body))
+./desktop/metrics_app.go:53:type metricsAggregator struct {
+./desktop/metrics_app.go:59:func newMetricsAggregator(configDir string) *metricsAggregator {
+./desktop/metrics_app.go:60:	return &metricsAggregator{path: filepath.Join(configDir, metricsPendingFile), c: counters{}}
+./desktop/metrics_app.go:63:func (m *metricsAggregator) inc(signal, bucket string) {
+./desktop/sessions.go:139:	return sessionPath + ".telemetry.json"
+./desktop/sessions.go:151:		{src: sessionTelemetryPath(sessionPath), name: key + ".telemetry.json"},
+./desktop/settings_app.go:274:	CheckUpdates            bool                 `json:"checkUpdates"`
+./desktop/settings_app.go:275:	Telemetry               bool                 `json:"telemetry"`
+./desktop/settings_app.go:276:	Metrics                 bool                 `json:"metrics"`
+./desktop/settings_app.go:3014:// SetDesktopCheckUpdates updates only the desktop startup update-check
+./desktop/settings_app.go:3016:func (a *App) SetDesktopCheckUpdates(enabled bool) error {
+./desktop/settings_app.go:3017:	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCheckUpdates(enabled) })
+./desktop/settings_app.go:3025:// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics,
+./desktop/settings_app.go:3032:	case enabled && a.metrics.Load() == nil && version != "dev":
+./desktop/settings_app.go:3033:		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
+./desktop/settings_app.go:3038:		a.metrics.Store(nil)
+./desktop/settings_app.go:304:	CheckUpdates       bool            `json:"checkUpdates"`
+./desktop/settings_app.go:759:			CheckUpdates:       true,
+./desktop/settings_app.go:771:		CheckUpdates:       cfg.DesktopCheckUpdates(),
+./desktop/settings_app.go:818:			CheckUpdates:            true,
+./desktop/settings_app.go:882:		CheckUpdates:            cfg.DesktopCheckUpdates(),
+./desktop/tabs.go:1337:		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+./desktop/tabs.go:1342:	tab, sp := s.telemetryTab()
+./desktop/tabs.go:1351:		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+./desktop/tabs.go:1356:	tab, sp := s.telemetryTab()
+./desktop/tabs.go:1365:		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+./desktop/tabs.go:1370:	tab, sp := s.telemetryTab()
+./desktop/tabs.go:1379:		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+./desktop/tabs.go:1440:func (s *tabEventSink) telemetryTab() (*WorkspaceTab, string) {
+./desktop/tabs.go:3121:			// Key telemetry to the session this build binds: restore its
+./desktop/tabs.go:3123:			// session, CLI-created session, pre-telemetry session). Keeping
+./desktop/tabs.go:3127:			snapshot := loadTelemetry(path + ".telemetry.json")
+./desktop/tabs.go:3131:			tab.telemetrySessionKey = sessionRuntimeKey(path)
+./desktop/tabs.go:470:	telemetrySessionKey := tab.telemetrySessionKey
+./desktop/tabs.go:490:		telemetrySessionKey: telemetrySessionKey,
+./desktop/tabs.go:5148:		// with it: re-key the in-memory telemetry from the original session to
+./desktop/tabs.go:5159:				if tab.telemetrySessionKey == origKey || tab.telemetrySessionKey == "" {
+./desktop/tabs.go:5160:					tab.telemetrySessionKey = newKey
+./desktop/tabs.go:5166:				_ = saveTelemetry(info.RecoveryPath+".telemetry.json", tab.telemetrySnapshot())
+./desktop/tabs.go:5315:// --- telemetry --------------------------------------------------------------
+./desktop/tabs.go:551:// applyRuntimeTab moves source's runtime (controller, sink, lease, telemetry)
+./desktop/tabs.go:561:	telemetrySessionKey := source.telemetrySessionKey
+./desktop/tabs.go:588:	target.telemetrySessionKey = telemetrySessionKey
+./desktop/tabs.go:7051:	// Session-cumulative token counts (from telemetry, atomic snapshot).
+./desktop/tabs.go:7112:	telemetry := tab.telemetrySnapshot()
+./desktop/tabs.go:7113:	if records := telemetry.ReadFiles; records != nil {
+./desktop/tabs.go:7116:	usage := telemetry.Usage
+./desktop/tabs.go:712:func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
+./desktop/tabs.go:739:	t.telemetrySessionKey = sessionRuntimeKey(sessionPath)
+./desktop/tabs.go:743:// syncTelemetryToSession keys the in-memory telemetry to the runtime's current
+./desktop/tabs.go:756:	same := t.telemetrySessionKey == key
+./desktop/tabs.go:763:	snapshot := loadTelemetry(sessionPath + ".telemetry.json")
+./desktop/tabs.go:765:	if t.telemetrySessionKey != key {
+./desktop/tabs.go:768:		t.telemetrySessionKey = key
+./desktop/tabs.go:89:	// telemetrySessionKey is the sessionRuntimeKey the telemetry above belongs
+./desktop/tabs.go:91:	// App bindings, so telemetry writers and readers re-key through
+./desktop/tabs.go:95:	telemetrySessionKey string
+./desktop/tabs.go:969:		if m := app.metrics.Load(); m != nil {
+./desktop/tabs.go:988:	// Record read_file successes in the tab's telemetry.
+./desktop/telemetry_app.go:18:// telemetry_app.go is the anonymous launch ping: one POST per app start carrying a
+./desktop/telemetry_app.go:20:// Gated on config desktop.telemetry (default on) and skipped entirely in dev builds.
+./desktop/telemetry_app.go:22:var pingEndpoint = "https://crash.reasonix.io/v1/ping"
+./desktop/updater.go:44:	r2Base             = "https://dl.reasonix.io"
+./desktop/updater.go:45:	releaseGatewayBase = "https://crash.reasonix.io/v1/desktop/releases"
+./desktop/updater.go:46:	downloadPageURL    = "https://reasonix.io/?download=desktop#start"
+./desktop/updater.go:51:// dl.reasonix.io and crash.reasonix.io share one Cloudflare zone, so bot
+./desktop/updater.go:90:// UpdateInfo is the CheckUpdate result that drives the frontend's update banner.
+./desktop/updater_app.go:121:		a.OpenDownloadPage()
+./desktop/updater_app.go:219:// run, else Background (CheckUpdate may, in theory, be reached before startup).
+./desktop/updater_app.go:22:// frontend displays it; CheckUpdate compares against it.
+./desktop/updater_app.go:247:	if m := a.metrics.Load(); m != nil {
+./desktop/updater_app.go:25:// CheckUpdate fetches the manifest (R2, then GitHub) and reports whether a newer
+./desktop/updater_app.go:28:func (a *App) CheckUpdate() (*UpdateInfo, error) {
+./desktop/updater_app.go:61:// OpenDownloadPage opens the install page in the browser — the macOS manual-update
+./desktop/updater_app.go:63:func (a *App) OpenDownloadPage() {
+./desktop/updater_app.go:82:		a.OpenDownloadPage()
+./internal/agent/agent.go:1061:	// CapabilityAudit is the optional non-persisted metrics sink for routing.
+./internal/agent/agent.go:290:	// lastUsage caches the most recent per-turn telemetry the provider reported so
+./internal/agent/agent.go:842:// LastUsage returns the most recent per-turn token telemetry the provider
+./internal/agent/capability_gate.go:38:// CapabilityAudit returns the non-persisted capability metrics sink (may be nil).
+./internal/agent/testutil/mock_provider.go:17:// optional tool calls, usage telemetry, and optionally an error to inject.
+./internal/bot/control_server.go:66:	mux.HandleFunc("/metrics", gw.controlAuth(gw.handleControlMetrics))
+./internal/capability/audit.go:184:// Snapshot returns a copy of counters for metrics export.
+./internal/capability/audit.go:6:// readiness audit collection for run --metrics and e2ebench.
+./internal/cli/cli.go:414:	metricsPath := fs.String("metrics", "", "write a JSON token/cache/cost summary of the run to this path")
+./internal/cli/cli.go:558:	var metrics *metricsSink
+./internal/cli/cli.go:559:	if *metricsPath != "" {
+./internal/cli/cli.go:560:		metrics = &metricsSink{inner: sink}
+./internal/cli/cli.go:561:		sink = metrics
+./internal/cli/cli.go:619:	if metrics != nil {
+./internal/cli/cli.go:623:				metrics.m.MergeCapabilityAuditCounters(
+./internal/cli/cli.go:635:		if err := writeMetrics(*metricsPath, metrics.m); err != nil {
+./internal/cli/run_metrics.go:102:type metricsSink struct {
+./internal/cli/run_metrics.go:107:func (s *metricsSink) Emit(e event.Event) {
+./internal/cli/run_metrics.go:11:// RunMetrics is the machine-readable token/cache/cost summary `run --metrics`
+./internal/cli/run_metrics.go:138:func (s *metricsSink) recordMemoryCompilerStats(m *event.MemoryCompilerStats) {
+./internal/cli/run_metrics.go:180:func (s *metricsSink) RecordReadinessAudit(a evidence.ReadinessAudit) {
+./internal/cli/run_metrics.go:80:// `reasonix run --metrics`. It mirrors the event payload's counts and estimated
+./internal/cli/run_metrics.go:99:// metricsSink forwards every event to the real sink and accumulates the per-call
+./internal/config/config.go:148:	CheckUpdates            *bool    `toml:"check_updates"`              // startup update checks; nil keeps the default enabled
+./internal/config/config.go:149:	Telemetry               *bool    `toml:"telemetry"`                  // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+./internal/config/config.go:150:	Metrics                 *bool    `toml:"metrics"`                    // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
+./internal/config/config.go:427:// DesktopCheckUpdates reports whether the desktop should check for updates on
+./internal/config/config.go:429:func (c *Config) DesktopCheckUpdates() bool {
+./internal/config/config.go:430:	if c == nil || c.Desktop.CheckUpdates == nil {
+./internal/config/config.go:433:	return *c.Desktop.CheckUpdates
+./internal/config/config.go:502:// DesktopMetrics reports whether the desktop sends aggregate desktop metrics —
+./internal/config/edit.go:367:// SetDesktopCheckUpdates sets whether the desktop app checks for updates on
+./internal/config/edit.go:369:func (c *Config) SetDesktopCheckUpdates(enabled bool) error {
+./internal/config/edit.go:370:	c.Desktop.CheckUpdates = &enabled
+./internal/config/edit.go:386:// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics.
+./internal/config/load.go:178:	cfg.Desktop.CheckUpdates = safeModeBoolPtr(false)
+./internal/config/load.go:180:	// must not override) a telemetry/metrics opt-out recorded there. Force
+./internal/config/paths.go:468:// handshake snapshots, plugin startup-latency telemetry. Empty when the OS dir is
+./internal/config/render.go:116:		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
+./internal/config/render.go:117:		fmt.Fprintf(&b, "telemetry = %v   # desktop: anonymous launch ping (install id + version + OS); never content\n", c.DesktopTelemetry())
+./internal/config/render.go:118:		fmt.Fprintf(&b, "metrics = %v   # desktop: aggregate desktop metrics (anonymous signal/bucket counts); never content\n", c.DesktopMetrics())
+./internal/control/controller.go:3978:// LastUsage returns the most recent turn's token telemetry (nil before the first
+./internal/control/port.go:172:// Status covers read-only run/usage/billing telemetry and task list state.
+./internal/doctor/quality.go:120:	if telemetry, ok := loadQualityTelemetry(path + ".telemetry.json"); ok {
+./internal/doctor/quality.go:121:		report.Usage = summarizeQualityUsage(telemetry)
+./internal/doctor/quality.go:122:		report.Signals = summarizeQualitySignals(telemetry.Usage.Sources, telemetry.Usage.RequestCount)
+./internal/doctor/quality.go:124:		report.Warnings = append(report.Warnings, "desktop telemetry is unavailable for this session")
+./internal/doctor/quality.go:180:	var telemetry qualityTelemetry
+./internal/doctor/quality.go:181:	if json.Unmarshal(data, &telemetry) != nil || telemetry.Version <= 0 {
+./internal/doctor/quality.go:184:	return telemetry, true
+./internal/doctor/quality.go:187:func summarizeQualityUsage(telemetry qualityTelemetry) QualityUsage {
+./internal/doctor/quality.go:190:		Requests:         telemetry.Usage.RequestCount,
+./internal/doctor/quality.go:191:		PromptTokens:     telemetry.Usage.PromptTokens,
+./internal/doctor/quality.go:192:		CompletionTokens: telemetry.Usage.CompletionTokens,
+./internal/doctor/quality.go:193:		ReasoningTokens:  telemetry.Usage.ReasoningTokens,
+./internal/doctor/quality.go:194:		CacheHitTokens:   telemetry.Usage.CacheHitTokens,
+./internal/doctor/quality.go:195:		CacheMissTokens:  telemetry.Usage.CacheMissTokens,
+./internal/event/event.go:240:	Usage             *provider.Usage   // guardian review token telemetry
+./internal/event/event.go:41:	// Usage carries per-turn token telemetry (Usage; Pricing optional, for cost).
+./internal/event/event.go:91:	// MemoryCompilerStatsEvent carries content-free Memory v5 participation metrics
+./internal/eventwire/wire.go:142:// MemoryCompiler is the JSON form of content-free Memory v5 usage metrics.
+./internal/eventwire/wire.go:234:// Usage is the JSON form of provider usage telemetry.
+./internal/evidence/readiness_audit.go:13:// readiness gate. It lets metrics sinks count why the host blocked a final
+./internal/guardian/guardian.go:64:	// lastUsage caches the most recent guardian-model telemetry so Review() can
+./internal/i18n/i18n.go:13:// runtime telemetry stay English so model behaviour and developer logs are
+./internal/mcpcatalog/catalog.go:32:	CatalogURL     = "https://dl.reasonix.io/plugins/catalog/v1/index.json"
+./internal/memorycompiler/runtime.go:1312:// populates the telemetry fields from the same signals so traces stay legible.
+./internal/memorycompiler/runtime.go:1753:	t.trace.Injected = t.metrics.Injected
+./internal/memorycompiler/runtime.go:1759:	if t.metrics.Injected {
+./internal/memorycompiler/runtime.go:399:	metrics   TurnMetrics
+./internal/memorycompiler/runtime.go:404:// desktop aggregate metrics can quantify memory usage without uploading memory
+./internal/memorycompiler/runtime.go:446:		metrics:   turnMetricsForIR(ir, st),
+./internal/memorycompiler/runtime.go:489:	t.metrics.Injected = true
+./internal/memorycompiler/runtime.go:490:	t.metrics.CompiledTokens = t.trace.Cost.EstimatedCompiledTokens
+./internal/memorycompiler/runtime.go:491:	t.metrics.IROverheadTokens = t.trace.Cost.EstimatedIROverheadTokens
+./internal/memorycompiler/runtime.go:498:	if t == nil || !t.metrics.Injected || len(t.citations) == 0 {
+./internal/memorycompiler/runtime.go:513:	t.metrics.Injected = false
+./internal/memorycompiler/runtime.go:514:	t.metrics.CompiledTokens = 0
+./internal/memorycompiler/runtime.go:515:	t.metrics.IROverheadTokens = 0
+./internal/memorycompiler/runtime.go:531:	return t.metrics
+./internal/plugin/stats.go:172:// which all callers treat as "skip telemetry".
+./internal/plugin/stats.go:75:// returned, but callers are expected to ignore the error — telemetry must
+./internal/plugin/stats.go:9:// because telemetry can't persist.
+./internal/serve/index.html:1454:    // sidebar metrics
+./internal/serve/index.html:410:      <div class="status-metrics" id="status-metrics">
+./internal/serve/index.html:73:/* status metrics */
+./internal/serve/index.html:74:.status-metrics{display:flex;gap:0;padding:5px 8px;border-top:1px dashed var(--border);font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+./internal/serve/index.html:75:.status-metrics .sm-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+./internal/serve/index.html:76:.status-metrics .sm-val{color:var(--fg-2);font-weight:500;font-size:11.5px}
+./internal/serve/index.html:77:.status-metrics .sm-val.acc{color:var(--accent)}
+./internal/tool/builtin/session_guard.go:132:	case "metrics-pending.json", "crash-pending.json":
+./internal/tool/builtin/session_guard.go:268:		for _, sub := range []string{"sessions", "projects", "desktop-", "metrics-pending.json", "crash-pending.json"} {
+./reasonix.example.toml:199:# enabled = false         # 本机 loopback HTTP API：GET /status, GET /metrics, POST /send
+./release-notes/releases.json:218:        "download": "https://reasonix.io/?download=desktop#start"
+./release-notes/releases.json:504:        "download": "https://reasonix.io/?download=desktop#start"
+./release-notes/releases.json:641:        "download": "https://reasonix.io/?download=desktop#start"
+./release-notes/releases.json:778:        "download": "https://reasonix.io/?download=desktop#start"
+./scripts/generate-release-notes.mjs:127:          content: `You are Reasonix's release editor. Return one JSON object with a \"release\" property. Write factual, user-facing product release notes in equivalent English and Simplified Chinese. Group changes by user outcome, not by commit. Never invent capabilities, migrations, risks, PR numbers, contributors, URLs, or metrics. Every highlight and change must cite one or more supplied PR numbers. Use this exact release shape:
+./scripts/generate-release-notes.mjs:188:    download: "https://reasonix.io/?download=desktop#start",
+./scripts/release-notes.mjs:143:      ? `[English →](https://reasonix.io/changelog/v${release.version}/?lang=en) · [网页版完整更新日志 →](https://reasonix.io/changelog/v${release.version}/)`
+./scripts/release-notes.mjs:144:      : `[中文 →](https://reasonix.io/changelog/v${release.version}/?lang=zh) · [Full release notes →](https://reasonix.io/changelog/v${release.version}/?lang=en)`,
+./site/astro.config.mjs:4:// Served from the custom domain reasonix.io at the site root.
+./site/astro.config.mjs:6:  site: 'https://reasonix.io',
+./site/package-lock.json:1699:        "@astrojs/telemetry": "3.3.2",
+./site/package-lock.json:85:    "node_modules/@astrojs/telemetry": {
+./site/package-lock.json:87:      "resolved": "https://registry.npmjs.org/@astrojs/telemetry/-/telemetry-3.3.2.tgz",
+./site/public/robots.txt:4:Sitemap: https://reasonix.io/sitemap-index.xml
+./site/src/pages/docs.astro:20:const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
+./site/src/pages/docs.astro:238:      <p><span class="l-en">Memory v5 is enabled by default across the CLI/TUI, <code>reasonix serve</code>, and the desktop app because they share the same local controller. The default mode is <code>observe</code>: Reasonix learns locally and records content-free metrics, but does not inject a provider-visible memory contract. Use <code>compact</code> when you explicitly want compact execution constraints added to future turns.</span><span class="l-zh">Memory v5 在 CLI/TUI、<code>reasonix serve</code> 和桌面端默认开启，因为这些入口共用同一套本地 controller。默认模式是 <code>observe</code>：只在本地学习并记录无内容指标，不向 provider-visible 轮次注入 memory contract。需要把精简执行约束加入后续轮次时，再切到 <code>compact</code>。</span></p>
+./site/src/pages/docs.astro:350:        <a href="https://crash.reasonix.io/stats" rel="nofollow"><span class="l-en">Stats</span><span class="l-zh">统计</span></a>
+./site/src/pages/docs.astro:6:const R2_LATEST = 'https://dl.reasonix.io/latest';
+./site/src/pages/index.astro:21:const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
+./site/src/pages/index.astro:332:        <a href="https://crash.reasonix.io/stats" rel="nofollow"><span class="l-en">Stats</span><span class="l-zh">统计</span></a>
+./site/src/pages/index.astro:35:  url: 'https://reasonix.io/',
+./site/src/pages/index.astro:7:const R2_LATEST = 'https://dl.reasonix.io/latest';
+./site/src/pages/skills.astro:141:        <a href="https://id.reasonix.io"><span class="l-en">Sign in</span><span class="l-zh">登录</span></a>
+./site/src/pages/skills.astro:300:    const REGISTRY = import.meta.env.PUBLIC_REGISTRY_ORIGIN || 'https://crash.reasonix.io';
+./site/src/pages/skills.astro:62:          <a class="btn btn-dark" href="https://id.reasonix.io"><span class="l-en">Sign in at id.reasonix.io</span><span class="l-zh">前往 id.reasonix.io 登录</span></a>
+./site/src/scripts/auth.js:3:// Client for the reasonix-accounts API (id.reasonix.io). Cookie-based session,
+./site/src/scripts/auth.js:5:const API = (import.meta.env.PUBLIC_ACCOUNTS_API || "https://id.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/community.js:1:// Reasonix Community client. Renders the forum from the forum.reasonix.io API and
+./site/src/scripts/community.js:2:// gates posting on the shared id.reasonix.io session (cookie sent cross-subdomain).
+./site/src/scripts/community.js:5:const FORUM = (import.meta.env.PUBLIC_FORUM_API || "https://forum.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/community.js:6:const ACCOUNTS = (import.meta.env.PUBLIC_ACCOUNTS_API || "https://id.reasonix.io").replace(/\/$/, "");
+./site/src/scripts/download-link.js:5:export function downloadPaneFromURL(input, base = "https://reasonix.io/") {
+./site/src/scripts/safe-next.js:22:// can never leave reasonix.io.
+./site/src/scripts/safe-next.js:32:  if (u.protocol === "https:" && (u.host === "reasonix.io" || u.host.endsWith(".reasonix.io"))) return u.href;
+./site/src/scripts/safe-next.js:5:// under reasonix.io. That lets a subdomain (e.g. crash.reasonix.io) return
+./site/src/scripts/site.js:178:    fetch("https://dl.reasonix.io/latest/latest.json", { cache: "no-cache" })
+./site/src/scripts/site.js:185:      const desktopBase = "https://dl.reasonix.io/desktop-v" + v;
+./site/src/styles/community.css:1:/* Reasonix Community — self-hosted fonts + the reasonix.io token values, so the
+./workers/accounts/README.md:102:The `id.reasonix.io` custom domain route is declared in `wrangler.toml`; point the
+./workers/accounts/README.md:3:The account service for `reasonix.io`: email/password sign-up, email verification,
+./workers/accounts/README.md:5:by D1. Runs at `id.reasonix.io`, separate from the internal crash dashboard.
+./workers/accounts/src/index.ts:2:// for reasonix.io. The Hono app is itself the Workers fetch handler.
+./workers/accounts/wrangler.toml:12:routes = [{ pattern = "id.reasonix.io", custom_domain = true }]
+./workers/accounts/wrangler.toml:16:APP_ORIGIN = "https://reasonix.io"
+./workers/accounts/wrangler.toml:18:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/accounts/wrangler.toml:19:# Cookie scope. ".reasonix.io" lets the apex + any subdomain (and the future CLI)
+./workers/accounts/wrangler.toml:1:# Account service for reasonix.io — email/password auth, sessions, profiles.
+./workers/accounts/wrangler.toml:21:COOKIE_DOMAIN = ".reasonix.io"
+./workers/accounts/wrangler.toml:25:# From-domain must match a verified Resend domain — send.reasonix.io is verified
+./workers/accounts/wrangler.toml:27:MAIL_FROM = "Reasonix <no-reply@send.reasonix.io>"
+./workers/crash-report/migrate-access.sql:15:-- admins/viewers keep their access when they next sign in via id.reasonix.io.
+./workers/crash-report/migrate-access.sql:1:-- Unify dashboard auth onto id.reasonix.io: dashboard access is now a per-email
+./workers/crash-report/migrate-dashboard-indexes.sql:11:CREATE INDEX IF NOT EXISTS metrics_signal_bucket ON metrics (signal, bucket);
+./workers/crash-report/migrate-dashboard-indexes.sql:4:-- the pings/metrics facets group by version and (signal,bucket) over a window.
+./workers/crash-report/schema.sql:101:-- Legacy local auth — superseded by id.reasonix.io identity + the `access`
+./workers/crash-report/schema.sql:123:-- password, verification) lives in id.reasonix.io; this only maps email → role.
+./workers/crash-report/schema.sql:77:-- Opt-in aggregate desktop metrics: anonymous per-day (signal, bucket) counters,
+./workers/crash-report/schema.sql:79:CREATE TABLE IF NOT EXISTS metrics (
+./workers/crash-report/src/auth.ts:122:// Ends the shared id.reasonix.io session (best-effort) and returns a Set-Cookie
+./workers/crash-report/src/auth.ts:132:  return `${SHARED_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Domain=.reasonix.io; Max-Age=0`;
+./workers/crash-report/src/auth.ts:1:// Dashboard authorization. Identity comes from id.reasonix.io (the shared
+./workers/crash-report/src/auth.ts:23:// The id.reasonix.io session cookie is scoped to `.reasonix.io`, so the browser
+./workers/crash-report/src/auth.ts:28:  return (env.ID_ORIGIN ?? "https://id.reasonix.io").replace(/\/$/, "");
+./workers/crash-report/src/auth.ts:32:  return (env.APP_ORIGIN ?? "https://reasonix.io").replace(/\/$/, "");
+./workers/crash-report/src/auth.ts:64:  return new Request(`https://id-cache.reasonix.io/${hex}`);
+./workers/crash-report/src/auth_pages.ts:16:<a class="btn" href="https://reasonix.io/account/">Manage your account →</a></div>`,
+./workers/crash-report/src/desktop_release.ts:1:const R2_BASE = "https://dl.reasonix.io";
+./workers/crash-report/src/env.ts:15:  // Shared identity service (id.reasonix.io) and the site that hosts its login
+./workers/crash-report/src/env.ts:16:  // page (reasonix.io). Overridable for local dev.
+./workers/crash-report/src/index.ts:1003:// while the aggregate `metrics` table also serves the 30d view's
+./workers/crash-report/src/index.ts:1009:// throwing (all of /v1/ping, /v1/metrics and /v1/report 500 while reads keep
+./workers/crash-report/src/index.ts:1013:  { table: "metrics", keepDays: 60 },
+./workers/crash-report/src/index.ts:1127:  const message = `crash.reasonix.io ingest sentinel: ${problems.join("; ")} — https://crash.reasonix.io/stats`;
+./workers/crash-report/src/index.ts:1170:    if (path === "/v1/metrics" && method === "POST") return handleMetrics(request, env);
+./workers/crash-report/src/index.ts:1181:    // Authentication moved to id.reasonix.io; these paths just bounce there.
+./workers/crash-report/src/index.ts:1227:      path === "/v1/metrics" ||
+./workers/crash-report/src/index.ts:3:// (desktop.telemetry).
+./workers/crash-report/src/index.ts:474:    `INSERT INTO metrics (date, version, os, signal, bucket, count)
+./workers/crash-report/src/index.ts:482:    return storageUnavailable("metrics", err);
+./workers/crash-report/src/index.ts:719:    `SELECT signal, bucket, SUM(count) AS total FROM metrics WHERE ${where} GROUP BY signal, bucket ORDER BY signal, total DESC`,
+./workers/crash-report/src/index.ts:757:  let metrics: MetricTotals = [];
+./workers/crash-report/src/index.ts:772:    const [dailyR, versionsR, platformsR, metricsR, overviewR] = await Promise.all([
+./workers/crash-report/src/index.ts:784:    metrics = metricsR;
+./workers/crash-report/src/index.ts:799:    [metrics, metricUsers] = await Promise.all([metricRows(env, days), metricUserRows(env, days)]);
+./workers/crash-report/src/index.ts:801:    [metrics, previousMetrics] = await Promise.all([metricRows(env, days), metricRows(env, days, true)]);
+./workers/crash-report/src/index.ts:806:      { daily, versions, platforms, crashes, metrics, previousMetrics, metricUsers, sources, overview, latestVersion, filters },
+./workers/crash-report/src/index.ts:80:// Opt-in aggregate desktop metrics: a per-launch snapshot of (signal, bucket)
+./workers/crash-report/src/index.ts:942:    ACCOUNTS_ORIGIN: env.ID_ORIGIN ?? "https://id.reasonix.io",
+./workers/crash-report/src/index.ts:943:    APP_ORIGIN: env.APP_ORIGIN ?? "https://reasonix.io",
+./workers/crash-report/src/index.ts:944:    ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? "https://reasonix.io,https://www.reasonix.io",
+./workers/crash-report/src/registry/http/auth.ts:37:  if (!user) throw new ApiError(401, "unauthorized", "Sign in at id.reasonix.io to publish.");
+./workers/crash-report/src/registry/http/auth.ts:45:  if (!user) throw new ApiError(401, "unauthorized", "Sign in at id.reasonix.io.");
+./workers/crash-report/src/registry/routes/packages.ts:36:    throw new ApiError(403, "email_unverified", "Verify your email at id.reasonix.io before publishing.");
+./workers/crash-report/src/shell.ts:127:.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 28px}
+./workers/crash-report/src/shell.ts:145:.pref-metrics{grid-template-columns:1fr;gap:12px}
+./workers/crash-report/src/shell.ts:146:.pref-metrics .metric-block{min-width:0}
+./workers/crash-report/src/shell.ts:147:.pref-metrics .row{grid-template-columns:minmax(7rem,1.2fr) minmax(5rem,.9fr) minmax(4.4em,max-content)}
+./workers/crash-report/src/shell.ts:211:.group-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+./workers/crash-report/src/shell.ts:212:.group-metrics div{border:1px solid var(--line);border-radius:14px;background:var(--bg-soft);padding:12px 13px;min-width:0}
+./workers/crash-report/src/shell.ts:213:.group-metrics span{display:block;font-size:12px;color:var(--ink-3);margin-bottom:5px}
+./workers/crash-report/src/shell.ts:214:.group-metrics b{display:block;font-family:var(--mono);font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+./workers/crash-report/src/shell.ts:284:.group-metrics{grid-template-columns:1fr 1fr}.sample summary{grid-template-columns:1fr}.sample-time{text-align:left}.manage-head{flex-direction:column}.manage-actions{justify-content:flex-start}.manage-grid{grid-template-columns:1fr}.manage-form.wide{grid-column:auto}}
+./workers/crash-report/src/shell.ts:285:@media(max-width:760px){header{height:auto;min-height:68px;flex-wrap:wrap;padding:14px 0}.lang-switch{margin-left:0}.nav{width:100%;flex-wrap:wrap;gap:8px}.site-nav{overflow-x:auto;padding-bottom:2px}.site-nav a{white-space:nowrap}.chip{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}.grid{grid-template-columns:1fr}.overview-grid,.module-nav,.health-grid{grid-template-columns:1fr}.metrics,.pref-metrics{grid-template-columns:1fr}.row{grid-template-columns:minmax(0,1fr) minmax(70px,.8fr) 3.2em}.card-title-row{align-items:flex-start;flex-direction:column}.filter-card{position:static}.wrap{padding:0 16px 48px}}
+./workers/crash-report/src/shell.ts:298:<header><a class="brand" href="https://reasonix.io">${LOGO}</a><a class="brand" href="https://reasonix.io">Reasonix</a><span class="crumb">/ ${esc(crumb)}</span>${LANG_SWITCH}${nav ? `<span class="nav">${nav}</span>` : ""}</header>
+./workers/crash-report/src/stats.ts:296:function metricsBySignal(rows: MetricRow[]): Map<string, { label: string; users: number }[]> {
+./workers/crash-report/src/stats.ts:320:function metricsCards(rows: MetricRow[], signals = AGENT_METRIC_SIGNALS): string {
+./workers/crash-report/src/stats.ts:322:    return `<div class="empty">${i18n("No metrics yet — flows in once an opt-in build ships", "暂无运行指标 — 等 opt-in 版本发布后有数据")}</div>`;
+./workers/crash-report/src/stats.ts:323:  const bySignal = metricsBySignal(rows);
+./workers/crash-report/src/stats.ts:325:  return blocks ? `<div class="metrics">${blocks}</div>` : `<div class="empty">${i18n("No data in this window", "当前时间窗口暂无数据")}</div>`;
+./workers/crash-report/src/stats.ts:329:  const bySignal = metricsBySignal(rows);
+./workers/crash-report/src/stats.ts:334:    const heading = `<h3>${i18n(group.en, group.zh)}<span>${i18nHTML(`${availableSignals.length} metrics`, `${availableSignals.length} 项指标`)}</span></h3>`;
+./workers/crash-report/src/stats.ts:336:      return `<details class="pref-section pref-section-collapsed"><summary>${heading}</summary><div class="metrics pref-metrics">${blocks}</div></details>`;
+./workers/crash-report/src/stats.ts:338:    return `<section class="pref-section">${heading}<div class="metrics pref-metrics">${blocks}</div></section>`;
+./workers/crash-report/src/stats.ts:342:  if (!sections) return `<div class="empty">${i18n("No settings preference metrics yet", "暂无设置偏好指标")}</div>`;
+./workers/crash-report/src/stats.ts:391:  if (!rows.length) return `<div class="empty">${i18n("No agent health metrics yet", "暂无运行健康指标")}</div>`;
+./workers/crash-report/src/stats.ts:529:    metrics: MetricRow[];
+./workers/crash-report/src/stats.ts:555:  const agentMetrics = data.metrics.filter((r) => AGENT_METRIC_SIGNALS.includes(r.signal));
+./workers/crash-report/src/stats.ts:557:  const settingsMetrics = data.metrics.filter((r) => r.signal === "client_surface" || r.signal === "client_version" || r.signal.startsWith("settings_"));
+./workers/crash-report/src/stats.ts:637:${anyPing ? dailyChart(days) : `<div class="empty">${i18n("No pings yet — data starts flowing once a telemetry-enabled build ships", "暂无启动 ping — 等带统计的版本发布后这里开始有数据")}</div>`}</div>
+./workers/crash-report/src/stats.ts:662:<section class="module-panel"><h3>${i18nHTML(`Signal distributions <b>— ${rangeText}, opt-in aggregate</b>`, `信号分布 <b>— ${rangeText}，opt-in 汇总</b>`)}</h3>${metricsCards(agentMetrics)}</section>
+./workers/crash-report/src/stats.ts:676:      `${rangeText} window · anonymous launch pings, opt-in aggregate metrics, and user-sent diagnostic reports only`,
+./workers/crash-report/src/stats.ts:839:  const metrics = [
+./workers/crash-report/src/stats.ts:858:<div class="group-metrics">${metrics}</div>
+./workers/crash-report/wrangler.toml:26:ID_ORIGIN = "https://id.reasonix.io"
+./workers/crash-report/wrangler.toml:27:APP_ORIGIN = "https://reasonix.io"
+./workers/crash-report/wrangler.toml:29:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/crash-report/wrangler.toml:58:# Opt-in metrics flush fires once per launch like the ping; its own bucket so it
+./workers/crash-report/wrangler.toml:6:routes = [{ pattern = "crash.reasonix.io", custom_domain = true }]
+./workers/forum/schema.sql:1:-- Reasonix Community forum. Identity comes from id.reasonix.io; this DB holds
+./workers/forum/schema.sql:9:  email          TEXT PRIMARY KEY,              -- lowercased id.reasonix.io identity
+./workers/forum/src/antispam.ts:1:// Anti-spam gate. Identity is verified upstream (id.reasonix.io); this layer
+./workers/forum/src/identity.ts:4:// The id.reasonix.io session cookie is scoped to `.reasonix.io`, so the browser
+./workers/forum/src/index.ts:1:// Reasonix Community forum API. Identity from id.reasonix.io; content + anti-abuse
+./workers/forum/wrangler.toml:11:routes = [{ pattern = "forum.reasonix.io", custom_domain = true }]
+./workers/forum/wrangler.toml:15:APP_ORIGIN = "https://reasonix.io"
+./workers/forum/wrangler.toml:16:ALLOWED_ORIGINS = "https://reasonix.io,https://www.reasonix.io"
+./workers/forum/wrangler.toml:18:ID_ORIGIN = "https://id.reasonix.io"
+./workers/forum/wrangler.toml:1:# Reasonix Community forum API. Identity from id.reasonix.io; content + anti-abuse

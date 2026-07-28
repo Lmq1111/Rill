@@ -1,4 +1,4 @@
-# Reasonix Guide
+# Rill Guide
 
 <a href="../README.md">README</a>
 &nbsp;·&nbsp;
@@ -30,19 +30,19 @@
 
 ## Configuration
 
-Resolution order: **flag > `./reasonix.toml` > the user config file >
-built-in defaults**. Starting with **Reasonix v1.8.1**, the user config lives at
-`~/.reasonix/config.toml` on macOS/Linux and
-`%AppData%\reasonix\config.toml` on Windows; see
-[Configuration paths](./CONFIG_PATHS.md) for migration and related data paths.
-Fields marked user/global only are not overridden by `./reasonix.toml`.
+Resolution order: **flag > `./rillagent.toml` > the user config file >
+built-in defaults**. The user config lives at
+`~/.rillagent/config.toml` on macOS/Linux and
+`%AppData%\rillagent\config.toml` on Windows; see
+[Configuration paths](./CONFIG_PATHS.md) for the complete data-path contract.
+Fields marked user/global only are not overridden by `./rillagent.toml`.
 Provider entries name secrets with `api_key_env`, while the secret values live in
-Reasonix's global `<Reasonix home>/.env`, shared by CLI and desktop. Project
-`.env`, home `.env`, inherited shell environment variables, legacy credentials,
-and the OS keyring are not provider-key runtime fallbacks; legacy credentials are
-only migration sources. Project `.env` still feeds workspace-scoped,
+Rill's global `<Rillagent home>/.env`, shared by CLI and desktop. Project
+`.env`, home `.env`, inherited shell environment variables, other products'
+credential files, and the OS keyring are not provider-key runtime fallbacks.
+Project `.env` still feeds workspace-scoped,
 non-provider `${VAR}` expansion for MCP/plugin settings without importing
-provider keys or Reasonix control variables. See
+provider keys or Rill control variables. See
 [Configuration paths](./CONFIG_PATHS.md) for the full `config.toml` and `.env`
 structure.
 
@@ -51,7 +51,7 @@ For the desktop and CLI usage of visible reasoning language, see
 
 ```toml
 default_model = "deepseek-flash"   # executor; set [agent].planner_model to add a planner
-# language    = "zh"               # ui language; empty = auto-detect from $LANG / $REASONIX_LANG
+# language    = "zh"               # ui language; empty = auto-detect from $LANG / $RILLAGENT_LANG
 
 [ui]
 # shortcut_layout = "desktop"      # classic|desktop; compatibility setting
@@ -105,12 +105,12 @@ allow = ["Bash(go test:*)"]                  # never prompted
 [serve]
 auth_mode = "none"             # none|token|password; use auth before binding beyond localhost
 # token = ""                   # optional fixed token; empty token mode generates one at startup
-# password_hash = ""           # bcrypt hash generated with reasonix serve --hash-password --password '...'
+# password_hash = ""           # bcrypt hash generated with rillagent serve --hash-password --password '...'
 # behind_proxy = false         # true only behind a trusted reverse proxy
 
 [[plugins]]
 name    = "example"
-command = "reasonix-plugin-example"
+command = "rillagent-plugin-example"
 call_timeout_seconds = 600   # optional per-server MCP call timeout
 tool_timeout_seconds = { "generate_video" = 1800 }   # optional raw MCP tool names
 ```
@@ -132,13 +132,13 @@ read-only tool registry and foreground-command classifier.
 
 ### Environment variables
 
-Most day-to-day settings belong in `config.toml` or the global Reasonix `.env`
+Most day-to-day settings belong in `config.toml` or the global Rill `.env`
 described above. The variables below are process-level advanced switches; set
-them before launching Reasonix. Project `.env` files are not a runtime source for
-Reasonix control variables.
+them before launching Rill. Project `.env` files are not a runtime source for
+Rill control variables.
 
-`REASONIX_MEMORY_COMPILER_LLM_CLASSIFICATION=true` enables the optional LLM
-task/chat classifier for Memory v5. By default it is disabled, and Reasonix uses
+`RILLAGENT_MEMORY_COMPILER_LLM_CLASSIFICATION=true` enables the optional LLM
+task/chat classifier for Memory v5. By default it is disabled, and Rill uses
 the local heuristic classifier without extra provider calls. When enabled, cache
 misses may send a small classifier request through the configured provider before
 deciding whether a user input is task-like or conversational; this can add a
@@ -147,13 +147,13 @@ per session for a short time. Only the exact trimmed value `true` enables it;
 unset, `false`, `1`, and `TRUE` keep the default heuristic path.
 
 ```bash
-REASONIX_MEMORY_COMPILER_LLM_CLASSIFICATION=true reasonix
+RILLAGENT_MEMORY_COMPILER_LLM_CLASSIFICATION=true rillagent
 ```
 
 For development runs, prefix the command that starts the process, for example:
 
 ```bash
-REASONIX_MEMORY_COMPILER_LLM_CLASSIFICATION=true wails dev -forcebuild
+RILLAGENT_MEMORY_COMPILER_LLM_CLASSIFICATION=true wails dev -forcebuild
 ```
 
 Packaged desktop apps launched from the OS app launcher may not inherit variables
@@ -162,14 +162,14 @@ when you intentionally want this advanced switch enabled.
 
 ## Serve web frontend
 
-`reasonix serve` starts the same local engine behind a browser UI. Use it when
+`rillagent serve` starts the same local engine behind a browser UI. Use it when
 you want a desktop-style surface without installing the desktop app, when running
-Reasonix on a remote development box through a tunnel, or when you want a
+Rill on a remote development box through a tunnel, or when you want a
 shareable view of a live session.
 
 ```bash
 cd your-project
-reasonix serve
+rillagent serve
 # open http://127.0.0.1:8787
 ```
 
@@ -179,9 +179,9 @@ tunnel, or put it behind a reverse proxy, enable authentication before sharing
 the URL:
 
 ```bash
-reasonix serve --auth token
-reasonix serve --addr 0.0.0.0:8787 --auth token
-reasonix serve --auth password --password 'temporary-password'
+rillagent serve --auth token
+rillagent serve --addr 0.0.0.0:8787 --auth token
+rillagent serve --auth password --password 'temporary-password'
 ```
 
 Token mode prints a share URL with `?token=...`; pass `--token` or set
@@ -189,9 +189,9 @@ Token mode prints a share URL with `?token=...`; pass `--token` or set
 `--password` at startup or a stored bcrypt hash:
 
 ```bash
-reasonix serve --hash-password --password 'strong-password'
+rillagent serve --hash-password --password 'strong-password'
 
-# <Reasonix home>/config.toml
+# <Rillagent home>/config.toml
 [serve]
 auth_mode = "password" # none|token|password
 password_hash = "$2a$12$..."
@@ -206,18 +206,18 @@ user-global `default_model`.
 
 ## Editor integrations over ACP
 
-`reasonix acp` exposes three independent session axes to ACP editor clients:
+`rillagent acp` exposes three independent session axes to ACP editor clients:
 
 - `modes`: `normal`, `plan`, or `goal`. Selecting Goal makes the next user
-  prompt the active goal and starts Reasonix's normal Goal continuation loop.
+  prompt the active goal and starts Rill's normal Goal continuation loop.
 - `work_mode`: `economy`, `balanced`, or `delivery`. Changing it atomically
   rebuilds the controller while preserving history, collaboration mode, and
   tool approval. It is also available as the startup-only
-  `reasonix acp --profile ...` default.
+  `rillagent acp --profile ...` default.
 - `tool_approval`: `ask`, `auto`, or `yolo`. Changing approval does not rebuild
   the controller or alter the collaboration/work mode.
 
-Model and reasoning effort remain independent ACP config options. Reasonix
+Model and reasoning effort remain independent ACP config options. Rill
 persists all three axes per ACP session. Older session metadata defaults to
 the ACP process's startup profile (Balanced unless `--profile` overrides it) +
 Ask + Normal. For compatibility with clients built against the old mixed mode
@@ -231,7 +231,7 @@ Custom provider** for proxies, aggregators, or self-hosted services that speak
 the OpenAI-compatible chat API or Anthropic-compatible Messages API.
 
 For common providers, choose **Add model service -> Recommended preset** instead.
-Reasonix can prefill editable custom-provider entries for Kimi CN, Kimi Global,
+Rill can prefill editable custom-provider entries for Kimi CN, Kimi Global,
 Kimi Coding Plan, MiMo API, MiMo Anthropic, MiMo Token Plan CN/SGP/AMS and their
 Anthropic-compatible variants, MiniMax CN/Global API, MiniMax CN/Global
 Anthropic, GLM CN, Z.AI Global, GLM/Z.AI Coding Plan OpenAI-compatible and
@@ -243,7 +243,7 @@ HuggingFace Router, NVIDIA NIM, KiloCode, and Ollama Cloud. Plan names describe
 the access/payment route; they include CN/Global only when the provider exposes
 distinct regional endpoints. Kimi Coding Plan is therefore a dedicated plan
 endpoint, while Kimi direct API is split into CN and Global. The preset path
-usually needs only the provider API key: the key value is stored in Reasonix home
+usually needs only the provider API key: the key value is stored in Rillagent home
 `.env`, while `config.toml` stores the endpoint, model list, key
 environment-variable name, context window, vision model metadata, proxy bypass
 for China-only endpoints, MiniMax `reasoning_split`, GLM/MiniMax thinking
@@ -253,14 +253,14 @@ a preset, open its provider card if you need to change models, headers,
 endpoint, or compatibility settings.
 
 Fill **API address** with the provider endpoint that should receive the standard
-chat path. In this mode Reasonix previews and sends chat requests to:
+chat path. In this mode Rill previews and sends chat requests to:
 
 ```text
 <API address>/chat/completions
 ```
 
 Enable **Full URL** when the service gives you a complete request URL, for
-example `https://gateway.example.com/v1/chat/completions`. Reasonix then sends
+example `https://gateway.example.com/v1/chat/completions`. Rill then sends
 chat requests directly to that URL and does not append `/chat/completions`. The
 preview under the field shows the exact request URL that will be used.
 
@@ -284,21 +284,21 @@ For Anthropic-compatible services, such as some coding-plan endpoints, choose
 
 | Field | What it controls | When to change it |
 | --- | --- | --- |
-| `api_key_env` | The environment-variable name used for this provider's API key. Desktop-saved key values are stored in Reasonix home `.env` under this name; the TOML config stores only the name. | Change it when several providers need distinct keys, or leave it blank for a service that does not require an API key. |
+| `api_key_env` | The environment-variable name used for this provider's API key. Desktop-saved key values are stored in Rillagent home `.env` under this name; the TOML config stores only the name. | Change it when several providers need distinct keys, or leave it blank for a service that does not require an API key. |
 | `models_url` | The URL used only for model discovery. Chat requests still use the API address or Full URL above. | Set it when `/models` or `/v1/models` is not where the gateway exposes its model list. |
 | Extra request headers | Static HTTP headers, one `Header: value` per line. | Use for gateways such as OpenRouter that require `HTTP-Referer`, `X-Title`, or similar site headers. Keep bearer/API keys in the key field instead of duplicating them here. |
-| Extra request body | A JSON object merged into the top-level chat request body. | Use only for provider-specific flags such as `{"enable_thinking": true}`. Reasonix still owns core fields such as `model`, `messages`, `tools`, `stream`, and `thinking`, and null values are rejected. |
+| Extra request body | A JSON object merged into the top-level chat request body. | Use only for provider-specific flags such as `{"enable_thinking": true}`. Rill still owns core fields such as `model`, `messages`, `tools`, `stream`, and `thinking`, and null values are rejected. |
 | Authorization: Bearer | For Anthropic-compatible providers, sends the saved API key as `Authorization: Bearer <key>` instead of `x-api-key`. | Enable it only when the gateway documents Bearer auth, such as MiniMax Global or Vercel AI Gateway. |
-| Model capability mode | Which reasoning request protocol Reasonix should use for this provider. | Keep **Auto-detect** unless the gateway is misdetected or the model docs require a specific reasoning format. |
+| Model capability mode | Which reasoning request protocol Rill should use for this provider. | Keep **Auto-detect** unless the gateway is misdetected or the model docs require a specific reasoning format. |
 | Thinking override | Provider-specific override for `thinking.type`. | Keep **Auto** unless the backend documents `enabled`, `disabled`, or `adaptive`. Unsupported values can make some OpenAI-compatible gateways reject the request. |
 | Balance URL | Optional endpoint for wallet/balance lookup. | Set it when the provider exposes a balance endpoint and you want the desktop status bar to show it. |
-| Context window | The maximum number of tokens this provider keeps in context. `0` means provider default. | Set it when the model's real context size differs from Reasonix's default or built-in metadata. |
+| Context window | The maximum number of tokens this provider keeps in context. `0` means provider default. | Set it when the model's real context size differs from Rill's default or built-in metadata. |
 
 Model capability mode options:
 
 | Option | Effect |
 | --- | --- |
-| Auto-detect (recommended) | Reasonix chooses the request shape from model capability metadata and endpoint detection. |
+| Auto-detect (recommended) | Rill chooses the request shape from model capability metadata and endpoint detection. |
 | DeepSeek thinking | Uses DeepSeek-style thinking control, including `thinking.type` and DeepSeek-supported reasoning depth. |
 | OpenAI reasoning | Uses the standard OpenAI-compatible `reasoning_effort` levels. |
 | Plain chat | Sends no reasoning or thinking control fields. Use this for text-only proxies that reject reasoning parameters. |
@@ -307,7 +307,7 @@ Thinking override options:
 
 | Option | Effect |
 | --- | --- |
-| Auto (provider default) | Does not write an explicit provider-level `thinking` override. Reasonix uses the provider/model default behavior. |
+| Auto (provider default) | Does not write an explicit provider-level `thinking` override. Rill uses the provider/model default behavior. |
 | Enabled | Sends `thinking.type = "enabled"` for compatible providers. |
 | Disabled | Sends `thinking.type = "disabled"` for compatible providers. On DeepSeek-style providers this also avoids sending a reasoning depth hint. |
 | Adaptive (self-adjusting) | Sends or preserves `thinking.type = "adaptive"` only for providers that document adaptive thinking, such as MiniMax-M3-style endpoints. |
@@ -325,7 +325,7 @@ api_key_env = "SPARK_API_KEY"
 extra_body  = { enable_thinking = true }
 ```
 
-`extra_body` is merged into the chat JSON request body. Reasonix keeps core
+`extra_body` is merged into the chat JSON request body. Rill keeps core
 fields such as `model`, `messages`, `tools`, `stream`, and `thinking` under its
 own control.
 
@@ -334,15 +334,15 @@ own control.
 Desktop hooks run local commands at lifecycle events such as `SessionStart`,
 `UserPromptSubmit`, `PreToolUse`, and `PreCompact`. A successful `SessionStart`
 hook may write plain text to stdout, or return JSON with
-`hookSpecificOutput.additionalContext`; Reasonix injects that text once into the
+`hookSpecificOutput.additionalContext`; Rill injects that text once into the
 next real user turn as `<hook-context event="SessionStart">...</hook-context>`.
 This is intended for plugin or workflow bootstrap context, including
 Superpowers-style startup instructions, without baking that workflow into
-Reasonix's system prompt.
+Rill's system prompt.
 
 Plugin packages can provide this startup context through
 `hooks/session-start-codex` or a plugin-root `CLAUDE.md`. Claude-style
-`.claude/settings.json` command hooks are also mapped to matching Reasonix hook
+`.claude/settings.json` command hooks are also mapped to matching Rill hook
 events.
 
 The injected hook context is dynamic current-turn context. It does not change
@@ -369,7 +369,7 @@ cursor. This setting does not change desktop or web text fields.
 ### Desktop GUI
 
 Desktop shortcuts are managed from **Settings → Shortcuts**. Pick a row, press a
-new key combination, and Reasonix saves it for the desktop app. Conflicting
+new key combination, and Rill saves it for the desktop app. Conflicting
 bindings are rejected so one shortcut never triggers two actions. Press `?` or
 use the help button in the topic bar to open the shortcuts sheet; it is generated
 from the same shortcut registry, so it reflects any custom bindings.
@@ -427,7 +427,7 @@ Chat and transcript shortcuts:
 | `Esc` | Backs out of the current action | It un-sends a just-submitted turn before any reply, cancels a running turn, or clears non-empty input. |
 | Double `Esc` on an empty idle composer | Opens the rewind picker | Same entry point as `/rewind`. |
 | Transcript text selection | Copies transcript text | The full-screen TUI enables mouse reporting, so drag in the transcript to select text in-app; releasing the mouse copies it automatically, and `Ctrl+C`/`Super+C`/`Meta+C` or right-clicking the active selection copy it again. |
-| `/mouse` | Toggles in-app mouse capture | Off hands the mouse back to your terminal, restoring its native click-drag selection and right-click context menu, at the cost of in-app drag-select, the transcript scrollbar, and wheel-scroll. Set `REASONIX_DISABLE_MOUSE=1` to start every session with it off. |
+| `/mouse` | Toggles in-app mouse capture | Off hands the mouse back to your terminal, restoring its native click-drag selection and right-click context menu, at the cost of in-app drag-select, the transcript scrollbar, and wheel-scroll. Set `RILLAGENT_DISABLE_MOUSE=1` to start every session with it off. |
 | `Ctrl+C` | Copies, cancels, clears, or quits | Copies an active transcript selection first. Otherwise it cancels a running turn, clears non-empty input, or quits on a second empty-composer press. |
 | `Ctrl+D` | Quits the TUI | Immediate quit. |
 | `Ctrl+V`, `Ctrl+Shift+V`, `Meta+V`, or `Super+V` | Pastes clipboard content | The CLI tries an image first, then falls back to text or file references. |
@@ -445,7 +445,6 @@ Mode and display shortcuts:
 | `Ctrl+O` | Toggles verbose reasoning display | Also available through `/verbose`. |
 | `Ctrl+B` | Expands or collapses long shell output | Long shell-output hint lines can also be clicked in the transcript; text selection is handled in-app while the full-screen TUI has mouse reporting enabled. |
 | `/goal <objective>`, `/goal --research <objective>`, `/goal --simple <objective>`, `/goal status`, `/goal clear` | Starts, checks, or clears Goal | Goal is not in any keyboard cycle; clearly long-horizon goals automatically enable AutoResearch. Ordinary prompts with strong AutoResearch signals are also upgraded into Goal. |
-| `/migrate`, `/migrate --from <legacy-dir>` | Retries legacy migration or imports sessions from a chosen v0.x source | Use `--from` for custom Windows v0.52 install/data directories; it imports sessions only. See [Configuration paths](./CONFIG_PATHS.md). |
 
 Picker and approval shortcuts:
 
@@ -476,10 +475,10 @@ Permissions gate each tool call: `deny` > `ask` > `allow` > fallback. Bash and
 file mutation tools require approval by default; read-only tools generally do
 not. Approvals are stored and matched as permission rules, not button labels:
 for example `Bash(npm run build)`, `Bash(npm run test:*)`, and `Edit(docs/**)`.
-`reasonix` can grant Bash as an exact command or as a conservative command
+`rillagent` can grant Bash as an exact command or as a conservative command
 prefix (for example `Bash(go test:*)`), while file-editing tools share session
 edit grants and persist path-scoped rules such as `Edit(src/app.go)`.
-`reasonix run` stays autonomous but still honours `deny`.
+`rillagent run` stays autonomous but still honours `deny`.
 
 Ask is not read-only: after approval, a writer can still run. Permissions decide
 whether to allow or prompt; the Sandbox is the enforced capability boundary.
@@ -496,13 +495,13 @@ Seatbelt on macOS and bubblewrap on Linux):
 commands may write only those same roots plus platform-specific command
 temp/cache roots, cannot read configured `forbid_read` roots while the OS
 sandbox is active, and reach the network only when `[sandbox] network` is set.
-Reasonix always removes saved provider and bot credential variables from tool
+Rill always removes saved provider and bot credential variables from tool
 subprocess environments and automatically adds its global credential `.env` to
 the runtime read-deny boundary. Project `.env` files keep their existing
 workspace-scoped behavior.
-**Windows note:** Reasonix does not ship an OS-level Bash sandbox on Windows.
+**Windows note:** Rill does not ship an OS-level Bash sandbox on Windows.
 The effective mode is fixed to `off`; even an older config containing
-`bash = "enforce"` resolves to `off`, `reasonix doctor` flags the ignored value,
+`bash = "enforce"` resolves to `off`, `rillagent doctor` flags the ignored value,
 and the desktop selector is read-only. Bash commands therefore run unconfined,
 while the dedicated file tools still enforce `workspace_root`, `allow_write`,
 and `forbid_read` in process. Saved credential variables are still removed from
@@ -515,14 +514,14 @@ execution instead of running unconfined. Install the platform sandbox backend
 `[sandbox] bash = "off"` to explicitly restore the pre-1.16 unconfined shell
 behavior. On Windows the compatible value is always `off`.
 
-For coding-quality reports, run `reasonix doctor quality <branch-id-or-path>`
+For coding-quality reports, run `rillagent doctor quality <branch-id-or-path>`
 (add `--json` for structured output). This reads the selected session but emits
 only content-free counts and profile categories: model family, runtime profile,
 collaboration / approval modes, message and tool-call counts, verification and persisted
 compaction-summary counts, plus desktop token/cache telemetry when available.
 It omits transcript text, paths, session identifiers, tool arguments and output,
 endpoints, and custom model names, so the result is suitable for a public issue
-or Discussion. This differs from `reasonix doctor session`, whose support zip
+or Discussion. This differs from `rillagent doctor session`, whose support zip
 contains the complete unredacted transcript and must remain in a trusted support
 channel.
 
@@ -535,31 +534,31 @@ reference, JSON schema, and issue codes:
 
 ```bash
 # Static (default): no network, no MCP child processes
-reasonix doctor capabilities
+rillagent doctor capabilities
 
 # Machine-readable (stdout is pure JSON)
-reasonix doctor capabilities --json
+rillagent doctor capabilities --json
 
 # Another workspace root
-reasonix doctor capabilities --root /path/to/project
+rillagent doctor capabilities --root /path/to/project
 
 # Live MCP probe — only when you explicitly allow starting third-party servers
-reasonix doctor capabilities --live --timeout 5s
+rillagent doctor capabilities --live --timeout 5s
 ```
 
 | Surface | How |
 | --- | --- |
-| CLI | `reasonix doctor capabilities` (above) |
+| CLI | `rillagent doctor capabilities` (above) |
 | Desktop | **Settings → Diagnostics** — refresh, copy redacted JSON, optional “include current session runtime” (reads the active tab Host only; does **not** start MCP) |
-| Agent | `/reasonix-guide` (built-in inline skill) or ask naturally; it prefers static doctor JSON before `--live` |
+| Agent | `/rillagent-guide` (built-in inline skill) or ask naturally; it prefers static doctor JSON before `--live` |
 
 Exit code `0` allows warnings/info; `1` means at least one `error` (or a live
-start failure); `2` is bad flags. This is separate from `reasonix doctor`
-(providers/sandbox) and `reasonix plugin doctor <name>` (one package).
+start failure); `2` is bad flags. This is separate from `rillagent doctor`
+(providers/sandbox) and `rillagent plugin doctor <name>` (one package).
 
 ## Plugins (MCP)
 
-Reasonix is an MCP client. A `[[plugins]]` entry's `type` selects the transport:
+Rill is an MCP client. A `[[plugins]]` entry's `type` selects the transport:
 `stdio` (default) launches a local subprocess (`command`/`args`/`env`); `http`
 (Streamable HTTP) connects to a remote `url` with optional static `headers`
 (`${VAR}` / `${VAR:-default}` expanded from the environment, so tokens stay out
@@ -623,14 +622,14 @@ code — explicit deny rules and `destructiveHint` reviews still apply.
 A server's **prompts** surface as `/mcp__<server>__<prompt>` slash commands
 (positional args after the command); its **resources** are pulled in by writing
 `@<server>:<uri>` in a message; `/mcp` lists connected servers and what each
-exposes. `make build` also produces `bin/reasonix-plugin-example` — a runnable
+exposes. `make build` also produces `bin/rillagent-plugin-example` — a runnable
 reference stdio server (`echo`, `wordcount`, a `review` prompt, a style-guide
 resource) you can copy.
 
 ```toml
 [[plugins]]                       # local stdio server
 name    = "example"
-command = "reasonix-plugin-example"
+command = "rillagent-plugin-example"
 # call_timeout_seconds = 600       # optional per-server MCP call timeout
 # tool_timeout_seconds = { "generate_video" = 1800 }   # optional raw MCP tool names
 
@@ -647,12 +646,12 @@ desktop MCP panel to refresh status, reconnect a server, inspect failures, or
 disable a server for the current session. For a read-only config/runtime health
 report across skills, hooks, packages, and MCP (without changing settings), see
 [Capability diagnostics](./CAPABILITY_DIAGNOSTICS.md)
-(`reasonix doctor capabilities` or **Settings → Diagnostics**).
+(`rillagent doctor capabilities` or **Settings → Diagnostics**).
 
-**Already have an `.mcp.json`?** Drop it in the project root and Reasonix
+**Already have an `.mcp.json`?** Drop it in the project root and Rill
 reads it as-is — the `mcpServers` spec (`command`/`args`/`env`, `type`/`url`/
 `headers`, `${VAR}` expansion) maps field-for-field onto `[[plugins]]`. Both
-sources are merged; on a name collision `reasonix.toml` wins.
+sources are merged; on a name collision `rillagent.toml` wins.
 
 ```json
 {
@@ -663,29 +662,24 @@ sources are merged; on a name collision `reasonix.toml` wins.
 }
 ```
 
-**Upgrading from `0.x`?** Your old `~/.reasonix/config.json` is still read for its
-`mcpServers` (honouring `mcpDisabled`) as a lowest-priority source, so MCP servers
-keep working — move them into `reasonix.toml`'s `[[plugins]]` or a `.mcp.json` when
-convenient.
-
 ## Slash commands
 
-In an interactive `reasonix` session, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
+In an interactive `rillagent` session, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
 `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/work-mode`, `/mcp`, `/skills`, `/hooks`,
 `/memory`, `/memory-v5`, `/goal`, `/output-style`, `/sandbox`, `/language`,
 `/auto-plan`, `/reasoning-language`, `/help`) run
 locally — `/help` lists them all. Built-in **skills** such as `/init`,
-`/explore`, `/test`, and `/reasonix-guide` also appear in the slash menu and via
+`/explore`, `/test`, and `/rillagent-guide` also appear in the slash menu and via
 `run_skill` (bodies load on demand; only the index line is cache-stable). Use
-`/reasonix-guide` when you need config or capability troubleshooting; it points
-at `reasonix doctor capabilities` (see
+`/rillagent-guide` when you need config or capability troubleshooting; it points
+at `rillagent doctor capabilities` (see
 [Capability diagnostics](./CAPABILITY_DIAGNOSTICS.md)). `/new` starts a new
 session while saving the previous transcript for history/resume; `/clear` asks
 for confirmation, then discards the current context without saving it. `/tree`
 shows saved conversation branches, `/branch [name]` forks the current
 conversation tip, `/branch <turn> [name]` forks from an earlier checkpointed
 turn, and `/switch <id|name>` loads another branch. **Custom commands** are
-Markdown files under `.reasonix/commands/` (project) or `~/.reasonix/commands/`
+Markdown files under `.rillagent/commands/` (project) or `~/.rillagent/commands/`
 (user) — `review.md` becomes `/review`, a subdirectory namespaces it
 (`git/commit.md` → `/git:commit`). The body is a prompt template; invoking the
 command sends it as a turn.
@@ -696,19 +690,19 @@ Subagent profiles are manual Skills with `runAs: subagent` and
 `invocation: manual`. They are stored in the same project/global Skill roots as
 the desktop settings page, so profiles created on either surface are immediately
 available to the other after the session refreshes. In interactive chat, invoke
-one with `/<name> <task>`; Reasonix runs an isolated child loop and keeps only
+one with `/<name> <task>`; Rill runs an isolated child loop and keeps only
 the task and final answer in the parent conversation.
 
 The headless CLI provides explicit management and execution commands without
-changing the ordinary `reasonix run` task semantics:
+changing the ordinary `rillagent run` task semantics:
 
 ```bash
-reasonix subagent list
-reasonix subagent create reviewer --description "Review changes" --prompt-file reviewer.md --tools read_file,grep,bash
-reasonix subagent edit reviewer --effort high --model deepseek-pro
-reasonix subagent try reviewer "review the current diff"   # always read-only
-reasonix subagent run reviewer "review and fix the current diff"
-reasonix subagent delete reviewer --yes
+rillagent subagent list
+rillagent subagent create reviewer --description "Review changes" --prompt-file reviewer.md --tools read_file,grep,bash
+rillagent subagent edit reviewer --effort high --model deepseek-pro
+rillagent subagent try reviewer "review the current diff"   # always read-only
+rillagent subagent run reviewer "review and fix the current diff"
+rillagent subagent delete reviewer --yes
 ```
 
 `create` defaults to project scope when a workspace is available and to global
@@ -724,7 +718,7 @@ the desktop settings page.
 See [Subagent profiles](./SUBAGENT_PROFILES.md) for the complete CLI reference,
 Skill file format, model precedence, safety behavior, and troubleshooting.
 
-`/memory` lists both memory documents (`REASONIX.md` / `AGENTS.md`) and saved
+`/memory` lists both memory documents (`RILL.md` / `AGENTS.md`) and saved
 auto-memory facts. During agent turns, the read-only `history` and `memory`
 tools let the model retrieve prior session decisions, compacted-history
 archives, and saved facts on demand instead of injecting that dynamic state into
@@ -737,9 +731,9 @@ Guardian review cannot answer for the user; non-interactive runs refuse these
 tools instead of auto-approving them.
 Retrieval keeps the top BM25 result while trimming weak common-word matches, and
 0-result responses suggest narrower, more distinctive follow-up searches.
-Memory v5 is enabled by default across the CLI/TUI, `reasonix serve`, and the
+Memory v5 is enabled by default across the CLI/TUI, `rillagent serve`, and the
 desktop app because they all share the same local controller. It records local,
-project-scoped execution traces and compiler state under Reasonix home, then
+project-scoped execution traces and compiler state under Rillagent home, then
 compiles the next user turn into a compact execution contract only when prior
 outcomes produce actionable constraints. Early turns may only write traces and
 inject nothing. The default `verbosity = "observe"` keeps this as local learning
@@ -751,7 +745,7 @@ Memory v5 never bypasses memory approvals and never mutates the cache-stable
 system prompt, provider prefix, or tool schemas.
 
 Toggle future turns with `/memory-v5 off|observe|compact|on|status` inside an
-interactive session, or with `reasonix config memory-v5 off|observe|compact|on|status`
+interactive session, or with `rillagent config memory-v5 off|observe|compact|on|status`
 from a shell/script.
 Desktop users can also use Settings → General → Memory v5. Settings → Updates →
 Share aggregate quality metrics controls the optional aggregate upload. When
@@ -761,10 +755,10 @@ bucket, memory-reference count, constraint/risk/step counts, and memory-graph
 size buckets. It never includes memory text, prompts, tool outputs, file paths,
 IDs, keys, base URLs, or file contents.
 
-CLI/TUI and `reasonix serve` use the same user/global config. Project
-`reasonix.toml` files cannot override this user/global setting. The CLI command
+CLI/TUI and `rillagent serve` use the same user/global config. Project
+`rillagent.toml` files cannot override this user/global setting. The CLI command
 updates this underlying config; advanced users may also edit it manually under
-Reasonix home:
+Rillagent home:
 
 ```toml
 [agent]
@@ -772,7 +766,7 @@ memory_compiler = { enabled = true, verbosity = "observe" }
 ```
 
 The CLI can use Memory v5 for local turns, but it does not run the desktop
-aggregate metrics upload pipeline. When `reasonix run --metrics <path>` is used,
+aggregate metrics upload pipeline. When `rillagent run --metrics <path>` is used,
 the JSON also includes content-free `memory_compiler_*` summary fields and a
 `memory_compiler_turn_details` array with per-turn injection state, compiled token
 and IR-overhead estimates, referenced-memory/constraint/risk/step counts, and
@@ -794,7 +788,7 @@ MCP prompts also appear here as `/mcp__<server>__<prompt>`.
 ## Goal and AutoResearch
 
 Goal is the unified runtime for long-running objectives. Ordinary `/goal`
-objectives stay lightweight: Reasonix keeps working until the goal is complete,
+objectives stay lightweight: Rill keeps working until the goal is complete,
 blocked, or cleared. When a goal is clearly long-horizon, Goal automatically
 enables the AutoResearch strategy instead of requiring a separate
 `/auto-research` skill; `auto-research` is not listed as a standalone built-in
@@ -815,7 +809,7 @@ clear", "do not spin", "run experiments", "verify repeatedly", or "turn this
 into a complete plan". It can also trigger when the objective combines multiple
 phases such as research/diagnosis, implementation/fixing, verification/testing,
 optimization/documentation/release, or when the user names an existing
-`.reasonix/autoresearch/<task-id>/` directory. Advanced users can force it with
+`.rillagent/autoresearch/<task-id>/` directory. Advanced users can force it with
 `/goal --research <objective>` or force lightweight Goal with
 `/goal --simple <objective>`. Ordinary-chat auto-upgrade is more conservative
 than `/goal`'s internal classification: standalone phrases such as "long term",
@@ -824,8 +818,8 @@ by themselves.
 
 Once AutoResearch is active, the agent treats the goal as a stateful research
 loop instead of a chat-only continuation. It creates or reuses a project-local
-`.reasonix/autoresearch/<task-id>/` directory. For new tasks, the default id
-shape is `YYYYMMDD-HHMMSS-slug`, such as `20260618-224530-cache-audit`; Reasonix
+`.rillagent/autoresearch/<task-id>/` directory. For new tasks, the default id
+shape is `YYYYMMDD-HHMMSS-slug`, such as `20260618-224530-cache-audit`; Rill
 checks the project directory first and appends `-2`, `-3`, and so on only if
 that id already exists. The task state includes `task_spec.md`, `progress.json`,
 `findings.jsonl`, `directions_tried.json`, and `iteration_log.jsonl`, records
@@ -838,15 +832,15 @@ tactic.
 Workers and subagents may explore independently, but the orchestrator owns the
 canonical state files. Completion requires a requirement-by-requirement evidence
 audit against `task_spec.md`; a passing narrow check is not treated as proof of a
-broad requirement. Dynamic run state stays in `.reasonix/autoresearch/...`, not
-in `REASONIX.md`, `AGENTS.md`, project memory, tool schemas, or the cache-stable
+broad requirement. Dynamic run state stays in `.rillagent/autoresearch/...`, not
+in `RILL.md`, `AGENTS.md`, project memory, tool schemas, or the cache-stable
 system prompt. Public publishing, destructive operations, credentials, payments,
 and external notifications still follow the normal approval, privacy, and cache
 gates.
 
 ## @ references
 
-Embed `@` references in a message and Reasonix resolves them before sending, as
+Embed `@` references in a message and Rill resolves them before sending, as
 tagged context blocks: `@path/to/file` (or `@dir`) injects a local file's
 contents (or a directory listing), and `@<server>:<uri>` injects an MCP
 resource. A local path is only treated as a reference when it actually exists,
@@ -856,7 +850,7 @@ time, descend into folders) plus MCP resources.
 
 ## Two-model collaboration
 
-`reasonix setup` manages providers, model lists, credentials, connection tests,
+`rillagent setup` manages providers, model lists, credentials, connection tests,
 and the default model. It stages changes until Save and exit, and synchronizes
 provider access with the desktop app. See the [CLI reference](./CLI.md#configure-providers).
 Running two models together (executor + planner, separate cache-stable sessions)
@@ -867,9 +861,9 @@ is a one-line edit afterwards — set `planner_model` to any other enabled provi
 planner_model = "deepseek-pro"   # used as the low-frequency planner
 ```
 
-The planner sees loaded `REASONIX.md` / `AGENTS.md` memory and a small read-only
+The planner sees loaded `RILL.md` / `AGENTS.md` memory and a small read-only
 research tool set, so it can inspect relevant files before handing a plan to the
-executor. Writer and workflow tools remain executor-only. Reasonix manages
+executor. Writer and workflow tools remain executor-only. Rill manages
 normal execution automatically: if an active todo produces no new completion,
 unique read, command, or mutation for 8 tool-call rounds, the host asks the
 executor to reassess. After 16 no-progress rounds it pauses with saved work that
@@ -927,7 +921,7 @@ the strict read-only entrances:
 | `read_only_task` | Isolated read-only research child from the main session |
 | `parallel_tasks` (read-only) | Concurrent read-only research children |
 | `read_only_skill` | The same isolation driving an existing skill |
-| `reasonix review` (CLI) | Read-only review of a diff or branch |
+| `rillagent review` (CLI) | Read-only review of a diff or branch |
 | Desktop preview/review subagents | Read-only desktop analysis surfaces |
 | Two-model planner | The dedicated planner's read-only registry |
 
@@ -945,7 +939,7 @@ Permissions/Sandbox, whereas a strict read-only child never exposes writers at
 all.
 
 Choose the startup runtime profile with
-`--profile economy|balanced|delivery` (for example, `reasonix run --profile
+`--profile economy|balanced|delivery` (for example, `rillagent run --profile
 delivery "fix and verify this bug"`). Economy starts with nine tools: direct
 read/bash/edit/write, background-shell lifecycle controls, `ask`, and
 `connect_tool_source`. Dedicated search/file/workflow tools, session history,
@@ -982,18 +976,18 @@ legacy empty/`full` values remain Balanced.
 
 For interactive frontends, plan mode is manual by default. Set
 `agent.auto_plan = "on"` to make complex-looking tasks enter plan mode
-automatically: Reasonix first drafts a plan, then waits for approval before the
+automatically: Rill first drafts a plan, then waits for approval before the
 workflow switches to implementation. Tool calls made while drafting still use
 the current Permissions and Sandbox. `auto_plan_classifier` can
 name a cheap provider such as `deepseek-flash`; it is only called for borderline
 inputs and falls back to the heuristic if classification fails. Use
-`/auto-plan off|on` inside `reasonix` to change the user-level setting, or
-`reasonix config auto-plan off|on` from a shell/script. Auto-plan is user-level
-only; `agent.auto_plan` in a project `reasonix.toml` is ignored. The visible
+`/auto-plan off|on` inside `rillagent` to change the user-level setting, or
+`rillagent config auto-plan off|on` from a shell/script. Auto-plan is user-level
+only; `agent.auto_plan` in a project `rillagent.toml` is ignored. The visible
 reasoning language uses a similar shape: `/reasoning-language auto|zh|en` in the
-session, or `reasonix config reasoning-language auto|zh|en` in a shell/script.
+session, or `rillagent config reasoning-language auto|zh|en` in a shell/script.
 Memory v5 uses `/memory-v5 off|observe|compact|on|status` or
-`reasonix config memory-v5 off|observe|compact|on|status` and is user-level only. Pass `--local`
+`rillagent config memory-v5 off|observe|compact|on|status` and is user-level only. Pass `--local`
 to the reasoning-language shell command only when you intentionally want a
 project-local override.
 

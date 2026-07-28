@@ -34,6 +34,7 @@ import (
 	"reasonix/internal/billing"
 	"reasonix/internal/boot"
 	"reasonix/internal/botruntime"
+	"reasonix/internal/brand"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -63,7 +64,7 @@ import (
 // `data:` frames.
 const eventChannel = "agent:event"
 
-const singleInstanceIDPrefix = "com.reasonix.desktop"
+const singleInstanceIDPrefix = brand.BundleID
 
 // singleInstanceID is used by Wails to route a second desktop launch back to the
 // running instance. It is stable for a given binary path, while allowing a dev
@@ -190,7 +191,7 @@ type App struct {
 	// read-only afterwards, so tabEventSink.Emit reads it without a lock.
 	botBridge *botBridgeHub
 
-	metrics atomic.Pointer[metricsAggregator] // non-nil only when desktop.metrics is opted in; swapped live by SetDesktopMetrics
+	metrics atomic.Pointer[metricsAggregator] // retained for local compatibility; Rill never initializes upstream metrics
 
 	notificationSenderOnce sync.Once
 	notificationSender     notify.Sender
@@ -351,13 +352,13 @@ func (a *App) jsProfilingMiddleware() func(http.Handler) http.Handler {
 }
 
 // workspaceMediaMiddleware returns an HTTP middleware that intercepts
-// /__reasonix_workspace_media/{token}/{filename} requests and serves the
+// /__rillagent_workspace_media/{token}/{filename} requests and serves the
 // corresponding workspace file. All other paths pass through to the Wails
 // default asset handler unchanged.
 func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			prefix := "/__reasonix_workspace_media/"
+			prefix := "/__rillagent_workspace_media/"
 			if !strings.HasPrefix(r.URL.Path, prefix) {
 				next.ServeHTTP(w, r)
 				return
@@ -434,10 +435,6 @@ func (a *App) startup(ctx context.Context) {
 	a.startTray()
 	a.enableDeferredRebuildRetry()
 
-	if cfg, err := config.Load(); err == nil && cfg.DesktopMetrics() && version != "dev" {
-		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
-		a.recordSettingsMetricsSnapshot(cfg)
-	}
 	a.startMainThreadWatchdog()
 
 	if !config.SafeModeRequested() {
@@ -451,12 +448,6 @@ func (a *App) startup(ctx context.Context) {
 	go a.restoreOrBuildTabs()
 	if !config.SafeModeRequested() {
 		a.goSafe("refreshBotRuntime", a.refreshBotRuntime)
-		a.goSafe("sendStartupPing", a.sendStartupPing)
-		// Pending metrics/crash payloads stay on disk in Safe Mode: whether to
-		// send or drop them depends on the user's real telemetry preference,
-		// which a Safe Mode boot cannot read. The next normal boot decides.
-		a.goSafe("flushMetrics", a.flushMetrics)
-		a.goSafe("flushPendingCrash", a.flushPendingCrash)
 	}
 	// After restoreOrBuildTabs is launched: the GC's first sweep waits on
 	// tabsRestored so it never observes the pre-restore empty tab map.
@@ -1831,6 +1822,37 @@ func (a *App) ClearSessionForTab(tabID string) error {
 	return nil
 }
 
+// ClearModelContext preserves the immutable transcript and clears only the
+// provider-facing context for the active tab.
+func (a *App) ClearModelContext() error {
+	return a.ClearModelContextForTab("")
+}
+
+// ClearModelContextForTab targets the requested tab even if focus changes while
+// the Wails call is in flight. Unlike ClearSessionForTab it does not rotate the
+// session path, delete history, or reset cumulative session telemetry.
+func (a *App) ClearModelContextForTab(tabID string) error {
+	tab, ctrl := a.tabAndCtrlByID(tabID)
+	if a.tabIsReadOnly(tab) {
+		return readOnlyChannelErr()
+	}
+	if ctrl == nil {
+		return a.workspaceNotReadyErr(tab)
+	}
+	if err := a.ensureTabControllerWorkspace(tab); err != nil {
+		return err
+	}
+	ctrl = a.controllerForTab(tab)
+	if ctrl == nil {
+		return a.workspaceNotReadyErr(tab)
+	}
+	clearer, ok := ctrl.(interface{ ClearModelContext() error })
+	if !ok {
+		return fmt.Errorf("model context clearing is unavailable")
+	}
+	return clearer.ClearModelContext()
+}
+
 // clearTabGoal drops the tab's persisted goal copy so rebuilds and restarts
 // cannot re-seed a goal the controller has already cleared on session rotation.
 func (a *App) clearTabGoal(tab *WorkspaceTab) {
@@ -2373,6 +2395,35 @@ func (a *App) activeSessionDir() string {
 // user-chosen titles.
 func (a *App) ListSessions() []SessionMeta {
 	dir := a.activeSessionDir()
+	return a.listSessionsInDir(dir)
+}
+
+// ListAllSessions returns saved sessions from every currently known global and
+// project session directory. Rill's full-page history uses this aggregate view
+// instead of inheriting the active tab's narrower scope.
+func (a *App) ListAllSessions() []SessionMeta {
+	out := []SessionMeta{}
+	seen := map[string]struct{}{}
+	for _, dir := range a.knownSessionDirs() {
+		for _, item := range a.listSessionsInDir(dir) {
+			key := filepath.Clean(item.Path)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, item)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].LastActivityAt == out[j].LastActivityAt {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].LastActivityAt > out[j].LastActivityAt
+	})
+	return out
+}
+
+func (a *App) listSessionsInDir(dir string) []SessionMeta {
 	infos, err := agent.ListSessions(dir)
 	if err != nil {
 		return []SessionMeta{}
@@ -3085,6 +3136,87 @@ func (a *App) RestoreSession(path string) error {
 	return friendlySessionFileError(a.restoreSession(path))
 }
 
+// RestoreSessionToProject restores a trashed session into an explicitly
+// selected, registered project. It is used when the session's original project
+// is no longer available in Rill, so the UI never silently picks a project.
+func (a *App) RestoreSessionToProject(path, workspaceRoot string) error {
+	return friendlySessionFileError(a.restoreSessionToProject(path, workspaceRoot))
+}
+
+func (a *App) restoreSessionToProject(path, workspaceRoot string) error {
+	workspaceRoot = normalizeProjectRoot(workspaceRoot)
+	if workspaceRoot == "" {
+		return fmt.Errorf("empty restore project")
+	}
+	registered := false
+	for _, project := range loadProjectsFile().Projects {
+		if sameProjectRoot(project.Root, workspaceRoot) {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		return fmt.Errorf("restore project is not registered")
+	}
+	if info, err := os.Stat(workspaceRoot); err != nil || !info.IsDir() {
+		return fmt.Errorf("restore project is unavailable")
+	}
+
+	sourceDir, err := a.trashedSessionDir(path)
+	if err != nil {
+		return err
+	}
+	_, key, _, err := validateTrashedSessionPath(sourceDir, path)
+	if err != nil {
+		return err
+	}
+	targetDir := desktopSessionDir(workspaceRoot)
+	if sameDesktopPath(sourceDir, targetDir) {
+		return a.restoreSession(path)
+	}
+
+	a.sessionRemovalMu.Lock()
+	defer a.sessionRemovalMu.Unlock()
+	target := filepath.Join(targetDir, key)
+	if a.sessionDestroying(targetDir, target) {
+		return fmt.Errorf("session cleanup is still in progress: %s", key)
+	}
+	if a.sessionOpen(targetDir, target) {
+		return fmt.Errorf("session is open: %s", key)
+	}
+	title := strings.TrimSpace(loadSessionTitles(sourceDir)[key])
+	restoredPath, err := restoreTrashedSessionFileToDir(sourceDir, targetDir, path)
+	if err != nil {
+		return err
+	}
+	meta, err := agent.EnsureBranchMeta(restoredPath)
+	if err != nil {
+		return err
+	}
+	meta.Scope = "project"
+	meta.WorkspaceRoot = workspaceRoot
+	if err := agent.SaveBranchMetaPreserveUpdated(restoredPath, meta); err != nil {
+		return err
+	}
+	if title != "" {
+		if err := setSessionTitle(targetDir, restoredPath, title); err != nil {
+			return err
+		}
+	}
+	if sourceTitles, loadErr := loadSessionTitlesForUpdate(sourceDir); loadErr == nil {
+		if _, ok := sourceTitles[key]; ok {
+			delete(sourceTitles, key)
+			_ = saveSessionTitles(sourceDir, sourceTitles)
+		}
+	}
+	if err := restoreSessionTopicIndex(targetDir, restoredPath); err != nil {
+		return err
+	}
+	a.emitProjectTreeChanged()
+	a.invalidatePromptHistoryCache()
+	return nil
+}
+
 func (a *App) restoreSession(path string) error {
 	dir, err := a.trashedSessionDir(path)
 	if err != nil {
@@ -3478,6 +3610,20 @@ func (a *App) PreviewSession(path string) ([]HistoryMessage, error) {
 		return nil, err
 	}
 	return previewSessionMessages(sessionDir, sessionPath)
+}
+
+// PreviewTrashedSession returns a read-only transcript preview after validating
+// the path against one of the application's known trash directories.
+func (a *App) PreviewTrashedSession(path string) ([]HistoryMessage, error) {
+	dir, err := a.trashedSessionDir(path)
+	if err != nil {
+		return nil, err
+	}
+	trashPath, _, _, err := validateTrashedSessionPath(dir, path)
+	if err != nil {
+		return nil, err
+	}
+	return previewSessionMessages(filepath.Dir(trashPath), trashPath)
 }
 
 // invalidatePromptHistoryCache resets the lazy prompt-history tape so the next
@@ -4256,6 +4402,34 @@ func tabWorkspaceNameForScope(scope, cwd string) string {
 		return globalProjectTitle()
 	}
 	return workspaceName(cwd)
+}
+
+// CreateWorkspace creates a new empty project directory and opens its first
+// persisted topic. Existing paths are rejected so the action cannot silently
+// adopt or overwrite an unrelated directory.
+func (a *App) CreateWorkspace(dir string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return "", fmt.Errorf("workspace path is required")
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(abs); err == nil {
+		return "", fmt.Errorf("workspace path already exists: %s", abs)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := os.Mkdir(abs, 0o755); err != nil {
+		return "", err
+	}
+	root, err := a.SwitchWorkspace(abs)
+	if err != nil {
+		_ = os.Remove(abs)
+		return "", err
+	}
+	return root, nil
 }
 
 func (a *App) SwitchWorkspace(dir string) (string, error) {
@@ -5281,15 +5455,17 @@ func firstNonEmpty(values ...string) string {
 // ContextInfo is the prompt-vs-window gauge payload plus session totals. Used
 // and Window both zero means no context-window data yet.
 type ContextInfo struct {
-	Used            int                         `json:"used"`
-	Window          int                         `json:"window"`
-	SessionTokens   int                         `json:"sessionTokens"`
-	CompactRatio    float64                     `json:"compactRatio,omitempty"`
-	SessionCost     float64                     `json:"sessionCost,omitempty"`
-	SessionCurrency string                      `json:"sessionCurrency,omitempty"`
-	CacheHitTokens  int                         `json:"cacheHitTokens,omitempty"`
-	CacheMissTokens int                         `json:"cacheMissTokens,omitempty"`
-	Sources         map[string]usageSourceStats `json:"sources,omitempty"`
+	Used                int                         `json:"used"`
+	Window              int                         `json:"window"`
+	SessionTokens       int                         `json:"sessionTokens"`
+	ModelContextCleared bool                        `json:"modelContextCleared,omitempty"`
+	ModelContextStart   int                         `json:"modelContextStart,omitempty"`
+	CompactRatio        float64                     `json:"compactRatio,omitempty"`
+	SessionCost         float64                     `json:"sessionCost,omitempty"`
+	SessionCurrency     string                      `json:"sessionCurrency,omitempty"`
+	CacheHitTokens      int                         `json:"cacheHitTokens,omitempty"`
+	CacheMissTokens     int                         `json:"cacheMissTokens,omitempty"`
+	Sources             map[string]usageSourceStats `json:"sources,omitempty"`
 }
 
 // ContextUsage returns the latest context-window gauge numbers.
@@ -5331,6 +5507,10 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 	used, window := ctrl.ContextSnapshot()
 	info.Used = used
 	info.Window = window
+	if contextState, ok := ctrl.(interface{ ModelContextStart() int }); ok {
+		info.ModelContextStart = contextState.ModelContextStart()
+		info.ModelContextCleared = info.ModelContextStart > 0
+	}
 	info.CompactRatio = ctrl.CompactRatio()
 	return info
 }
@@ -5839,7 +6019,7 @@ type CommandInfo struct {
 }
 
 // Commands lists the slash commands available this session — built-in actions,
-// custom commands (.reasonix/commands), and MCP prompts — for the composer's "/"
+// custom commands (.rillagent/commands), and MCP prompts — for the composer's "/"
 // autocomplete menu.
 func (a *App) Commands() []CommandInfo {
 	out := []CommandInfo{
@@ -5850,7 +6030,6 @@ func (a *App) Commands() []CommandInfo {
 		{Name: "provider", Description: i18n.M.CmdProvider, Kind: "builtin", Group: "management"},
 		{Name: "effort", Description: i18n.M.CmdEffort, Kind: "builtin", Group: "actions"},
 		{Name: "memory", Description: i18n.M.CmdMemory, Kind: "builtin", Group: "management"},
-		{Name: "migrate", Description: i18n.M.CmdMigrate, Kind: "builtin", Group: "management"},
 		{Name: "goal", Description: i18n.M.CmdGoal, Kind: "builtin", Group: "actions"},
 		{Name: "remember", Description: i18n.M.CmdRemember, Kind: "builtin", Group: "management"},
 		{Name: "mcp", Description: i18n.M.CmdMcp, Kind: "builtin", Group: "integrations"},
@@ -5933,7 +6112,7 @@ func (a *App) SlashArgs(input string) SlashArgsResult {
 		DisconnectedMCP: ctrl.DisconnectedMCPNames(),
 		CurrentModel:    model,
 	}
-	if names, err := pluginpkg.InstalledNames(config.ReasonixHomeDir()); err == nil {
+	if names, err := pluginpkg.InstalledNames(config.RillHomeDir()); err == nil {
 		data.PluginNames = names
 	}
 	seen := map[string]bool{}
@@ -6386,8 +6565,8 @@ func (a *App) mcpTrustSpec(name string) (plugin.Spec, error) {
 	}
 	specs := boot.PluginSpecsForRootWithOptions([]config.PluginEntry{*entry}, root, boot.PluginSpecOptions{
 		DefaultCallTimeout: time.Duration(cfg.MCPCallTimeoutSeconds()) * time.Second,
-		TrustManager:       mcptrust.ForWorkspace(config.ReasonixHomeDir(), root),
-		ConfigSource:       "workspace_config", StateHome: config.ReasonixHomeDir(),
+		TrustManager:       mcptrust.ForWorkspace(config.RillHomeDir(), root),
+		ConfigSource:       "workspace_config", StateHome: config.RillHomeDir(),
 		WriterRoots: cfg.WriteRootsForRoot(root), ForbidReadRoots: boot.RuntimeForbidReadRoots(cfg, root),
 		Network:         cfg.Sandbox.Network,
 		OfficialServers: boot.LoadOfficialMCPTrust(context.Background(), cfg),
@@ -7924,9 +8103,9 @@ func (e *sessionLeaseBusyError) Error() string {
 	// the session itself (startup bind), not changing a setting on it.
 	setting := strings.TrimSpace(e.setting)
 	if setting == "" {
-		return "this session is already open in another Reasonix window or still running in the background; close the other window or open a copy"
+		return "this session is already open in another Rill window or still running in the background; close the other window or open a copy"
 	}
-	return fmt.Sprintf("this session is already open in another Reasonix window or still running in the background; close the other window or open a copy before changing %s", setting)
+	return fmt.Sprintf("this session is already open in another Rill window or still running in the background; close the other window or open a copy before changing %s", setting)
 }
 
 func (e *sessionLeaseBusyError) Unwrap() error {
@@ -8553,6 +8732,16 @@ type WorkspaceChangesView struct {
 	GitBranch    string                `json:"gitBranch,omitempty"`
 }
 
+type WorkspaceFileDiffView struct {
+	Path      string `json:"path"`
+	Diff      string `json:"diff"`
+	Added     int    `json:"added"`
+	Removed   int    `json:"removed"`
+	Binary    bool   `json:"binary"`
+	Truncated bool   `json:"truncated"`
+	Err       string `json:"err,omitempty"`
+}
+
 // workspaceNoiseNames are local cache/vendor entries hidden from the file tree
 // and "@" menu regardless of where they appear.
 var workspaceNoiseNames = map[string]bool{
@@ -8843,7 +9032,7 @@ func (a *App) ReadFileForTab(tabID, rel string) FilePreview {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
 		out.Kind = kind
 		out.Mime = mime
-		out.URL = "/__reasonix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		out.URL = "/__rillagent_workspace_media/" + token + "/" + url.PathEscape(info.Name())
 		return out
 	}
 	f, err := os.Open(path)
@@ -9104,7 +9293,7 @@ func (a *App) withActiveWorkspaceDo(fn func() error) error {
 }
 
 // SavePastedImage stores a browser clipboard image data URL under the active
-// tab's workspace .reasonix/attachments and returns the relative @-reference path.
+// tab's workspace .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SavePastedImage(dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveImageDataURL(dataURL)
@@ -9112,14 +9301,14 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 }
 
 // SaveClipboardImage reads the native OS clipboard image under the active tab's
-// workspace .reasonix/attachments and returns the relative @-reference path.
+// workspace .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
 }
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes
 // as a data URL but not a real path) under the active tab's workspace
-// .reasonix/attachments and returns the relative @-reference path.
+// .rillagent/attachments and returns the relative @-reference path.
 func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
@@ -9175,7 +9364,7 @@ func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
 func safeExportFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "reasonix-session.md"
+		return "rillagent-session.md"
 	}
 	return filepath.Base(name)
 }
@@ -9207,7 +9396,7 @@ func (a *App) AttachmentDataURL(path string) (string, error) {
 // DroppedItem is one OS-dropped file resolved into a composer context entry: an
 // in-tree file becomes a workspace @reference (read in place, no copy), while an
 // outside directory becomes a session-scoped workspace @reference; an image or
-// out-of-tree file is copied into .reasonix/attachments.
+// out-of-tree file is copied into .rillagent/attachments.
 type DroppedItem struct {
 	Kind        string `json:"kind"` // "workspace" | "attachment"
 	Path        string `json:"path"`
@@ -9220,7 +9409,7 @@ type DroppedItem struct {
 // composer context entry. Images are stored as attachments so the chip shows a
 // thumbnail; in-workspace files are referenced relatively (no copy); directories
 // outside the workspace are registered as current-session folder references;
-// files outside the workspace are copied into .reasonix/attachments.
+// files outside the workspace are copied into .rillagent/attachments.
 func (a *App) AttachDropped(path string) (DroppedItem, error) {
 	var item DroppedItem
 	err := a.withActiveWorkspaceDo(func() error {
@@ -9347,7 +9536,7 @@ type MemoryView struct {
 // writableScopes are the quick-add targets the panel offers, broad → specific.
 var writableScopes = []memory.Scope{memory.ScopeUser, memory.ScopeProject, memory.ScopeLocal}
 
-// Memory returns the loaded memory for the panel: the REASONIX.md hierarchy,
+// Memory returns the loaded memory for the panel: the RILL.md hierarchy,
 // active/archived auto-memories, and the writable scopes. Read-only; mutations
 // go through Remember / SaveDoc.
 func (a *App) Memory() MemoryView {
@@ -9586,7 +9775,7 @@ func (a *App) NeedsOnboarding() bool {
 }
 
 // ConnectKey validates apiKey against the balance endpoint, persists it to
-// Reasonix's global .env, and rebuilds the controller so the new key takes effect.
+// Rill's global .env, and rebuilds the controller so the new key takes effect.
 func (a *App) ConnectKey(apiKey string) (string, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {

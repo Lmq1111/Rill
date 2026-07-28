@@ -93,12 +93,33 @@ func TestRunProbesAllowsStaticEnvAssignment(t *testing.T) {
 	toolPath := filepath.Join(dir, "envtool")
 	toolPath = writeEnvProbeTool(t, toolPath)
 
-	results := RunProbesWithOverrides(context.Background(), []string{`REASONIX_PROBE_ENV=ok envtool --version`}, map[string]string{"envtool": toolPath})
+	results := RunProbesWithOverrides(context.Background(), []string{`RILLAGENT_PROBE_ENV=ok envtool --version`}, map[string]string{"envtool": toolPath})
 	if len(results) != 1 {
 		t.Fatalf("results len = %d, want 1", len(results))
 	}
 	if !results[0].Found || results[0].Output != "ok" {
 		t.Fatalf("env probe result = %+v", results[0])
+	}
+}
+
+func TestProbeProcessEnvRejectsRetiredProductAssignments(t *testing.T) {
+	t.Setenv("REASONIX_HOME", "/tmp/inherited-reasonix")
+	t.Setenv("LDAGENT_HOME", "/tmp/inherited-ldagent")
+	joined := strings.Join(probeProcessEnv([]string{
+		"REASONIX_HOME=/tmp/explicit-reasonix",
+		"LDAGENT_HOME=/tmp/explicit-ldagent",
+		"RILLAGENT_HOME=/tmp/rill",
+		"PROBE_MODE=static",
+	}), "\n")
+	for _, forbidden := range []string{"REASONIX_", "LDAGENT_", "/tmp/inherited-reasonix", "/tmp/inherited-ldagent", "/tmp/explicit-reasonix", "/tmp/explicit-ldagent"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("retired product environment leaked %q:\n%s", forbidden, joined)
+		}
+	}
+	for _, want := range []string{"RILLAGENT_HOME=/tmp/rill", "PROBE_MODE=static"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("allowed probe environment %q was removed:\n%s", want, joined)
+		}
 	}
 }
 
@@ -178,7 +199,7 @@ func TestRunProbesReportsTimeout(t *testing.T) {
 }
 
 func TestPrepareProbeCommandSetsCancellationBudget(t *testing.T) {
-	cmd := exec.Command("reasonix-test-probe")
+	cmd := exec.Command("rillagent-test-probe")
 	prepareProbeCommand(cmd)
 	if cmd.Cancel == nil {
 		t.Fatal("probe command must install a cancellation hook")
@@ -290,12 +311,12 @@ func writeProbeTool(t *testing.T, path, output string) string {
 func writeEnvProbeTool(t *testing.T, path string) string {
 	t.Helper()
 	setProbeTimeoutForTest(t, 10*time.Second)
-	body := "#!/bin/sh\nprintf '%s\\n' \"$REASONIX_PROBE_ENV\"\n"
+	body := "#!/bin/sh\nprintf '%s\\n' \"$RILLAGENT_PROBE_ENV\"\n"
 	if runtime.GOOS == "windows" {
 		if !strings.HasSuffix(path, ".bat") {
 			path += ".bat"
 		}
-		body = "@echo %REASONIX_PROBE_ENV%\r\n"
+		body = "@echo %RILLAGENT_PROBE_ENV%\r\n"
 	}
 	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		t.Fatalf("write env tool: %v", err)
@@ -363,11 +384,11 @@ func TestRunProbesFilterSubprocessEnv(t *testing.T) {
 	setProbeTimeoutForTest(t, 10*time.Second)
 	dir := t.TempDir()
 	toolPath := filepath.Join(dir, "envtool")
-	body := "#!/bin/sh\nprintf 'tok=%s' \"${REASONIX_TEST_SECRET_TOKEN:-none}\"\n"
+	body := "#!/bin/sh\nprintf 'tok=%s' \"${RILLAGENT_TEST_SECRET_TOKEN:-none}\"\n"
 	if err := os.WriteFile(toolPath, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("REASONIX_TEST_SECRET_TOKEN", "ghp_abcdefghijklmnopqrstuvwxyz")
+	t.Setenv("RILLAGENT_TEST_SECRET_TOKEN", "ghp_abcdefghijklmnopqrstuvwxyz")
 	secrets.SetFilterSubprocessEnv(true)
 	t.Cleanup(func() { secrets.SetFilterSubprocessEnv(false) })
 

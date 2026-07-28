@@ -15,11 +15,21 @@ import (
 )
 
 type BotRuntimeStatusView struct {
-	Running     bool   `json:"running"`
+	Running     bool                             `json:"running"`
+	Status      string                           `json:"status"`
+	Message     string                           `json:"message"`
+	Connections int                              `json:"connections"`
+	StartedAt   string                           `json:"startedAt"`
+	Adapters    []BotRuntimeConnectionStatusView `json:"adapters"`
+}
+
+type BotRuntimeConnectionStatusView struct {
+	ID          string `json:"id"`
 	Status      string `json:"status"`
-	Message     string `json:"message"`
-	Connections int    `json:"connections"`
 	StartedAt   string `json:"startedAt"`
+	LastSyncAt  string `json:"lastSyncAt"`
+	LastErrorAt string `json:"lastErrorAt"`
+	LastError   string `json:"lastError"`
 }
 
 type desktopBotRuntime struct {
@@ -207,9 +217,10 @@ func (r *desktopBotRuntime) apply(parent context.Context, cfg *config.Config, wo
 	}
 	gw := bot.NewGatewayWithAdapterBindings(gwCfg, bindings, logger)
 	if err := gw.Start(ctx); err != nil {
+		adapters := botRuntimeConnectionStatuses(gw)
 		cancel()
 		gw.Stop()
-		r.setStatus(BotRuntimeStatusView{Status: "error", Message: err.Error(), Connections: gw.AdapterCount()})
+		r.setStatus(BotRuntimeStatusView{Status: "error", Message: err.Error(), Connections: gw.AdapterCount(), Adapters: adapters})
 		return err
 	}
 	runningConnections := gw.AdapterCount()
@@ -334,8 +345,44 @@ func (r *desktopBotRuntime) setStatus(status BotRuntimeStatusView) {
 
 func (r *desktopBotRuntime) snapshot() BotRuntimeStatusView {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.status
+	status := r.status
+	gw := r.gw
+	r.mu.Unlock()
+	if gw != nil {
+		status.Adapters = botRuntimeConnectionStatuses(gw)
+	} else if status.Adapters == nil {
+		status.Adapters = []BotRuntimeConnectionStatusView{}
+	}
+	return status
+}
+
+func botRuntimeConnectionStatuses(gw *bot.BotGateway) []BotRuntimeConnectionStatusView {
+	out := []BotRuntimeConnectionStatusView{}
+	if gw == nil {
+		return out
+	}
+	for _, health := range gw.AdapterHealth() {
+		lastSync := health.LastMessageAt
+		if health.LastSendAt.After(lastSync) {
+			lastSync = health.LastSendAt
+		}
+		out = append(out, BotRuntimeConnectionStatusView{
+			ID:          health.ID,
+			Status:      health.Status,
+			StartedAt:   formatBotRuntimeTime(health.StartedAt),
+			LastSyncAt:  formatBotRuntimeTime(lastSync),
+			LastErrorAt: formatBotRuntimeTime(health.LastErrorAt),
+			LastError:   health.LastError,
+		})
+	}
+	return out
+}
+
+func formatBotRuntimeTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
 }
 
 // updateConnectionToolApprovalMode updates a connection's tool approval mode

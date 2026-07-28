@@ -72,6 +72,18 @@ func TestNormalizeAuthModeRejectsUnknown(t *testing.T) {
 	}
 }
 
+func TestAuthCookieNamesUseRillagentPrefix(t *testing.T) {
+	if cookieToken != "rillagent_token" {
+		t.Fatalf("token cookie = %q, want rillagent_token", cookieToken)
+	}
+	if cookieSession != "rillagent_session" {
+		t.Fatalf("session cookie = %q, want rillagent_session", cookieSession)
+	}
+	if cookieRedirect != "rillagent_redirect" {
+		t.Fatalf("redirect cookie = %q, want rillagent_redirect", cookieRedirect)
+	}
+}
+
 func TestInvalidAuthModeFailsClosed(t *testing.T) {
 	ag := newAuthGate(config.ServeConfig{AuthMode: "tokne"})
 	if ag.Mode() != "invalid" {

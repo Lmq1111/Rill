@@ -157,7 +157,7 @@ func sessionTrashArtifacts(sessionPath, key string) []sessionTrashArtifact {
 // errSessionBusyElsewhere is the sanitized error surfaced when a destructive
 // session operation is blocked by a live owner. It intentionally carries no
 // writer id, hostname, or path.
-var errSessionBusyElsewhere = errors.New("session is in use by another Reasonix window or process")
+var errSessionBusyElsewhere = errors.New("session is in use by another Rill window or process")
 
 // acquireSessionRemovalGuard wraps agent.TryAcquireSessionRemovalGuard with
 // the sanitized busy error. The guard holds the session's save and lease
@@ -544,40 +544,48 @@ func trashedSessionDeletedAt(path string) int64 {
 }
 
 func restoreTrashedSessionFile(dir, path string) error {
-	_, key, itemDir, err := validateTrashedSessionPath(dir, path)
+	_, err := restoreTrashedSessionFileToDir(dir, dir, path)
+	return err
+}
+
+func restoreTrashedSessionFileToDir(sourceDir, targetDir, path string) (string, error) {
+	_, key, itemDir, err := validateTrashedSessionPath(sourceDir, path)
 	if err != nil {
-		return err
+		return "", err
 	}
-	target := filepath.Join(dir, key)
+	target := filepath.Join(targetDir, key)
 	if _, err := os.Stat(target); err == nil {
 		discardable, err := liveSessionDiscardable(target)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if !discardable {
-			return fmt.Errorf("session already exists: %s", key)
+			return "", fmt.Errorf("session already exists: %s", key)
 		}
 		if err := removeDesktopSessionArtifacts(target); err != nil {
-			return err
+			return "", err
 		}
 	} else if !os.IsNotExist(err) {
-		return err
+		return "", err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", err
 	}
-	if err := checkRestoreSubagentConflicts(dir, itemDir); err != nil {
-		return err
+	if err := checkRestoreSubagentConflicts(targetDir, itemDir); err != nil {
+		return "", err
 	}
 	for _, artifact := range sessionTrashArtifacts(target, key) {
 		if err := movePathIfExists(filepath.Join(itemDir, artifact.name), artifact.src); err != nil {
-			return err
+			return "", err
 		}
 	}
-	if err := restoreSubagentArtifacts(dir, itemDir); err != nil {
-		return err
+	if err := restoreSubagentArtifacts(targetDir, itemDir); err != nil {
+		return "", err
 	}
-	return os.RemoveAll(itemDir)
+	if err := os.RemoveAll(itemDir); err != nil {
+		return "", err
+	}
+	return target, nil
 }
 
 func purgeTrashedSessionFile(dir, path string) error {
